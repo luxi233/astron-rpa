@@ -42,7 +42,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          architecture: x64
+          arch    ture: x64
 
       - name: Find Python path
         shell: pwsh
@@ -52,25 +52,12 @@ jobs:
           if ($pyLocation) {
             $pyExe = Join-Path $pyLocation "python.exe"
           } else {
-            Write-Host "pythonLocation not available, trying to find python..."
             $pyCmd = Get-Command python -ErrorAction SilentlyContinue
-            if ($pyCmd) {
-              $pyExe = $pyCmd.Source
-            } else {
-              $pyExe = (py -3.13 -c "import sys; print(sys.executable)" 2>$null)
-              if (-not $pyExe) {
-                Write-Host "Cannot find Python executable"
-                exit 1
-              }
-            }
+            if ($pyCmd) { $pyExe = $pyCmd.Source }
+            else { $pyExe = (py -3.13 -c "import sys; print(sys.executable)" 2>$null) }
           }
+          if (-not (Test-Path $pyExe)) { Write-Host "Python not found at $pyExe"; exit 1 }
           Write-Host "Python EXE: $pyExe"
-          if (Test-Path $pyExe) {
-            Write-Host "Python executable verified: OK"
-          } else {
-            Write-Host "Python executable not found at $pyExe"
-            exit 1
-          }
           echo "PYTHON_EXE=$pyExe" >> $env:GITHUB_ENV
 
       - name: Install UV
@@ -88,35 +75,21 @@ jobs:
           if (-not (Test-Path "C:\Program Files\7-Zip\7z.exe")) {
             choco install 7zip -y --no-progress
           }
-          # Verify 7z.exe exists
-          if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
-            Write-Host "7-Zip found at C:\Program Files\7-Zip\7z.exe"
-          } else {
-            Write-Host "7-Zip not found, searching..."
-            $sevenZip = Get-ChildItem -Path "C:\Program Files" -Filter "7z.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($sevenZip) {
-              Write-Host "Found 7z.exe at: $($sevenZip.FullName)"
-              echo "SEVENZ_EXE=$($sevenZip.FullName)" >> $env:GITHUB_ENV
-            } else {
-              Write-Host "WARNING: 7-Zip not found. build.bat expects C:\Program Files\7-Zip\7z.exe"
-            }
-          }
-
-      - name: Show environment
-        shell: pwsh
-        run: |
-          Write-Host "=== Environment ==="
-          Write-Host "Python EXE: $env:PYTHON_EXE"
-          Write-Host "Node: $(node --version)"
-          Write-Host "pnpm: $(pnpm --version)"
-          Write-Host "uv: $(uv --version)"
-          try { $sv = swig -version 2>&1 | Select-Object -First 1; Write-Host "swig: $sv" } catch { Write-Host "swig: not found" }
-          Write-Host "7z: $(Test-Path 'C:\Program Files\7-Zip\7z.exe')"
 
       - name: Run build.bat (full build)
         if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
-        shell: cmd
-        run: build.bat --python-exe "%PYTHON_EXE%"
+        shell: pwsh
+        run: |
+          Write-Host "=== Running build.bat ==="
+          Write-Host "Python EXE: $env:PYTHON_EXE"
+          & cmd /c "build.bat --python-exe `"$env:PYTHON_EXE`" 2>&1" | Tee-Object -FilePath build_output.log
+          $exitCode = $LASTEXITCODE
+          Write-Host "build.bat exit code: $exitCode"
+          if ($exitCode -ne 0) {
+            Write-Host "=== Last 50 lines of build log ==="
+            Get-Content build_output.log -Tail 50
+            exit $exitCode
+          }
 
       - name: Run build.bat (skip engine)
         if: ${{ github.event.inputs.skip_engine == 'true' }}
@@ -127,6 +100,15 @@ jobs:
         if: ${{ github.event.inputs.skip_frontend == 'true' }}
         shell: cmd
         run: build.bat --python-exe "%PYTHON_EXE%" --skip-frontend
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build_output.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload EXE installer
         if: always()
@@ -154,15 +136,5 @@ jobs:
           $exeFiles = Get-ChildItem "frontend\packages\electron-app\dist\*.exe" -ErrorAction SilentlyContinue
           if ($exeFiles) {
             Write-Host "EXE artifacts:"
-            $exeFiles | ForEach-Object {
-              Write-Host "  $($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB"
-            }
-          } else {
-            Write-Host "No EXE found in dist directory"
-          }
-          $sevenZFile = Get-Item "resources\python_core.7z" -ErrorAction SilentlyContinue
-          if ($sevenZFile) {
-            Write-Host "python_core.7z: $([math]::Round($sevenZFile.Length/1MB, 2)) MB"
-          } else {
-            Write-Host "No python_core.7z found"
-          }
+            $exeFiles | ForEach-Object { Write-Host "  $($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB" }
+          } else { Write-Host "No EXE found in dist directory" }
