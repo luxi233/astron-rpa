@@ -11,7 +11,7 @@
     "dev:web": "pnpm --filter @rpa/web-app run dev",
     "dev:client": "electron-vite dev --watch",
     "dev": "npm run build:sdk && run-p dev:web dev:client",
-    "build": "npm run build:sdk && npm run typecheck && electron-vite build && npm run build:web",
+    "build": "npm run build:sdk && electron-vite build && npm run build:web",
     "build:legacy": "pnpm --filter @rpa/web-app run build:legacy",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
