@@ -38,10 +38,18 @@ jobs:
           version: 9
 
       - name: Setup Python 3.13
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           architecture: x64
+
+      - name: Set Python path
+        shell: pwsh
+        run: |
+          $pythonPath = "${{ steps.setup-python.outputs.pythonLocation }}\python.exe"
+          Write-Host "Python path: $pythonPath"
+          echo "PYTHON_EXE=$pythonPath" >> $env:GITHUB_ENV
 
       - name: Install UV
         uses: astral-sh/setup-uv@v3
@@ -58,48 +66,49 @@ jobs:
           if (-not (Test-Path "C:\Program Files\7-Zip\7z.exe")) {
             choco install 7zip -y --no-progress
           }
+          Write-Host "7-Zip: $((Get-Item 'C:\Program Files\7-Zip\7z.exe').FullName)"
 
       - name: Show environment
         shell: pwsh
         run: |
-          Write-Host "Python: $env:PYTHON_LOCATION\python.exe"
+          Write-Host "Python EXE: $env:PYTHON_EXE"
           Write-Host "Node: $(node --version)"
           Write-Host "pnpm: $(pnpm --version)"
           Write-Host "uv: $(uv --version)"
-          Write-Host "swig: $(swig -version 2>&1 | Select-Object -First 3)"
-        env:
-          PYTHON_LOCATION: ${{ env.pythonLocation }}
+          try { Write-Host "swig: $(swig -version 2>&1 | Select-Object -First 3)" } catch { Write-Host "swig: not found" }
+          if (Test-Path $env:PYTHON_EXE) {
+            Write-Host "Python executable exists: OK"
+          } else {
+            Write-Host "Python executable NOT FOUND at $env:PYTHON_EXE"
+            exit 1
+          }
 
       - name: Run build.bat (full build)
         if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
         shell: cmd
-        run: build.bat --python-exe "%PYTHON_LOCATION%\python.exe"
-        env:
-          PYTHON_LOCATION: ${{ env.pythonLocation }}
+        run: build.bat --python-exe "%PYTHON_EXE%"
 
       - name: Run build.bat (skip engine)
         if: ${{ github.event.inputs.skip_engine == 'true' }}
         shell: cmd
-        run: build.bat --python-exe "%PYTHON_LOCATION%\python.exe" --skip-engine
-        env:
-          PYTHON_LOCATION: ${{ env.pythonLocation }}
+        run: build.bat --python-exe "%PYTHON_EXE%" --skip-engine
 
       - name: Run build.bat (skip frontend)
         if: ${{ github.event.inputs.skip_frontend == 'true' }}
         shell: cmd
-        run: build.bat --python-exe "%PYTHON_LOCATION%\python.exe" --skip-frontend
-        env:
-          PYTHON_LOCATION: ${{ env.pythonLocation }}
+        run: build.bat --python-exe "%PYTHON_EXE%" --skip-frontend
 
       - name: Upload EXE installer
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: AstronRPA-windows-exe
           path: frontend/packages/electron-app/dist/*.exe
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Upload python_core.7z
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: python-core-7z
@@ -112,11 +121,18 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=== Build Summary ==="
-          if (Test-Path "frontend\packages\electron-app\dist\*.exe") {
+          $exeFiles = Get-ChildItem "frontend\packages\electron-app\dist\*.exe" -ErrorAction SilentlyContinue
+          if ($exeFiles) {
             Write-Host "EXE artifacts:"
-            Get-ChildItem "frontend\packages\electron-app\dist\*.exe" | ForEach-Object {
+            $exeFiles | ForEach-Object {
               Write-Host "  $($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB"
             }
           } else {
             Write-Host "No EXE found in dist directory"
+          }
+          $sevenZFile = Get-Item "resources\python_core.7z" -ErrorAction SilentlyContinue
+          if ($sevenZFile) {
+            Write-Host "python_core.7z: $([math]::Round($sevenZFile.Length/1MB, 2)) MB"
+          } else {
+            Write-Host "No python_core.7z found"
           }
