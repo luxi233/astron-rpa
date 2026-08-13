@@ -78,6 +78,13 @@ jobs:
             choco install 7zip -y --no-progress
           }
 
+      - name: Warm up UV cache (pre-install build deps)
+        shell: pwsh
+        run: |
+          Write-Host "=== Pre-installing build dependencies to warm up UV cache ==="
+          uv pip install --python "$env:PYTHON_EXE" hatchling pluggy tomlkit pathspec packaging
+          Write-Host "UV cache warmed up successfully"
+
       - name: Run build.bat (full build)
         if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
         shell: pwsh
