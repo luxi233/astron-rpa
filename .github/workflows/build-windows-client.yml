@@ -44,12 +44,35 @@ jobs:
           python-version: '3.13'
           architecture: x64
 
-      - name: Set Python path
+      - name: Find Python path
         shell: pwsh
         run: |
-          $pythonPath = "${{ steps.setup-python.outputs.pythonLocation }}\python.exe"
-          Write-Host "Python path: $pythonPath"
-          echo "PYTHON_EXE=$pythonPath" >> $env:GITHUB_ENV
+          $pyLocation = "${{ steps.setup-python.outputs.pythonLocation }}"
+          Write-Host "Python location from setup-python: $pyLocation"
+          if ($pyLocation) {
+            $pyExe = Join-Path $pyLocation "python.exe"
+          } else {
+            Write-Host "pythonLocation not available, trying to find python..."
+            $pyCmd = Get-Command python -ErrorAction SilentlyContinue
+            if ($pyCmd) {
+              $pyExe = $pyCmd.Source
+            } else {
+              Write-Host "Trying py launcher..."
+              $pyExe = (py -3.13 -c "import sys; print(sys.executable)" 2>$null)
+              if (-not $pyExe) {
+                Write-Host "Cannot find Python executable"
+                exit 1
+              }
+            }
+          }
+          Write-Host "Python EXE: $pyExe"
+          if (Test-Path $pyExe) {
+            Write-Host "Python executable verified: OK"
+          } else {
+            Write-Host "Python executable not found at $pyExe"
+            exit 1
+          }
+          echo "PYTHON_EXE=$pyExe" >> $env:GITHUB_ENV
 
       - name: Install UV
         uses: astral-sh/setup-uv@v3
@@ -66,22 +89,17 @@ jobs:
           if (-not (Test-Path "C:\Program Files\7-Zip\7z.exe")) {
             choco install 7zip -y --no-progress
           }
-          Write-Host "7-Zip: $((Get-Item 'C:\Program Files\7-Zip\7z.exe').FullName)"
+          Write-Host "7-Zip: $(C:\Program Files\7-Zip\7z.exe 2>&1 | Select-Object -First 1)"
 
       - name: Show environment
         shell: pwsh
         run: |
+          Write-Host "=== Environment ==="
           Write-Host "Python EXE: $env:PYTHON_EXE"
           Write-Host "Node: $(node --version)"
           Write-Host "pnpm: $(pnpm --version)"
           Write-Host "uv: $(uv --version)"
-          try { Write-Host "swig: $(swig -version 2>&1 | Select-Object -First 3)" } catch { Write-Host "swig: not found" }
-          if (Test-Path $env:PYTHON_EXE) {
-            Write-Host "Python executable exists: OK"
-          } else {
-            Write-Host "Python executable NOT FOUND at $env:PYTHON_EXE"
-            exit 1
-          }
+          try { $sv = swig -version 2>&1 | Select-Object -First 1; Write-Host "swig: $sv" } catch { Write-Host "swig: not found" }
 
       - name: Run build.bat (full build)
         if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
