@@ -85,36 +85,60 @@ jobs:
           uv pip install --python "$env:PYTHON_EXE" hatchling pluggy tomlkit pathspec packaging
           Write-Host "UV cache warmed up successfully"
 
-      - name: Run build.bat (full build)
-        if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
+      - name: Run build.bat (engine only)
+        if: ${{ github.event.inputs.skip_engine != 'true' }}
         shell: pwsh
         run: |
-          Write-Host "=== Running build.bat (UV_LOCK_TIMEOUT=$env:UV_LOCK_TIMEOUT) ==="
-          & cmd /c "build.bat --python-exe `"$env:PYTHON_EXE`" 2>&1" | Tee-Object -FilePath build_output.log
+          Write-Host "=== Building engine (UV_LOCK_TIMEOUT=$env:UV_LOCK_TIMEOUT) ==="
+          & cmd /c "build.bat --python-exe `"$env:PYTHON_EXE`" --skip-frontend 2>&1" | Tee-Object -FilePath build_engine.log
           $exitCode = $LASTEXITCODE
-          Write-Host "build.bat exit code: $exitCode"
+          Write-Host "Engine build exit code: $exitCode"
           if ($exitCode -ne 0) {
-            Write-Host "=== Last 50 lines of build log ==="
-            Get-Content build_output.log -Tail 50
+            Write-Host "=== Last 50 lines of engine build log ==="
+            Get-Content build_engine.log -Tail 50
             exit $exitCode
           }
 
-      - name: Run build.bat (skip engine)
-        if: ${{ github.event.inputs.skip_engine == 'true' }}
-        shell: cmd
-        run: build.bat --python-exe "%PYTHON_EXE%" --skip-engine
+      - name: Build frontend (verbose)
+        if: ${{ github.event.inputs.skip_frontend != 'true' }}
+        shell: pwsh
+        run: |
+          Write-Host "=== Building frontend ==="
+          Set-Location "$env:GITHUB_WORKSPACE\frontend"
+          Write-Host "--- pnpm install ---"
+          & cmd /c "pnpm install 2>&1"
+          Write-Host "--- build:sdk ---"
+          & cmd /c "pnpm --filter astron-rpa run build:sdk 2>&1"
+          Write-Host "--- electron-vite build ---"
+          & cmd /c "cd packages\electron-app && npx electron-vite build 2>&1" | Tee-Object -FilePath "$env:GITHUB_WORKSPACE\build_frontend.log"
+          $evExit = $LASTEXITCODE
+          Write-Host "electron-vite build exit code: $evExit"
+          if ($evExit -ne 0) {
+            Write-Host "=== electron-vite build FAILED ==="
+            exit $evExit
+          }
+          Write-Host "--- build:web ---"
+          & cmd /c "cd packages\electron-app && npm run build:web 2>&1"
+          Write-Host "--- electron-builder --win ---"
+          & cmd /c "cd packages\electron-app && npx electron-builder --win 2>&1" | Tee-Object -FilePath "$env:GITHUB_WORKSPACE\build_electron.log"
+          $ebExit = $LASTEXITCODE
+          Write-Host "electron-builder exit code: $ebExit"
+          if ($ebExit -ne 0) {
+            Write-Host "=== electron-builder FAILED ==="
+            Get-Content "$env:GITHUB_WORKSPACE\build_electron.log" -Tail 30
+            exit $ebExit
+          }
+          Set-Location "$env:GITHUB_WORKSPACE"
 
-      - name: Run build.bat (skip frontend)
-        if: ${{ github.event.inputs.skip_frontend == 'true' }}
-        shell: cmd
-        run: build.bat --python-exe "%PYTHON_EXE%" --skip-frontend
-
-      - name: Upload build log
+      - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build_output.log
+          name: build-logs
+          path: |
+            build_engine.log
+            build_frontend.log
+            build_electron.log
           if-no-files-found: ignore
           retention-days: 7
 
