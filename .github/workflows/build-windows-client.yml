@@ -57,7 +57,6 @@ jobs:
             if ($pyCmd) {
               $pyExe = $pyCmd.Source
             } else {
-              Write-Host "Trying py launcher..."
               $pyExe = (py -3.13 -c "import sys; print(sys.executable)" 2>$null)
               if (-not $pyExe) {
                 Write-Host "Cannot find Python executable"
@@ -83,13 +82,25 @@ jobs:
         shell: pwsh
         run: choco install swig -y --no-progress
 
-      - name: Verify 7-Zip
+      - name: Install 7-Zip
         shell: pwsh
         run: |
           if (-not (Test-Path "C:\Program Files\7-Zip\7z.exe")) {
             choco install 7zip -y --no-progress
           }
-          Write-Host "7-Zip: $(C:\Program Files\7-Zip\7z.exe 2>&1 | Select-Object -First 1)"
+          # Verify 7z.exe exists
+          if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
+            Write-Host "7-Zip found at C:\Program Files\7-Zip\7z.exe"
+          } else {
+            Write-Host "7-Zip not found, searching..."
+            $sevenZip = Get-ChildItem -Path "C:\Program Files" -Filter "7z.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($sevenZip) {
+              Write-Host "Found 7z.exe at: $($sevenZip.FullName)"
+              echo "SEVENZ_EXE=$($sevenZip.FullName)" >> $env:GITHUB_ENV
+            } else {
+              Write-Host "WARNING: 7-Zip not found. build.bat expects C:\Program Files\7-Zip\7z.exe"
+            }
+          }
 
       - name: Show environment
         shell: pwsh
@@ -100,6 +111,7 @@ jobs:
           Write-Host "pnpm: $(pnpm --version)"
           Write-Host "uv: $(uv --version)"
           try { $sv = swig -version 2>&1 | Select-Object -First 1; Write-Host "swig: $sv" } catch { Write-Host "swig: not found" }
+          Write-Host "7z: $(Test-Path 'C:\Program Files\7-Zip\7z.exe')"
 
       - name: Run build.bat (full build)
         if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
