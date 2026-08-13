@@ -17,6 +17,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_LOCK_TIMEOUT: 600
+
 jobs:
   build:
     name: Build Windows EXE
@@ -42,13 +45,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          arch    ture: x64
+          architecture: x64
 
       - name: Find Python path
         shell: pwsh
         run: |
           $pyLocation = "${{ steps.setup-python.outputs.pythonLocation }}"
-          Write-Host "Python location from setup-python: $pyLocation"
           if ($pyLocation) {
             $pyExe = Join-Path $pyLocation "python.exe"
           } else {
@@ -80,8 +82,7 @@ jobs:
         if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
         shell: pwsh
         run: |
-          Write-Host "=== Running build.bat ==="
-          Write-Host "Python EXE: $env:PYTHON_EXE"
+          Write-Host "=== Running build.bat (UV_LOCK_TIMEOUT=$env:UV_LOCK_TIMEOUT) ==="
           & cmd /c "build.bat --python-exe `"$env:PYTHON_EXE`" 2>&1" | Tee-Object -FilePath build_output.log
           $exitCode = $LASTEXITCODE
           Write-Host "build.bat exit code: $exitCode"
