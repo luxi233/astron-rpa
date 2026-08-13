@@ -1,0 +1,122 @@
+name: Build Windows Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_engine:
+        description: '跳过引擎（Python）构建'
+        required: false
+        default: false
+        type: boolean
+      skip_frontend:
+        description: '跳过前端构建'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm 9
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: x64
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: 'latest'
+
+      - name: Install SWIG
+        shell: pwsh
+        run: choco install swig -y --no-progress
+
+      - name: Verify 7-Zip
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files\7-Zip\7z.exe")) {
+            choco install 7zip -y --no-progress
+          }
+
+      - name: Show environment
+        shell: pwsh
+        run: |
+          Write-Host "Python: $env:PYTHON_LOCATION\python.exe"
+          Write-Host "Node: $(node --version)"
+          Write-Host "pnpm: $(pnpm --version)"
+          Write-Host "uv: $(uv --version)"
+          Write-Host "swig: $(swig -version 2>&1 | Select-Object -First 3)"
+        env:
+          PYTHON_LOCATION: ${{ env.pythonLocation }}
+
+      - name: Run build.bat (full build)
+        if: ${{ github.event.inputs.skip_engine != 'true' && github.event.inputs.skip_frontend != 'true' }}
+        shell: cmd
+        run: build.bat --python-exe "%PYTHON_LOCATION%\python.exe"
+        env:
+          PYTHON_LOCATION: ${{ env.pythonLocation }}
+
+      - name: Run build.bat (skip engine)
+        if: ${{ github.event.inputs.skip_engine == 'true' }}
+        shell: cmd
+        run: build.bat --python-exe "%PYTHON_LOCATION%\python.exe" --skip-engine
+        env:
+          PYTHON_LOCATION: ${{ env.pythonLocation }}
+
+      - name: Run build.bat (skip frontend)
+        if: ${{ github.event.inputs.skip_frontend == 'true' }}
+        shell: cmd
+        run: build.bat --python-exe "%PYTHON_LOCATION%\python.exe" --skip-frontend
+        env:
+          PYTHON_LOCATION: ${{ env.pythonLocation }}
+
+      - name: Upload EXE installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AstronRPA-windows-exe
+          path: frontend/packages/electron-app/dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload python_core.7z
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-core-7z
+          path: resources/python_core.7z
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Build summary
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "=== Build Summary ==="
+          if (Test-Path "frontend\packages\electron-app\dist\*.exe") {
+            Write-Host "EXE artifacts:"
+            Get-ChildItem "frontend\packages\electron-app\dist\*.exe" | ForEach-Object {
+              Write-Host "  $($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB"
+            }
+          } else {
+            Write-Host "No EXE found in dist directory"
+          }
