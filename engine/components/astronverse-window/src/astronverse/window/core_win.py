@@ -32,6 +32,13 @@ class WindowsCore(IWindowsCore):
         return window_handle
 
     @staticmethod
+    def is_active(handler: Any) -> bool:
+        """
+        is_active 判断窗口是否为前台激活窗口
+        """
+        return win32gui.GetForegroundWindow() == handler
+
+    @staticmethod
     def info(handler: Any) -> ControlInfo:
         """
         info 查询信息

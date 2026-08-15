@@ -40,16 +40,29 @@ class Window:
         wait_time: float = 0,
     ) -> bool:
         """
-        exist 窗口是否存在/不存在
+        exist 窗口是否存在/不存在/激活/未激活
         """
         wait_time = max(0, wait_time)
         while wait_time >= 0:
             try:
-                window_found = WindowsCore.find(pick) is not None
-                if window_found and check_type == WindowExistType.EXIST:
-                    return True
+                if check_type in (WindowExistType.ACTIVE, WindowExistType.NOT_ACTIVE):
+                    handler = WindowsCore.find(pick)
+                    if handler is None:
+                        # 窗口不存在：谈不上激活，视为未激活
+                        if check_type == WindowExistType.NOT_ACTIVE:
+                            return True
+                    else:
+                        is_active = WindowsCore.is_active(handler)
+                        if check_type == WindowExistType.ACTIVE and is_active:
+                            return True
+                        if check_type == WindowExistType.NOT_ACTIVE and not is_active:
+                            return True
+                else:
+                    window_found = WindowsCore.find(pick) is not None
+                    if window_found and check_type == WindowExistType.EXIST:
+                        return True
             except Exception:
-                if check_type == WindowExistType.NOT_EXIST:
+                if check_type in (WindowExistType.NOT_EXIST, WindowExistType.NOT_ACTIVE):
                     return True
             wait_time -= 0.5
             time.sleep(0.5)

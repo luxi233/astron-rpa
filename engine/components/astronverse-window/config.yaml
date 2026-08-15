@@ -62,6 +62,10 @@ options:
       label: 存在
     - value: not_exist
       label: 不存在
+    - value: active
+      label: 激活
+    - value: not_active
+      label: 未激活
   WindowSizeType:
     - value: custom
       label: 自定义

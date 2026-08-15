@@ -41,6 +41,15 @@ class WindowsCore(IWindowsCore):
         return None
 
     @staticmethod
+    def is_active(handler: Any) -> bool:
+        """
+        is_active 判断窗口是否为前台激活窗口
+        """
+        assert isinstance(handler, int)
+        output = subprocess.check_output(["xdotool", "getactivewindow"], encoding="utf-8", errors="replace")
+        return int(output.strip()) == handler
+
+    @staticmethod
     def top(handler: Any):
         assert isinstance(handler, int)
         win_id = handler

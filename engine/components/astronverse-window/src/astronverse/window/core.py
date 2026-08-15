@@ -18,6 +18,12 @@ class IWindowsCore(ABC):
 
     @staticmethod
     @abstractmethod
+    def is_active(handler: Any) -> bool:
+        """判断窗口是否为前台激活窗口"""
+        pass
+
+    @staticmethod
+    @abstractmethod
     def info(handler: Any) -> ControlInfo:
         """窗口信息"""
         pass

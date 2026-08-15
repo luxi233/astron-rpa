@@ -12,6 +12,8 @@ class WindowSizeType(Enum):
 class WindowExistType(Enum):
     EXIST = "exist"
     NOT_EXIST = "not_exist"
+    ACTIVE = "active"
+    NOT_ACTIVE = "not_active"
 
 
 @dataclass
