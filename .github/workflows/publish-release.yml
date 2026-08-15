@@ -32,6 +32,9 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Checkout repo (for bundled WPS AirScript)
+        uses: actions/checkout@v4
+
       - name: Download EXE artifact from source run
         uses: actions/download-artifact@v4
         with:
@@ -42,6 +45,9 @@ jobs:
 
       - name: List downloaded files
         run: ls -lhR dist
+
+      - name: Copy WPS AirScript to dist
+        run: cp engine/components/astronverse-kdocs/scripts/wps_read_sheet.js dist/
 
       - name: Create release with EXE asset
         env:
@@ -54,4 +60,4 @@ jobs:
         run: |
           FLAGS=""
           [ "$PRE" = "true" ] && FLAGS="--prerelease"
-          gh release create "$TAG" --title "$TITLE" --notes "$NOTES" $FLAGS dist/*.exe
+          gh release create "$TAG" --title "$TITLE" --notes "$NOTES" $FLAGS dist/*.exe dist/wps_read_sheet.js
