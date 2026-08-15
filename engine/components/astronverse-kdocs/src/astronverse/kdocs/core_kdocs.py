@@ -23,6 +23,21 @@ ACTION_GET_HYPERLINK = "get_hyperlink"
 ACTION_LIST_SHEETS = "list_sheets"
 ACTION_CREATE_SHEET = "create_sheet"
 ACTION_DELETE_SHEET = "delete_sheet"
+ACTION_REPLACE = "replace"
+ACTION_COPY_PASTE = "copy_paste"
+ACTION_INSERT_CELLS = "insert_cells"
+ACTION_DELETE_CELLS = "delete_cells"
+ACTION_CLEAR_RANGE = "clear_range"
+ACTION_MERGE_CELLS = "merge_cells"
+ACTION_SET_FORMAT = "set_format"
+ACTION_GET_COLOR = "get_color"
+ACTION_FORMULA = "formula"
+ACTION_SAVE_WORKBOOK = "save_workbook"
+ACTION_RENAME_SHEET = "rename_sheet"
+ACTION_MOVE_SHEET = "move_sheet"
+ACTION_AUTO_FIT = "auto_fit"
+ACTION_GET_FILE_INFO = "get_file_info"
+ACTION_CALC_FUNCTION = "calc_function"
 
 
 class WpsHookError(Exception):
@@ -41,21 +56,25 @@ def build_payload(
     target_type="row",
     new_sheet_names=None,
     image_data="",
+    extra=None,
 ):
-    """按 AirScript 约定的 Context 结构构造请求体。"""
+    """按 AirScript 约定的 Context 结构构造请求体。extra 中的键值会合并进 argv。"""
+    argv = {
+        "action": action,
+        "data": [],
+        "sheet_name": sheet_name,
+        "range_address": range_address,
+        "write_value": write_value if write_value is not None else "",
+        "target_type": target_type,
+        "new_sheet_names": new_sheet_names if new_sheet_names is not None else [],
+        "image_data": image_data,
+    }
+    if extra:
+        argv.update(extra)
     return {
         "Context": {
             "sheet_name": sheet_name,
-            "argv": {
-                "action": action,
-                "data": [],
-                "sheet_name": sheet_name,
-                "range_address": range_address,
-                "write_value": write_value if write_value is not None else "",
-                "target_type": target_type,
-                "new_sheet_names": new_sheet_names if new_sheet_names is not None else [],
-                "image_data": image_data,
-            },
+            "argv": argv,
         }
     }
 
@@ -250,4 +269,131 @@ class WpsHookClient:
         return self.send_request(
             ACTION_DELETE_SHEET,
             sheet_name=sheet_name,
+        )
+
+    # ---- 扩展操作 ----
+
+    def replace(self, sheet_name, find_text, replace_text, range_address=""):
+        """在指定区域（空为整表）内查找替换文本。"""
+        return self.send_request(
+            ACTION_REPLACE,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"find_text": find_text, "replace_text": replace_text},
+        )
+
+    def copy_paste(self, source_sheet, source_range, target_sheet="", target_range="A1"):
+        """把源区域内容复制粘贴到目标区域，支持跨工作表。"""
+        return self.send_request(
+            ACTION_COPY_PASTE,
+            extra={
+                "source_sheet": source_sheet,
+                "source_range": source_range,
+                "target_sheet": target_sheet,
+                "target_range": target_range,
+            },
+        )
+
+    def insert_cells(self, sheet_name, range_address, op_type="row"):
+        """在目标位置插入行/列/单元格。op_type: row | column | cell。"""
+        return self.send_request(
+            ACTION_INSERT_CELLS,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"op_type": op_type},
+        )
+
+    def delete_cells(self, sheet_name, range_address, op_type="row"):
+        """删除目标位置的行/列/单元格。op_type: row | column | cell。"""
+        return self.send_request(
+            ACTION_DELETE_CELLS,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"op_type": op_type},
+        )
+
+    def clear_range(self, sheet_name, range_address="", clear_type="contents"):
+        """清除区域内容/格式/全部。clear_type: contents | formats | all。"""
+        return self.send_request(
+            ACTION_CLEAR_RANGE,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"clear_type": clear_type},
+        )
+
+    def merge_cells(self, sheet_name, range_address, merge_type="merge"):
+        """合并/取消合并单元格。merge_type: merge | unmerge。"""
+        return self.send_request(
+            ACTION_MERGE_CELLS,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"merge_type": merge_type},
+        )
+
+    def set_format(self, sheet_name, range_address, format_options=None):
+        """设置单元格格式。format_options 支持 font_bold/font_italic/font_size/font_name/font_color/bg_color/h_align/v_align/wrap_text/number_format。"""
+        return self.send_request(
+            ACTION_SET_FORMAT,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"format_options": format_options or {}},
+        )
+
+    def get_color(self, sheet_name, range_address):
+        """返回目标单元格背景色与字体颜色（#RRGGBB）。"""
+        return self.send_request(
+            ACTION_GET_COLOR,
+            sheet_name=sheet_name,
+            range_address=range_address,
+        )
+
+    def formula(self, sheet_name, range_address, formula_text="", write_formula=False):
+        """读取或写入公式。write_formula=False 返回左上角单元格公式，True 时写入 formula_text。"""
+        return self.send_request(
+            ACTION_FORMULA,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"formula_text": formula_text, "write_formula": write_formula},
+        )
+
+    def save_workbook(self):
+        """保存当前工作簿的全部改动。"""
+        return self.send_request(ACTION_SAVE_WORKBOOK)
+
+    def rename_sheet(self, sheet_name, new_sheet_name):
+        """重命名工作表。"""
+        return self.send_request(
+            ACTION_RENAME_SHEET,
+            sheet_name=sheet_name,
+            extra={"new_sheet_name": new_sheet_name},
+        )
+
+    def move_sheet(self, sheet_name, position):
+        """移动工作表到指定位置（1 开始）。"""
+        return self.send_request(
+            ACTION_MOVE_SHEET,
+            sheet_name=sheet_name,
+            extra={"position": position},
+        )
+
+    def auto_fit(self, sheet_name, range_address="", fit_type="both"):
+        """行高/列宽自适应。fit_type: row | column | both。"""
+        return self.send_request(
+            ACTION_AUTO_FIT,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"fit_type": fit_type},
+        )
+
+    def get_file_info(self):
+        """返回当前文档与用户信息。"""
+        return self.send_request(ACTION_GET_FILE_INFO)
+
+    def calc_function(self, sheet_name, range_address, func_name="sum", k=1):
+        """工作表函数计算。func_name: sum | average | min | max | large | small（large/small 需指定 k）。"""
+        return self.send_request(
+            ACTION_CALC_FUNCTION,
+            sheet_name=sheet_name,
+            range_address=range_address,
+            extra={"func_name": func_name, "func_k": k},
         )
