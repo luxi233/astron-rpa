@@ -154,7 +154,24 @@ class WpsHookClient:
                 "WPS AirScript 脚本执行失败",
             )
 
-        data = response_json.get("data") or {}
+        # WPS Webhook 在脚本抛错时仍返回 HTTP 200，错误信息放在 error 字段
+        error_text = response_json.get("error")
+        if error_text:
+            raise WpsHookError(
+                f"AirScript error: {str(error_text)[:300]}",
+                "WPS AirScript 脚本执行出错，详见错误信息",
+            )
+
+        status = response_json.get("status")
+        if status and status != "finished":
+            raise WpsHookError(
+                f"AirScript status: {status}",
+                "WPS AirScript 脚本未正常结束",
+            )
+
+        data = response_json.get("data")
+        if not isinstance(data, dict):
+            return data
         return data.get("result")
 
     # ---- 业务操作 ----
