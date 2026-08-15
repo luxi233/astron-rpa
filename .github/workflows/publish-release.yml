@@ -32,8 +32,10 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repo (for bundled WPS AirScript)
+      - name: Checkout repo at release tag (for WPS AirScript & server snapshot)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
 
       - name: Download EXE artifact from source run
         uses: actions/download-artifact@v4
@@ -49,7 +51,43 @@ jobs:
       - name: Copy WPS AirScript to dist
         run: cp engine/components/astronverse-kdocs/scripts/wps_read_sheet.js dist/
 
-      - name: Create release with EXE asset
+      - name: Build server snapshot (full repo minus client-only resources)
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          COMMIT=$(git rev-parse HEAD)
+          STAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+          git archive --format=tar.gz -o "dist/server-snapshot-${TAG}.tar.gz" HEAD -- ':!resources'
+          cat > dist/SERVER-DEPLOY.txt <<EOF
+          AstronRPA Server Deployment Snapshot
+          ====================================
+          Tag:    ${TAG}
+          Commit: ${COMMIT}
+          Built:  ${STAMP}
+
+          Contents: full repository source snapshot (git archive, no .git).
+          Excludes resources/ (Windows client packaging only). .env is NOT
+          included (secrets live outside git).
+
+          Fresh deploy:
+            1. Extract to deploy directory
+            2. Create docker/.env (from example) and fill in secrets
+            3. cd docker && docker compose up -d
+
+          Upgrade deploy:
+            1. Extract over deploy directory (.env / data / logs / docker/volumes/backup stay untouched)
+            2. cd docker && bash scripts/hot-update-atom-meta.sh
+            3. docker compose restart (if backend code changed)
+
+          Rollback to this version:
+            1. Download this server-snapshot-${TAG}.tar.gz
+            2. Extract over deploy directory (or clean extract keeping .env / data / logs / docker/volumes/backup)
+            3. cd docker && bash scripts/hot-update-atom-meta.sh
+            4. If metadata still broken, restore from auto backup:
+               gunzip -c docker/volumes/backup/<latest>.sql.gz | docker exec -i rpa-opensource-mysql mysql -u<user> -p<pass> rpa
+          EOF
+
+      - name: Create release with EXE + server snapshot assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -60,4 +98,6 @@ jobs:
         run: |
           FLAGS=""
           [ "$PRE" = "true" ] && FLAGS="--prerelease"
-          gh release create "$TAG" --title "$TITLE" --notes "$NOTES" $FLAGS dist/*.exe dist/wps_read_sheet.js
+          gh release create "$TAG" --title "$TITLE" --notes "$NOTES" $FLAGS \
+            dist/*.exe dist/wps_read_sheet.js \
+            dist/server-snapshot-${TAG}.tar.gz dist/SERVER-DEPLOY.txt
