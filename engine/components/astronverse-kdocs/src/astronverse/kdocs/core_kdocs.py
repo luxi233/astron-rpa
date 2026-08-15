@@ -195,12 +195,16 @@ class WpsHookClient:
 
     # ---- 业务操作 ----
 
-    def read(self, sheet_name, range_address=""):
-        """读取工作表数据。range_address 支持 ""（整表）、"3"（第3行）、"A"（A列）、"A2:D5"。"""
+    def read(self, sheet_name, range_address="", read_text=False):
+        """读取工作表数据。range_address 支持 ""（整表）、"3"（第3行）、"A"（A列）、"A2:D5"。
+
+        read_text=True 时读取单元格显示文本（按格式渲染，如日期/百分比），默认读取原始值。
+        """
         return self.send_request(
             ACTION_READ,
             sheet_name=sheet_name,
             range_address=range_address,
+            read_text=bool(read_text),
         )
 
     def write(self, sheet_name, range_address, write_value):

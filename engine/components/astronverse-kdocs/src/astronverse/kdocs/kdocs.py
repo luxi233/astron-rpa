@@ -31,12 +31,22 @@ class Kdocs:
             atomicMg.param("wps_client", types="Any", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=False),
+            atomicMg.param(
+                "read_display",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.CHECKBOX.value),
+                required=False,
+            ),
         ],
         outputList=[
             atomicMg.param("read_result", types="Any"),
         ],
     )
-    def read_range(wps_client: WpsHookClient, sheet_name: str, range_address: str = ""):
+    def read_range(
+        wps_client: WpsHookClient,
+        sheet_name: str,
+        range_address: str = "",
+        read_display: bool = False,
+    ):
         """读取区域数据
 
         range_address 规则:
@@ -44,9 +54,12 @@ class Kdocs:
         - "3": 读取第 3 行
         - "A": 读取 A 列
         - "A2:D5": 读取显式区域
+
+        read_display=True 时读取单元格实际显示文本（日期、百分比等按显示格式返回），
+        默认读取原始值（日期列自动转换为 "YYYY-MM-DD HH:mm:ss" 字符串）。
         """
         try:
-            return wps_client.read(sheet_name, range_address or "")
+            return wps_client.read(sheet_name, range_address or "", read_display)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
