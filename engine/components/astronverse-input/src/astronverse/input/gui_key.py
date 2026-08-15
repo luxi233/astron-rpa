@@ -4,6 +4,7 @@ import time
 
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, AtomicLevel, DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
+from astronverse.actionlib.humansim import human_sim
 from astronverse.input import KeyboardType, KeyModel, Simulate_flag
 from astronverse.input.code.clipboard import Clipboard
 from astronverse.input.code.keyboard import Keyboard
@@ -70,7 +71,9 @@ class GuiKeyBoard:
         """
         if keyboard_type == KeyboardType.NORMAL:
             message = str(message)
-            if simulate_flag == Simulate_flag.YES:
+            # 模拟真人区间内自动升级：操作前随机停顿 + 固定间隔输入升级为随机间隔
+            human_sim.pre_action_pause()
+            if simulate_flag == Simulate_flag.YES or human_sim.active:
                 # Keyboard.change_language(ENGLISH)
                 for char in message:
                     random_num = random.uniform(0, interval)

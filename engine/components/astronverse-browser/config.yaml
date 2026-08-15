@@ -222,7 +222,7 @@ atomic:
     title: 获取相似元素列表（web）
     comment: >-
       获取浏览器对象 @{browser_obj} 中与拾取到的元素 @{element_data} 相似的元素，并将相似元素数组输出至
-      @{get_similar_ele}
+      @{get_similar_ele}，相似元素个数为@{similar_count}
     icon: get-similar-elements-web
     helpManual: ''
     inputList:
@@ -245,6 +245,9 @@ atomic:
       - key: get_similar_ele
         title: 元素信息
         tip: ''
+      - key: similar_count
+        title: 相似元素个数
+        tip: 获取到的相似元素列表项个数
   BrowserElement.loop_similar:
     title: 循环相似元素列表（web）
     comment: >-
@@ -932,6 +935,9 @@ atomic:
       - key: page_timeout
         title: 等待页面加载时间（秒）
         tip: 超过该时间停止等待
+      - key: save_to_clipboard
+        title: 同时保存到剪贴板
+        tip: 勾选后截图在保存为文件的同时复制到系统剪贴板
     outputList:
       - key: web_screen
         title: 文件路径
@@ -1070,6 +1076,188 @@ atomic:
       - key: download_file
         title: 文档路径
         tip: ''
+  BrowserSoftware.get_tab_list:
+    title: 获取网页对象列表
+    comment: 获取浏览器对象 @{browser_obj} 中所有标签页的信息，输出至 @{web_obj_list}
+    icon: get-current-tab-id
+    helpManual: ''
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要获取标签页列表的浏览器对象
+    outputList:
+      - key: web_obj_list
+        title: 网页对象列表
+        tip: 每项包含tabId、url、title、active字段
+  BrowserSoftware.filter_cookies:
+    title: 获取筛选所有Cookie
+    comment: >-
+      获取浏览器对象 @{browser_obj} 中 @{url} 的全部Cookie，可按cookie名称 @{cookie_name}
+      、域名 @{cookie_domain} 、路径 @{cookie_path} 筛选，输出至 @{cookie_list}
+    icon: get-cookie
+    helpManual: ''
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要获取Cookie的浏览器对象
+      - key: url
+        title: 目标url
+        tip: ''
+      - key: cookie_name
+        title: cookie名称
+        tip: 按名称筛选，留空则返回全部
+      - key: cookie_domain
+        title: cookie域名
+        tip: 按域名筛选，留空则不做限制
+      - key: cookie_path
+        title: cookie路径
+        tip: 按路径筛选，留空则不做限制
+      - key: page_timeout
+        title: 等待页面加载时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: cookie_list
+        title: cookie列表
+        tip: 每项包含name、value、domain、path等字段
+  BrowserSoftware.remove_cookie:
+    title: 移除Cookie
+    comment: 移除浏览器对象 @{browser_obj} 中 @{url} 的名称为 @{cookie_name} 的Cookie
+    icon: remove
+    helpManual: ''
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要移除Cookie的浏览器对象
+      - key: url
+        title: 目标url
+        tip: ''
+      - key: cookie_name
+        title: cookie名称
+        tip: 要移除的cookie名称
+      - key: cookie_path
+        title: cookie路径
+        tip: 按路径筛选，留空则不做限制
+      - key: page_timeout
+        title: 等待页面加载时间（秒）
+        tip: 超过该时间停止等待
+    outputList: []
+  BrowserSoftware.get_scroll_position:
+    title: 获取滚动条位置
+    comment: 获取浏览器对象 @{browser_obj} 当前网页@{direction}滚动条的@{position}，输出至 @{scroll_position}
+    icon: mouse-scroll-webpage
+    helpManual: ''
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要获取滚动条位置的浏览器对象
+      - key: direction
+        title: 滚动条方向
+        tip: 选择横向或纵向滚动条
+      - key: position
+        title: 位置类型
+        tip: 当前位置为已滚动的像素值，底部位置为滚动到底部时的像素值
+    outputList:
+      - key: scroll_position
+        title: 滚动条位置
+        tip: 单位为像素
+  BrowserSoftware.get_web_info:
+    title: 获取网页信息
+    comment: 获取浏览器对象 @{browser_obj} 当前网页的@{info_type}，输出至 @{web_info}
+    icon: info
+    helpManual: ''
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要获取网页信息的浏览器对象
+      - key: info_type
+        title: 信息类型
+        tip: 选择要获取的网页信息类型
+    outputList:
+      - key: web_info
+        title: 网页信息
+        tip: ''
+  BrowserSoftware.start_network_monitor:
+    title: 开始监听网页请求
+    comment: 开始监听浏览器对象 @{browser_obj} 的网络请求，可按URL正则 @{url_filter} 过滤
+    icon: http-request
+    helpManual: 开始监听后，网页发出的HTTP请求会被记录，配合【获取网页监听结果】指令可提取请求的URL、方法、状态码、响应内容等信息
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要监听网络请求的浏览器对象
+      - key: url_filter
+        title: URL过滤（正则）
+        tip: 仅记录URL匹配该正则表达式的请求，留空则记录全部请求
+    outputList: []
+  BrowserSoftware.get_network_data:
+    title: 获取网页监听结果
+    comment: 获取浏览器对象 @{browser_obj} 的网络请求监听结果，输出至 @{request_list}
+    icon: data-scraping-web
+    helpManual: 返回开始监听后捕获的请求列表，每项包含url、method、status、resourceType、responseBody、responseHeaders等字段，获取后默认清空已记录的数据
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要获取监听结果的浏览器对象
+      - key: url_filter
+        title: URL过滤（正则）
+        tip: 仅返回URL匹配该正则表达式的请求，留空则返回全部
+      - key: resource_type
+        title: 资源类型过滤
+        tip: 如Document、XHR、Fetch、Script、Stylesheet、Image、Media、Font、WebSocket、Other，留空则不做限制
+      - key: clear
+        title: 获取后清空记录
+        tip: 勾选后获取本次结果时清空已记录的请求数据
+    outputList:
+      - key: request_list
+        title: 请求列表
+        tip: 每项包含url、method、status、resourceType、responseBody等字段
+  BrowserSoftware.stop_network_monitor:
+    title: 停止监听网页请求
+    comment: 停止监听浏览器对象 @{browser_obj} 的网络请求
+    icon: http-request
+    helpManual: ''
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要停止监听的浏览器对象
+    outputList: []
+  BrowserSoftware.set_dialog_handler:
+    title: 自动处理网页弹框
+    comment: >-
+      开启后浏览器对象 @{browser_obj} 中的alert/confirm/prompt弹框将自动点击@{button}，prompt弹框自动输入
+      @{prompt_text}
+    icon: message-dialog
+    helpManual: 开启自动处理后，网页原生的警告框、确认框、输入框不再阻塞流程，由插件自动代替人工点击按钮；关闭后恢复浏览器默认行为
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要自动处理弹框的浏览器对象
+      - key: enable
+        title: 开启自动处理
+        tip: 开启后弹框自动处理，关闭后恢复默认行为
+      - key: button
+        title: 自动点击按钮
+        tip: 弹框出现时自动点击确定或取消
+      - key: prompt_text
+        title: prompt输入内容
+        tip: prompt弹框出现时自动输入的文本内容
+    outputList: []
+  BrowserSoftware.get_dialog_text:
+    title: 提取网页对话框内容
+    comment: 提取浏览器对象 @{browser_obj} 中已捕获的网页对话框内容，输出至 @{dialog_list}
+    icon: message
+    helpManual: 返回自动处理弹框开启期间捕获的对话框记录列表，每项包含类型（alert/confirm/prompt）、消息内容和输入内容
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择要提取对话框内容的浏览器对象
+      - key: clear
+        title: 获取后清空记录
+        tip: 勾选后获取本次结果时清空已捕获的对话框记录
+    outputList:
+      - key: dialog_list
+        title: 对话框内容列表
+        tip: 每项包含type、message、promptText字段
 options:
   WaitElementForStatusFlag:
     - value: 'y'
@@ -1086,6 +1274,25 @@ options:
       label: 包含
     - value: notexist
       label: 不包含
+  ScrollPositionTypeFlag:
+    - value: current
+      label: 当前位置
+    - value: bottom
+      label: 底部位置
+  WebInfoTypeFlag:
+    - value: url
+      label: 网址
+    - value: title
+      label: 标题
+    - value: source
+      label: 源代码
+    - value: text
+      label: 文本内容
+  DialogButtonTypeFlag:
+    - value: ok
+      label: 确定
+    - value: cancel
+      label: 取消
   Bool:
     - value: true
       label: 是

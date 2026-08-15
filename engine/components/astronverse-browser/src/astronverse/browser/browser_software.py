@@ -16,6 +16,52 @@ from astronverse.software.software import Software
 from astronverse.browser.core.launcher import BrowserLauncher
 
 
+def _copy_image_to_clipboard(image_path: str):
+    """将图片文件复制到系统剪贴板"""
+    if not os.path.exists(image_path):
+        raise BaseException(BROWSER_EXTENSION_ERROR_FORMAT.format(f"图片文件不存在: {image_path}"), "图片文件不存在")
+    if sys.platform == "win32":
+        import io
+
+        import win32clipboard
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            with io.BytesIO() as output:
+                img.save(output, "BMP")
+                bmp_data = output.getvalue()
+        # BMP 文件头 14 字节，CF_DIB 不含文件头
+        dib = bmp_data[14:]
+        win32clipboard.OpenClipboard()
+        try:
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardData(win32clipboard.CF_DIB, dib)
+        finally:
+            win32clipboard.CloseClipboard()
+    elif sys.platform == "darwin":
+        import subprocess
+
+        script = f'set the clipboard to (read (POSIX file "{image_path}") as JPEG picture)'
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            raise BaseException(
+                BROWSER_EXTENSION_ERROR_FORMAT.format(f"复制图片到剪贴板失败: {result.stderr}"),
+                "复制图片到剪贴板失败",
+            )
+    else:
+        raise BaseException(
+            BROWSER_EXTENSION_ERROR_FORMAT.format("当前系统不支持复制图片到剪贴板"),
+            "当前系统不支持复制图片到剪贴板",
+        )
+
+
 class BrowserSoftware:
     @staticmethod
     @atomicMg.atomic(
@@ -436,6 +482,11 @@ class BrowserSoftware:
                     params={"file_type": "folder"},
                 ),
             ),
+            atomicMg.param(
+                "save_to_clipboard",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.CHECKBOX.value),
+                required=False,
+            ),
         ],
         outputList=[
             atomicMg.param("web_screen", types="Str"),
@@ -447,6 +498,7 @@ class BrowserSoftware:
         image_path: str = "",
         image_name: str = "",
         page_timeout: float = 10,
+        save_to_clipboard: bool = False,
     ) -> str:
         """截图网页"""
         if not image_name.endswith((".png", ".jpg", ".jpeg")):
@@ -474,6 +526,8 @@ class BrowserSoftware:
             raise Exception("插件返回数据为空")
         with open(dest_path, "wb") as f:
             f.write(base64.b64decode(data))
+        if save_to_clipboard:
+            _copy_image_to_clipboard(dest_path)
         return dest_path
 
     @staticmethod
@@ -745,3 +799,277 @@ class BrowserSoftware:
             element_timeout=10,
         )
         BrowserCore.upload_window_operate(browser_type=browser_obj.browser_type, upload_path=upload_path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("web_obj_list", types="List"),
+        ],
+    )
+    def get_tab_list(browser_obj: Browser):
+        """获取网页对象列表"""
+        data = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="getAllTabs",
+        )
+        tab_list = []
+        if isinstance(data, list):
+            for tab in data:
+                if not isinstance(tab, dict):
+                    continue
+                tab_list.append(
+                    {
+                        "tabId": tab.get("id"),
+                        "url": tab.get("url", ""),
+                        "title": tab.get("title", ""),
+                        "active": bool(tab.get("active")),
+                    }
+                )
+        return tab_list
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("cookie_name", required=False),
+            atomicMg.param("cookie_domain", required=False),
+            atomicMg.param("cookie_path", required=False),
+        ],
+        outputList=[
+            atomicMg.param("cookie_list", types="List"),
+        ],
+    )
+    def filter_cookies(
+        browser_obj: Browser,
+        url: URL,
+        cookie_name: str = "",
+        cookie_domain: str = "",
+        cookie_path: str = "",
+        page_timeout: float = 10,
+    ):
+        """获取筛选所有Cookie"""
+        data = {"url": str(url)}
+        if cookie_name:
+            data["name"] = cookie_name
+        if cookie_domain:
+            data["domain"] = cookie_domain
+        data["path"] = cookie_path if cookie_path else ""
+        cookies = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="getAllCookies",
+            data=data,
+            timeout=page_timeout,
+        )
+        return cookies if isinstance(cookies, list) else []
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("cookie_path", required=False),
+        ],
+    )
+    def remove_cookie(
+        browser_obj: Browser,
+        url: URL,
+        cookie_name: str,
+        cookie_path: str = "",
+        page_timeout: float = 10,
+    ):
+        """移除Cookie"""
+        browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="removeCookie",
+            data={"url": str(url), "name": cookie_name},
+            timeout=page_timeout,
+        )
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("scroll_position", types="Int"),
+        ],
+    )
+    def get_scroll_position(
+        browser_obj: Browser,
+        direction: ScrollDirection = ScrollDirection.Vertical,
+        position: ScrollPositionTypeFlag = ScrollPositionTypeFlag.Current,
+    ):
+        """获取滚动条位置"""
+        data = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="getScrollPosition",
+            data={"direction": direction.value},
+        )
+        if not isinstance(data, dict):
+            raise BaseException(BROWSER_EXTENSION_ERROR_FORMAT.format("获取滚动条位置失败"), "获取滚动条位置失败")
+        value = data.get(position.value)
+        return int(value) if value is not None else 0
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("web_info", types="Str"),
+        ],
+    )
+    def get_web_info(
+        browser_obj: Browser,
+        info_type: WebInfoTypeFlag = WebInfoTypeFlag.Url,
+    ):
+        """获取网页信息"""
+        data = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="getWebInfo",
+            data={"infoType": info_type.value},
+        )
+        if isinstance(data, dict):
+            return str(data.get("info", ""))
+        return str(data or "")
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("url_filter", required=False),
+        ],
+    )
+    def start_network_monitor(
+        browser_obj: Browser,
+        url_filter: str = "",
+    ):
+        """开始监听网页请求"""
+        filters = []
+        if url_filter:
+            filters.append({"urlPattern": url_filter})
+        browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="startNetworkMonitor",
+            data={"filters": filters},
+            timeout=30,
+        )
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("url_filter", required=False),
+            atomicMg.param("resource_type", required=False),
+        ],
+        outputList=[
+            atomicMg.param("request_list", types="List"),
+        ],
+    )
+    def get_network_data(
+        browser_obj: Browser,
+        url_filter: str = "",
+        resource_type: str = "",
+        clear: bool = True,
+    ):
+        """获取网页监听结果"""
+        data = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="getNetworkData",
+            data={"clear": clear},
+            timeout=30,
+        )
+        result = data if isinstance(data, list) else []
+        if url_filter:
+            import re as _re
+
+            pattern = _re.compile(url_filter)
+            result = [item for item in result if pattern.search(str(item.get("url", "")))]
+        if resource_type:
+            result = [item for item in result if str(item.get("resourceType", "")) == resource_type]
+        return result
+
+    @staticmethod
+    @atomicMg.atomic("BrowserSoftware")
+    def stop_network_monitor(browser_obj: Browser):
+        """停止监听网页请求"""
+        browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="stopNetworkMonitor",
+            timeout=30,
+        )
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param(
+                "enable",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.CHECKBOX.value),
+                required=False,
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.button.show",
+                        expression="return $this.enable.value == true",
+                    ),
+                    DynamicsItem(
+                        key="$this.prompt_text.show",
+                        expression=f"return $this.enable.value == true && $this.button.value == '{DialogButtonTypeFlag.OK.value}'",
+                    ),
+                ],
+            ),
+            atomicMg.param(
+                "button",
+                required=False,
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.button.show",
+                        expression="return $this.enable.value == true",
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "prompt_text",
+                required=False,
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.prompt_text.show",
+                        expression=f"return $this.enable.value == true && $this.button.value == '{DialogButtonTypeFlag.OK.value}'",
+                    )
+                ],
+            ),
+        ],
+    )
+    def set_dialog_handler(
+        browser_obj: Browser,
+        enable: bool = True,
+        button: DialogButtonTypeFlag = DialogButtonTypeFlag.OK,
+        prompt_text: str = "",
+    ):
+        """自动处理网页弹框（alert/confirm/prompt）"""
+        browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="setDialogAuto",
+            data={
+                "enable": enable,
+                "button": button.value,
+                "promptText": prompt_text,
+            },
+            timeout=30,
+        )
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("dialog_list", types="List"),
+        ],
+    )
+    def get_dialog_text(
+        browser_obj: Browser,
+        clear: bool = True,
+    ):
+        """提取网页对话框内容"""
+        data = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="getDialogText",
+            data={"clear": clear},
+            timeout=30,
+        )
+        return data if isinstance(data, list) else []

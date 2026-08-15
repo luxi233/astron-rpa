@@ -328,22 +328,26 @@ const Debugger = {
         return
 
       if (method === 'Network.requestWillBeSent') {
-        const { requestId, request } = params
+        const { requestId, request, type } = params
         if (Debugger.matchesFilter(request.url, request.method)) {
           Debugger.pendingRequests.set(requestId, {
             url: request.url,
             method: request.method,
+            resourceType: type || '',
             timestamp: Date.now(),
           })
         }
       }
 
       if (method === 'Network.responseReceived' || method === 'Network.loadingFinished') {
-        const { requestId, response } = params
+        const { requestId, response, type } = params
         const requestInfo = Debugger.pendingRequests.get(requestId)
 
         if (!requestInfo)
           return
+
+        if (type && !requestInfo.resourceType)
+          requestInfo.resourceType = type
 
         try {
           chrome.debugger.sendCommand(

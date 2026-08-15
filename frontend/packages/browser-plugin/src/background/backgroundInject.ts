@@ -4,10 +4,12 @@ import { Utils } from '../common/utils'
 
 import { Cookie } from './cookie'
 import DataTable from './data_table'
+import { DialogHandler } from './dialog'
 import { adjustPosition, buildFrameTree, calculateAbsolutePosition, findTabAndFrame, getFramePath, getIframeElement } from './iframe'
 import { getSimilarElement, isSameIdStart } from './similar'
 import { Tabs } from './tab'
 import { WindowControl } from './window'
+import { clearNetworkData, getNetworkData, startNetworkMonitor, stopNetworkMonitor } from './network_monitor'
 
 globalThis.activeElement = null
 
@@ -250,6 +252,28 @@ const Handlers = {
         }
         const res = await Tabs.printPage(tab.id, params)
         return Utils.success(res)
+      },
+      async getScrollPosition(params) {
+        const tab = await Tabs.getActiveTab()
+        if (!tab) {
+          return Utils.fail(ErrorMessage.ACTIVE_TAB_ERROR)
+        }
+        const res = await Tabs.sendTabMessage(tab.id, {
+          key: 'getScrollPosition',
+          data: { key: 'getScrollPosition', data: params.data || {} },
+        })
+        return res
+      },
+      async getWebInfo(params) {
+        const tab = await Tabs.getActiveTab()
+        if (!tab) {
+          return Utils.fail(ErrorMessage.ACTIVE_TAB_ERROR)
+        }
+        const res = await Tabs.sendTabMessage(tab.id, {
+          key: 'getWebInfo',
+          data: { key: 'getWebInfo', data: params.data || {} },
+        })
+        return res
       },
     }
   },
@@ -670,6 +694,54 @@ const Handlers = {
     return { ...Cookie }
   },
 
+  networkHandler() {
+    return {
+      async startNetworkMonitor(params) {
+        const tab = await Tabs.getActiveTab()
+        if (!tab) {
+          return Utils.fail(ErrorMessage.ACTIVE_TAB_ERROR)
+        }
+        try {
+          const filters = (params.data && params.data.filters) || []
+          await startNetworkMonitor(tab.id, filters)
+          return Utils.success(true)
+        }
+        catch (error) {
+          return Utils.fail(error.toString(), StatusCode.EXECUTE_ERROR)
+        }
+      },
+      async stopNetworkMonitor() {
+        const tab = await Tabs.getActiveTab()
+        if (!tab) {
+          return Utils.fail(ErrorMessage.ACTIVE_TAB_ERROR)
+        }
+        try {
+          await stopNetworkMonitor(tab.id)
+          return Utils.success(true)
+        }
+        catch (error) {
+          return Utils.fail(error.toString(), StatusCode.EXECUTE_ERROR)
+        }
+      },
+      async getNetworkData(params) {
+        try {
+          const data = getNetworkData()
+          if (params.data && params.data.clear) {
+            clearNetworkData()
+          }
+          return Utils.success(data)
+        }
+        catch (error) {
+          return Utils.fail(error.toString(), StatusCode.EXECUTE_ERROR)
+        }
+      },
+    }
+  },
+
+  dialogHandler() {
+    return { ...DialogHandler }
+  },
+
   otherHandler() {
     return {
       currentExtension() {
@@ -719,6 +791,14 @@ async function bgHandler(params) {
     }
     else if (handlers.cookieHandler()[key]) {
       result = await handlers.cookieHandler()[key](params.data)
+      return result
+    }
+    else if (handlers.networkHandler()[key]) {
+      result = await handlers.networkHandler()[key](params)
+      return result
+    }
+    else if (handlers.dialogHandler()[key]) {
+      result = await handlers.dialogHandler()[key](params)
       return result
     }
     else if (handlers.otherHandler()[key]) {

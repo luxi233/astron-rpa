@@ -327,3 +327,26 @@ class SiblingElementType(Enum):
     All = "all"
     Next = "next"
     Prev = "prev"
+
+
+class ScrollPositionTypeFlag(Enum):
+    """滚动条位置类型标志枚举"""
+
+    Current = "current"  # 当前位置
+    Bottom = "bottom"  # 底部位置
+
+
+class WebInfoTypeFlag(Enum):
+    """网页信息类型枚举"""
+
+    Url = "url"  # 网址
+    Title = "title"  # 标题
+    Source = "source"  # 源代码
+    Text = "text"  # 文本内容
+
+
+class DialogButtonTypeFlag(Enum):
+    """网页对话框按钮枚举"""
+
+    OK = "ok"  # 确定
+    Cancel = "cancel"  # 取消

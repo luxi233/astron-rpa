@@ -102,13 +102,19 @@ atomic:
         tip: ''
   WinEle.similar:
     title: 获取相似元素列表（桌面）
-    comment: 获取拾取到的元素 @{pick} 相似的元素，并将相似元素数组输出至 @{get_similar_ele}
+    comment: 获取拾取到的元素 @{pick} 相似的元素（@{get_type}），并将相似元素数组输出至 @{get_similar_ele}，相似元素个数为@{similar_count}
     icon: get-similar-elements-win
-    helpManual: ''
+    helpManual: 获取桌面窗口中与拾取元素相似的元素列表。支持获取元素对象（可继续点击、悬停等）、获取元素文本内容、获取元素值、获取元素属性四种操作类型
     inputList:
       - key: pick
         title: 相识元素拾取
         tip: 在桌面上拾取不同位置的两个相似元素
+      - key: get_type
+        title: 元素操作
+        tip: 选择对每个相似元素执行的操作
+      - key: attribute_name
+        title: 属性名称
+        tip: 元素操作为获取元素属性时填写，如index(位置)、Name、AutomationId、ClassName、ControlTypeName
       - key: wait_time
         title: 等待元素出现时间（秒）
         tip: 超过该时间停止等待
@@ -116,6 +122,9 @@ atomic:
       - key: get_similar_ele
         title: 元素信息
         tip: ''
+      - key: similar_count
+        title: 相似元素个数
+        tip: 获取到的相似元素列表项个数
   WinEle.contain_element:
     title: IF窗口包含元素
     comment: 当前窗口中是否@{check_type}元素 @{pick}
@@ -136,7 +145,7 @@ atomic:
     title: 循环相似元素列表（win）
     comment: 获取与拾取元素 @{pick} 相似的窗口元素（@{get_type}），从起始项@{start}到结束项@{end}进行循环操作，输出循环项至@{item}，循环项位置为@{index}
     icon: get-similar-elements-win
-    helpManual: 依次循环窗口中相似元素列表的每一项进行自动化操作。支持获取元素对象（可继续点击、悬停等）、获取元素文本内容、获取元素值三种操作类型
+    helpManual: 依次循环窗口中相似元素列表的每一项进行自动化操作。支持获取元素对象（可继续点击、悬停等）、获取元素文本内容、获取元素值、获取元素属性四种操作类型
     inputList:
       - key: pick
         title: 相似元素拾取
@@ -144,6 +153,9 @@ atomic:
       - key: get_type
         title: 元素操作
         tip: 选择循环时对每个相似元素执行的操作
+      - key: attribute_name
+        title: 属性名称
+        tip: 元素操作为获取元素属性时填写，如index(位置)、Name、AutomationId、ClassName、ControlTypeName
       - key: start
         title: 起始位置
         tip: 下标位置从0开始
@@ -210,6 +222,8 @@ options:
       label: 获取元素文本内容
     - value: getValue
       label: 获取元素值
+    - value: getAttribute
+      label: 获取元素属性
   Bool:
     - value: true
       label: 是

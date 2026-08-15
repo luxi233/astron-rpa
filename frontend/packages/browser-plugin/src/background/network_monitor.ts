@@ -226,7 +226,7 @@ class FirefoxNetworkMonitor {
    * Handle requests before they are sent
    */
   private onBeforeRequest(details: any): void {
-    const { requestId, url, method, requestBody, timeStamp } = details
+    const { requestId, url, method, requestBody, timeStamp, type } = details
 
     // Check if the request matches the filters
     if (!this.matchesFilter(url, method)) {
@@ -238,6 +238,7 @@ class FirefoxNetworkMonitor {
       url,
       method,
       requestBody,
+      resourceType: type || '',
       timestamp: timeStamp,
     })
 
@@ -373,6 +374,7 @@ class FirefoxNetworkMonitor {
       url,
       method,
       status: statusCode,
+      resourceType: requestInfo.resourceType || '',
       responseBody,
       responseHeaders: requestInfo.responseHeaders || {},
       timestamp: requestInfo.timestamp,

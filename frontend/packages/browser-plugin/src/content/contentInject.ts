@@ -1162,6 +1162,38 @@ const ContentHandler = {
     getDPR: () => {
       return { dpr: window.devicePixelRatio }
     },
+
+    getScrollPosition: (raw: { direction?: string, data?: { direction?: string } }) => {
+      const data = raw && raw.data && typeof raw.data === 'object' ? raw.data : raw
+      const scrollable = document.compatMode === 'BackCompat' ? document.body : document.documentElement
+      if (data && data.direction === 'horizontal') {
+        return {
+          current: Math.round(window.scrollX),
+          bottom: Math.round(scrollable.scrollWidth - scrollable.clientWidth),
+        }
+      }
+      return {
+        current: Math.round(window.scrollY),
+        bottom: Math.round(scrollable.scrollHeight - scrollable.clientHeight),
+      }
+    },
+
+    getWebInfo: (raw: { infoType?: string, data?: { infoType?: string } }) => {
+      const data = raw && raw.data && typeof raw.data === 'object' ? raw.data : raw
+      if (data && data.infoType === 'source') {
+        return { info: document.documentElement.outerHTML }
+      }
+      if (data && data.infoType === 'text') {
+        return { info: document.body ? document.body.innerText : '' }
+      }
+      if (data && data.infoType === 'url') {
+        return { info: window.location.href }
+      }
+      if (data && data.infoType === 'title') {
+        return { info: document.title }
+      }
+      return { info: '' }
+    },
   },
 }
 

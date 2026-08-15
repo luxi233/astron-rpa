@@ -1,4 +1,5 @@
 import os
+import random
 import time
 
 import pyautogui
@@ -21,6 +22,30 @@ from astronverse.winelement.core_win import WinEleCore
 from astronverse.winelement.error import *
 
 WinEleCore: IWinEleCore = WinEleCore()
+
+
+def _send_keys_human(text: str):
+    """模拟真人区间内逐字符随机间隔输入，区间外一次性发送"""
+    import uiautomation
+
+    text = str(text)
+    if not text:
+        return
+    if not human_sim.active:
+        uiautomation.SendKeys(text)
+        return
+    for char in text:
+        uiautomation.SendKeys(char, interval=0)
+        time.sleep(random.uniform(0, 0.1))
+
+
+def _get_element_attribute(control, attribute_name: str, index: int):
+    """获取桌面元素属性；index 返回元素在相似元素组中的位置（从0开始）"""
+    if not attribute_name:
+        return ""
+    if attribute_name == "index":
+        return index
+    return getattr(control, attribute_name, "")
 
 
 class WinEle:
@@ -188,11 +213,11 @@ class WinEle:
             pyautogui.press("end")
 
         if input_type == ElementInputType.KEYBOARD:
-            uiautomation.SendKeys(text)
+            _send_keys_human(text)
         elif input_type == ElementInputType.CLIPBOARD:
             pyautogui.hotkey("ctrl", "v")
         elif input_type == ElementInputType.Credential:
-            uiautomation.SendKeys(Credential.get_credential(credential_text))
+            _send_keys_human(Credential.get_credential(credential_text))
 
     @staticmethod
     @atomicMg.atomic(
@@ -212,11 +237,34 @@ class WinEle:
     @staticmethod
     @atomicMg.atomic(
         "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param("get_type", formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value)),
+            atomicMg.param(
+                "attribute_name",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.attribute_name.show",
+                        expression="return $this.get_type.value == '{}'".format(WinLoopGetTypeFlag.GetAttribute.value),
+                    )
+                ],
+            ),
+        ],
         outputList=[
             atomicMg.param("get_similar_ele", types="List"),
+            atomicMg.param("similar_count", types="Int"),
         ],
     )
-    def similar(pick: WinPick, wait_time: int = 10) -> list:
+    def similar(
+        pick: WinPick,
+        get_type: WinLoopGetTypeFlag = WinLoopGetTypeFlag.GetElement,
+        attribute_name: str = "",
+        wait_time: int = 10,
+    ):
+        """获取相似元素列表（桌面窗口）"""
         if pick.get("elementData", {}).get("type", None) != PickerDomain.UIA.value:
             raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
 
@@ -225,11 +273,27 @@ class WinEle:
         if locator_list:
             if not isinstance(locator_list, list):
                 locator_list = [locator_list]
-            for locator in locator_list:
-                win_pick = WinPick()
-                win_pick.locator = locator
-                res_list.append(win_pick)
-        return res_list
+            for i, locator in enumerate(locator_list):
+                if get_type == WinLoopGetTypeFlag.GetElement:
+                    win_pick = WinPick()
+                    win_pick.locator = locator
+                    item = win_pick
+                else:
+                    control = locator.control()
+                    if get_type == WinLoopGetTypeFlag.GetText:
+                        item = control.Name
+                    elif get_type == WinLoopGetTypeFlag.GetValue:
+                        try:
+                            item = control.GetValuePattern().Value
+                        except Exception:
+                            try:
+                                item = control.GetLegacyIAccessiblePattern().Value
+                            except Exception:
+                                item = ""
+                    else:  # GetAttribute
+                        item = _get_element_attribute(control, attribute_name, i)
+                res_list.append(item)
+        return res_list, len(res_list)
 
     @staticmethod
     @atomicMg.atomic(
@@ -241,6 +305,15 @@ class WinEle:
                 formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
             ),
             atomicMg.param("get_type", formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value)),
+            atomicMg.param(
+                "attribute_name",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.attribute_name.show",
+                        expression="return $this.get_type.value == '{}'".format(WinLoopGetTypeFlag.GetAttribute.value),
+                    )
+                ],
+            ),
             atomicMg.param("start", types="Int"),
             atomicMg.param("end", types="Int"),
             atomicMg.param("wait_time", types="Float"),
@@ -253,6 +326,7 @@ class WinEle:
     def loop_similar(
         pick: WinPick,
         get_type: WinLoopGetTypeFlag = WinLoopGetTypeFlag.GetElement,
+        attribute_name: str = "",
         start: int = 0,
         end: int = -1,
         wait_time: float = 10.0,
@@ -283,7 +357,7 @@ class WinEle:
                     control = locator.control()
                     if get_type == WinLoopGetTypeFlag.GetText:
                         item = control.Name
-                    else:  # GetValue
+                    elif get_type == WinLoopGetTypeFlag.GetValue:
                         try:
                             item = control.GetValuePattern().Value
                         except Exception:
@@ -291,6 +365,8 @@ class WinEle:
                                 item = control.GetLegacyIAccessiblePattern().Value
                             except Exception:
                                 item = ""
+                    else:  # GetAttribute
+                        item = _get_element_attribute(control, attribute_name, count - 1)
                 yield count, item
 
         return get_iterator()

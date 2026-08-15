@@ -45,3 +45,4 @@ class WinLoopGetTypeFlag(Enum):
     GetElement = "getElement"  # 获取元素对象
     GetText = "getText"  # 获取元素文本内容
     GetValue = "getValue"  # 获取元素值
+    GetAttribute = "getAttribute"  # 获取元素属性

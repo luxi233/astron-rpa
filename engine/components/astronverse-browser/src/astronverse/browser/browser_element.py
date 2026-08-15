@@ -676,6 +676,7 @@ class BrowserElement:
         ],
         outputList=[
             atomicMg.param("get_similar_ele", types="List"),
+            atomicMg.param("similar_count", types="Int"),
         ],
     )
     def similar(
@@ -684,7 +685,7 @@ class BrowserElement:
         get_type: ElementGetAttributeHasSelfTypeFlag = ElementGetAttributeHasSelfTypeFlag.GetElement,
         attribute_name: str = "",
         element_timeout: int = 10,
-    ) -> list:
+    ):
         """
         获取相似元素列表
         """
@@ -710,7 +711,7 @@ class BrowserElement:
                         }
                     }
                 )
-            return res_list
+            return res_list, len(res_list)
 
         res_list = []
         for di in data:
@@ -726,7 +727,7 @@ class BrowserElement:
                 },
             )
             res_list.append(data)
-        return res_list
+        return res_list, len(res_list)
 
     @staticmethod
     @atomicMg.atomic(

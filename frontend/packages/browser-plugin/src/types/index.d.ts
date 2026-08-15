@@ -229,6 +229,7 @@ interface NetworkRequestData {
   url: string
   method: string
   status: number
+  resourceType?: string
   responseBody?: any
   responseHeaders?: Record<string, string>
   timestamp: number
