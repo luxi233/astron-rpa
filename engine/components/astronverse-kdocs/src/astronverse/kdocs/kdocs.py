@@ -272,7 +272,9 @@ class Kdocs:
             atomicMg.param("replace_result", types="Bool"),
         ],
     )
-    def replace(wps_client: WpsHookClient, sheet_name: str, range_address: str = "", find_text: str = "", replace_text: str = ""):
+    def replace(
+        wps_client: WpsHookClient, sheet_name: str, range_address: str = "", find_text: str = "", replace_text: str = ""
+    ):
         """查找替换
 
         range_address 为空时在整个已使用区域内查找替换

@@ -84,7 +84,7 @@ async function copyGuideScript() {
       guideCopied.value = false
     }, 2000)
   }
-  catch (e) {
+  catch {
     message.error('复制失败，请手动全选复制')
   }
 }
