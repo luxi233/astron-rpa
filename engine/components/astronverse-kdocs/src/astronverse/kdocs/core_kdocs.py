@@ -204,7 +204,7 @@ class WpsHookClient:
             ACTION_READ,
             sheet_name=sheet_name,
             range_address=range_address,
-            read_text=bool(read_text),
+            extra={"read_text": bool(read_text)},
         )
 
     def write(self, sheet_name, range_address, write_value):
