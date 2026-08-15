@@ -832,9 +832,11 @@ class BrowserSoftware:
     @atomicMg.atomic(
         "BrowserSoftware",
         inputList=[
+            atomicMg.param("url", required=True),
             atomicMg.param("cookie_name", required=False),
             atomicMg.param("cookie_domain", required=False),
             atomicMg.param("cookie_path", required=False),
+            atomicMg.param("page_timeout", required=False),
         ],
         outputList=[
             atomicMg.param("cookie_list", types="List"),
@@ -867,27 +869,41 @@ class BrowserSoftware:
     @atomicMg.atomic(
         "BrowserSoftware",
         inputList=[
+            atomicMg.param("url", required=True),
+            atomicMg.param("cookie_name", required=True),
+            atomicMg.param("cookie_domain", required=False),
             atomicMg.param("cookie_path", required=False),
+            atomicMg.param("page_timeout", required=False),
         ],
     )
     def remove_cookie(
         browser_obj: Browser,
         url: URL,
         cookie_name: str,
+        cookie_domain: str = "",
         cookie_path: str = "",
         page_timeout: float = 10,
     ):
         """移除Cookie"""
+        data = {"url": str(url), "name": cookie_name}
+        if cookie_domain:
+            data["domain"] = cookie_domain
+        if cookie_path:
+            data["path"] = cookie_path
         browser_obj.send_browser_extension(
             browser_type=browser_obj.browser_type.value,
             key="removeCookie",
-            data={"url": str(url), "name": cookie_name},
+            data=data,
             timeout=page_timeout,
         )
 
     @staticmethod
     @atomicMg.atomic(
         "BrowserSoftware",
+        inputList=[
+            atomicMg.param("direction", required=False),
+            atomicMg.param("position", required=False),
+        ],
         outputList=[
             atomicMg.param("scroll_position", types="Int"),
         ],
@@ -911,6 +927,9 @@ class BrowserSoftware:
     @staticmethod
     @atomicMg.atomic(
         "BrowserSoftware",
+        inputList=[
+            atomicMg.param("info_type", required=False),
+        ],
         outputList=[
             atomicMg.param("web_info", types="Str"),
         ],
@@ -957,6 +976,11 @@ class BrowserSoftware:
         inputList=[
             atomicMg.param("url_filter", required=False),
             atomicMg.param("resource_type", required=False),
+            atomicMg.param(
+                "clear",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.CHECKBOX.value),
+                required=False,
+            ),
         ],
         outputList=[
             atomicMg.param("request_list", types="List"),
@@ -1057,6 +1081,13 @@ class BrowserSoftware:
     @staticmethod
     @atomicMg.atomic(
         "BrowserSoftware",
+        inputList=[
+            atomicMg.param(
+                "clear",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.CHECKBOX.value),
+                required=False,
+            ),
+        ],
         outputList=[
             atomicMg.param("dialog_list", types="List"),
         ],

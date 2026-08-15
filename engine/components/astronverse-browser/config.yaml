@@ -1121,7 +1121,9 @@ atomic:
         tip: 每项包含name、value、domain、path等字段
   BrowserSoftware.remove_cookie:
     title: 移除Cookie
-    comment: 移除浏览器对象 @{browser_obj} 中 @{url} 的名称为 @{cookie_name} 的Cookie
+    comment: >-
+      移除浏览器对象 @{browser_obj} 中 @{url} 的名称为 @{cookie_name} 的Cookie，
+      可按域名 @{cookie_domain} 、路径 @{cookie_path} 精准筛选
     icon: remove
     helpManual: ''
     inputList:
@@ -1133,7 +1135,10 @@ atomic:
         tip: ''
       - key: cookie_name
         title: cookie名称
-        tip: 要移除的cookie名称
+        tip: 要移除的cookie名称（必填）
+      - key: cookie_domain
+        title: cookie域名
+        tip: 按域名精准匹配，留空则不限制域名
       - key: cookie_path
         title: cookie路径
         tip: 按路径筛选，留空则不做限制
