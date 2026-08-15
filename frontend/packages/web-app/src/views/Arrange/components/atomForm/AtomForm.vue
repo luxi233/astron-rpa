@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { message } from 'ant-design-vue'
 import { useTranslation } from 'i18next-vue'
 import type { Ref } from 'vue'
 import { computed, inject, onMounted, ref, watch } from 'vue'
@@ -28,6 +29,65 @@ const formattedTabs = computed(() => {
     value: index,
   }))
 })
+
+interface AtomGuide {
+  title?: string
+  steps?: string[]
+  script?: string
+}
+
+// 解析原子组件 helpManual 中嵌入的设置指南（{"guide": {"title","steps","script"}}）
+const atomGuide = computed<AtomGuide | null>(() => {
+  const raw = flowStore.activeAtom?.helpManual
+  if (!raw)
+    return null
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    const guide = parsed?.guide
+    if (guide && ((Array.isArray(guide.steps) && guide.steps.length > 0) || guide.script))
+      return guide
+  }
+  catch (error) {
+    console.error('解析 helpManual 设置指南失败:', error)
+  }
+  return null
+})
+
+const guideVisible = ref(false)
+const guideCopied = ref(false)
+
+function openGuide() {
+  guideVisible.value = true
+}
+
+async function copyGuideScript() {
+  const script = atomGuide.value?.script
+  if (!script)
+    return
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(script)
+    }
+    else {
+      const textarea = document.createElement('textarea')
+      textarea.value = script
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    guideCopied.value = true
+    message.success('脚本已复制到剪贴板')
+    setTimeout(() => {
+      guideCopied.value = false
+    }, 2000)
+  }
+  catch (e) {
+    message.error('复制失败，请手动全选复制')
+  }
+}
 
 watch(() => flowStore.activeAtom, (newVal) => {
   if (!newVal?.key) {
@@ -92,12 +152,49 @@ onMounted(() => {
         v-for="item in atomTab[activeKey]?.params" :key="item.key"
         class="tab-container text-[#333] dark:text-[rgba(255,255,255,0.45)]"
       >
-        <label v-if="item.name" class="tab-container-label dark:text-[rgba(255,255,255,0.85)] font-bold flex">
+        <label v-if="item.name" class="tab-container-label dark:text-[rgba(255,255,255,0.85)] font-bold flex items-center">
           {{ item.name[i18next.language] }}
+          <span
+            v-if="item.key.startsWith('input') && atomGuide"
+            class="ml-2 text-[12px] font-normal text-[#1677ff] dark:text-[#69b1ff] cursor-pointer hover:opacity-75 select-none"
+            @click.stop="openGuide"
+          >
+            设置指南
+          </span>
         </label>
         <AtomFormList :atom-form="item.formItems" />
       </article>
     </section>
+
+    <a-modal
+      v-model:open="guideVisible"
+      :title="atomGuide?.title || '设置指南'"
+      :width="720"
+      :footer="null"
+      class="atom-guide-modal"
+    >
+      <div class="atom-guide-content">
+        <ol v-if="atomGuide?.steps?.length" class="atom-guide-steps">
+          <li v-for="(step, index) in atomGuide.steps" :key="index" class="atom-guide-step text-[#333] dark:text-[rgba(255,255,255,0.85)]">
+            {{ step }}
+          </li>
+        </ol>
+        <div v-if="atomGuide?.script" class="atom-guide-script">
+          <div class="atom-guide-script-header">
+            <span class="atom-guide-script-title text-[#333] dark:text-[rgba(255,255,255,0.85)]">AirScript 脚本（全选复制后粘贴到 WPS 脚本编辑器）</span>
+            <a-button size="small" type="primary" @click="copyGuideScript">
+              {{ guideCopied ? '已复制' : '一键复制' }}
+            </a-button>
+          </div>
+          <textarea
+            :value="atomGuide.script"
+            readonly
+            class="atom-guide-script-textarea text-[#333] dark:text-[rgba(255,255,255,0.85)] bg-[#f5f5f5] dark:bg-[#2a2a2a] dark:border-[#444]"
+            @click="$event.target.select()"
+          />
+        </div>
+      </div>
+    </a-modal>
   </section>
 </template>
 
@@ -145,6 +242,48 @@ onMounted(() => {
     border-top-left-radius: 5px;
     border-bottom-left-radius: 5px;
     z-index: 3;
+  }
+}
+
+.atom-guide-content {
+  .atom-guide-steps {
+    margin: 0 0 16px;
+    padding-left: 20px;
+
+    .atom-guide-step {
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+  }
+
+  .atom-guide-script-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+
+    .atom-guide-script-title {
+      font-weight: 500;
+    }
+  }
+
+  .atom-guide-script-textarea {
+    width: 100%;
+    height: 320px;
+    padding: 12px;
+    box-sizing: border-box;
+    font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    resize: vertical;
+    outline: none;
+    white-space: pre;
+
+    &:focus {
+      border-color: #1677ff;
+    }
   }
 }
 </style>
