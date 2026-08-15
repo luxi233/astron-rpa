@@ -1,4 +1,6 @@
 import os
+import random
+import time
 
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
@@ -12,6 +14,77 @@ ScreenShotCore = ScreenShotCore()
 
 
 class System:
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param("wait_type"),
+            atomicMg.param(
+                "delay",
+                types="Float",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.delay.show",
+                        expression="return $this.wait_type.value == '{}'".format(WaitType.FIXED.value),
+                    )
+                ],
+                required=True,
+            ),
+            atomicMg.param(
+                "min_delay",
+                types="Float",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.min_delay.show",
+                        expression="return $this.wait_type.value == '{}'".format(WaitType.RANDOM.value),
+                    )
+                ],
+                required=True,
+            ),
+            atomicMg.param(
+                "max_delay",
+                types="Float",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.max_delay.show",
+                        expression="return $this.wait_type.value == '{}'".format(WaitType.RANDOM.value),
+                    )
+                ],
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("wait_seconds", types="Float"),
+        ],
+    )
+    def wait(
+        wait_type: WaitType = WaitType.FIXED,
+        delay: float = 1,
+        min_delay: float = 1,
+        max_delay: float = 5,
+    ):
+        """
+        等待指定时长后继续执行流程
+        """
+        if wait_type == WaitType.RANDOM:
+            min_value = float(min_delay)
+            max_value = float(max_delay)
+            if min_value < 0 or max_value < 0:
+                raise ValueError("随机等待时长不能为负数，请检查最小时长与最大时长设置")
+            if min_value > max_value:
+                raise ValueError("最小时长{}秒不能大于最大时长{}秒".format(min_value, max_value))
+            wait_seconds = round(random.uniform(min_value, max_value), 3)
+        else:
+            wait_seconds = float(delay)
+            if wait_seconds < 0:
+                raise ValueError("等待时长不能为负数，请检查时长设置")
+
+        time.sleep(wait_seconds)
+        return wait_seconds
+
     @staticmethod
     @atomicMg.atomic(
         "System",

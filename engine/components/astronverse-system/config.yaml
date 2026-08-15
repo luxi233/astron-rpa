@@ -111,6 +111,28 @@ atomic:
       - key: uncompress_path
         title: 输出解压后文件路径
         tip: ''
+  System.wait:
+    title: 等待
+    comment: 等待指定时长后继续执行流程，实际等待时长保存至 @{wait_seconds}
+    icon: set-time
+    helpManual: 让流程等待一段时间后再继续执行，支持固定时长与随机时长两种模式。固定时长可直接输入小数实现毫秒级等待（如0.01秒）；随机时长在最小值与最大值之间随机取值，适用于模拟人工操作间隔
+    inputList:
+      - key: wait_type
+        title: 等待方式
+        tip: 选择固定时长或随机时长
+      - key: delay
+        title: 时长(秒)
+        tip: 输入等待时长，单位为秒，支持小数如0.01
+      - key: min_delay
+        title: 最小时长(秒)
+        tip: 随机等待时长的下限，单位为秒
+      - key: max_delay
+        title: 最大时长(秒)
+        tip: 随机等待时长的上限，单位为秒
+    outputList:
+      - key: wait_seconds
+        title: 输出实际等待时长(秒)至变量
+        tip: 流程实际等待的时长，随机模式下为随机取到的时长
   File.file_exist:
     title: IF文件存在
     comment: 判断文件 @{file_path} 是否存在，存在就执行以下操作
@@ -937,6 +959,11 @@ options:
       label: 全屏
     - value: region
       label: 选择区域
+  WaitType:
+    - value: fixed
+      label: 固定时长
+    - value: random
+      label: 随机时长
   PwdType:
     - value: rsa
       label: 密钥

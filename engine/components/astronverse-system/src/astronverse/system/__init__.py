@@ -107,6 +107,11 @@ class ScreenType(Enum):
     REGION = "region"  # 区域
 
 
+class WaitType(Enum):
+    FIXED = "fixed"  # 固定时长
+    RANDOM = "random"  # 随机时长
+
+
 class RunType(Enum):
     CONTINUE = "continue"
     COMPLETE = "complete"
