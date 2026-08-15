@@ -132,6 +132,34 @@ atomic:
         title: 超时时间(秒)
         tip: 在该时间内持续检测，默认10秒
     outputList: []
+  WinEle.loop_similar:
+    title: 循环相似元素列表（win）
+    comment: 获取与拾取元素 @{pick} 相似的窗口元素（@{get_type}），从起始项@{start}到结束项@{end}进行循环操作，输出循环项至@{item}，循环项位置为@{index}
+    icon: get-similar-elements-win
+    helpManual: 依次循环窗口中相似元素列表的每一项进行自动化操作。支持获取元素对象（可继续点击、悬停等）、获取元素文本内容、获取元素值三种操作类型
+    inputList:
+      - key: pick
+        title: 相似元素拾取
+        tip: 在窗口上拾取相似元素
+      - key: get_type
+        title: 元素操作
+        tip: 选择循环时对每个相似元素执行的操作
+      - key: start
+        title: 起始位置
+        tip: 下标位置从0开始
+      - key: end
+        title: 结束位置
+        tip: 下标位置从0开始，-1代表循环至最后一个元素
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: index
+        title: 循环项位置
+        tip: 默认变量可修改，用于遍历列表的变量索引数值
+      - key: item
+        title: 循环项
+        tip: 默认变量可修改，用于遍历列表的变量
 options:
   MouseClickButton:
     - value: left
@@ -175,6 +203,13 @@ options:
       label: 包含
     - value: notcontain
       label: 不包含
+  WinLoopGetTypeFlag:
+    - value: getElement
+      label: 获取元素对象
+    - value: getText
+      label: 获取元素文本内容
+    - value: getValue
+      label: 获取元素值
   Bool:
     - value: true
       label: 是

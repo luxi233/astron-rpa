@@ -17,6 +17,7 @@ class TokenType(Enum):
     IfEnd = "Code.IfEnd"
 
     While = "Code.While"
+    Infinite = "Code.Infinite"
     ForStep = "Code.ForStep"
     ForList = "Code.ForList"
     ForDict = "Code.ForDict"
@@ -71,6 +72,7 @@ special_token_type_end = {
     TokenType.ForList.value: [TokenType.ForEnd.value],
     TokenType.ForDict.value: [TokenType.ForEnd.value],
     TokenType.While.value: [TokenType.ForEnd.value],
+    TokenType.Infinite.value: [TokenType.ForEnd.value],
 }
 
 exist_atomic_dict = [
@@ -88,4 +90,5 @@ for_atomic_dict = [
     "Excel.loop_excel_content",
     "BrowserElement.loop_similar",
     "DataTable.loop_data_table",
+    "WinEle.loop_similar",
 ]

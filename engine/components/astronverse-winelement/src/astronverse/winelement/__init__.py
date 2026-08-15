@@ -37,3 +37,11 @@ class ElementContainTypeFlag(Enum):
 
     CONTAIN = "contain"  # 包含
     NOT_CONTAIN = "notcontain"  # 不包含
+
+
+class WinLoopGetTypeFlag(Enum):
+    """窗口相似元素循环操作类型枚举"""
+
+    GetElement = "getElement"  # 获取元素对象
+    GetText = "getText"  # 获取元素文本内容
+    GetValue = "getValue"  # 获取元素值

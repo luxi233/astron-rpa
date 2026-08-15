@@ -23,6 +23,7 @@ export const ForDataTableLoop = 'DataTable.loop_data_table'
 export const ForListEnd = 'Code.ForListEnd'
 export const While = 'Code.While'
 export const WhileEnd = 'Code.WhileEnd'
+export const Infinite = 'Code.Infinite' // 无限循环
 export const ForEnd = 'Code.ForEnd'
 // const Netbreak = 'Code.Netbreak'  // 网络断联检测 TODO
 // const NetbreakEnd =  'Code.NetbreakEnd'
@@ -38,6 +39,7 @@ export const WindowExist = 'Window.exist'
 export const BrowserElementVisible = 'BrowserElement.element_visible' // IF元素可见(web)
 export const BrowserTextExist = 'BrowserElement.text_exist' // IF网页包含文本
 export const WinContainElement = 'WinEle.contain_element' // IF窗口包含元素
+export const WinLoopSimilar = 'WinEle.loop_similar' // 循环相似元素列表(win)
 export const CvOcrTextExist = 'CV.ocr_text_exist' // IF屏幕文本存在(OCR)
 export const Process = 'Script.process' // 运行子流程
 export const ProcessOld = 'Code.Process' // 运行子流程（旧版子流程Key）
@@ -75,7 +77,9 @@ export const LOOP_END_MAP = {
   [ForExcelContent]: ForEnd,
   [ForBrowserSimilar]: ForEnd,
   [ForDataTableLoop]: ForEnd,
+  [WinLoopSimilar]: ForEnd,
   [While]: ForEnd,
+  [Infinite]: ForEnd,
   [Group]: GroupEnd,
   // [Netbreak]: NetbreakEnd,  // 网络断联检测 TODO
   [CvImageExist]: IfEnd,
@@ -139,8 +143,10 @@ export const CONVERT_MAP = {
   [ForExcelContent]: FOR_EXCEL_CONTENT,
   [ForBrowserSimilar]: FOR_BRO_SIMILAR,
   [ForDataTableLoop]: FOR_DATA_TABLE_LOOP,
+  [WinLoopSimilar]: FOR_BRO_SIMILAR,
   [ForEnd]: FOR_END_TEXT,
   [While]: WHILE_TEXT,
+  [Infinite]: WHILE_TEXT,
   [Group]: GROUP_TEXT,
   [GroupEnd]: GROUP_END_TEXT,
   [CvImageExist]: IF_TEXT,

@@ -51,6 +51,7 @@ class Parser:
         self.register_prefix(TokenType.Return, self.__parse_return__)
         self.register_prefix(TokenType.Continue, self.__parse_continue__)
         self.register_prefix(TokenType.While, self.__parse_while__)
+        self.register_prefix(TokenType.Infinite, self.__parse_while__)
         self.register_prefix(TokenType.If, self.__parse_if__)
         self.register_prefix(TokenType.IfMulti, self.__parse_if__)
         self.register_prefix(TokenType.ForStep, self.__parse_for__)

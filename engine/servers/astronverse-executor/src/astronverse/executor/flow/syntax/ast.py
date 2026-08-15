@@ -528,11 +528,14 @@ class While(Node):
 
     def display(self, svc, tab_num=0):
         code_lines = []
-        self.__arguments__ = svc.param.parse_input(self.token)
-        arguments = [i.show() for i in self.__arguments__.values()]
 
         # while块
-        code_lines.append(CodeLine(tab_num, "while consequence({}):".format(", ".join(arguments))))
+        if self.token.type == TokenType.Infinite.value:
+            code_lines.append(CodeLine(tab_num, "while True:"))
+        else:
+            self.__arguments__ = svc.param.parse_input(self.token)
+            arguments = [i.show() for i in self.__arguments__.values()]
+            code_lines.append(CodeLine(tab_num, "while consequence({}):".format(", ".join(arguments))))
 
         # body块
         if self.body:

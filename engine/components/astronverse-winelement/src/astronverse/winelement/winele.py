@@ -13,6 +13,7 @@ from astronverse.winelement import (
     MouseClickButton,
     MouseClickKeyboard,
     MouseClickType,
+    WinLoopGetTypeFlag,
 )
 from astronverse.winelement.core import IWinEleCore
 from astronverse.winelement.core_win import WinEleCore
@@ -215,6 +216,70 @@ class WinEle:
                 win_pick.locator = locator
                 res_list.append(win_pick)
         return res_list
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        noAdvanced=True,
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param("get_type", formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value)),
+            atomicMg.param("start", types="Int"),
+            atomicMg.param("end", types="Int"),
+            atomicMg.param("wait_time", types="Float"),
+        ],
+        outputList=[
+            atomicMg.param("index", types="Int"),
+            atomicMg.param("item", types="Any"),
+        ],
+    )
+    def loop_similar(
+        pick: WinPick,
+        get_type: WinLoopGetTypeFlag = WinLoopGetTypeFlag.GetElement,
+        start: int = 0,
+        end: int = -1,
+        wait_time: float = 10.0,
+    ):
+        """循环相似元素（桌面窗口）"""
+        if pick.get("elementData", {}).get("type", None) != PickerDomain.UIA.value:
+            raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
+
+        def get_iterator():
+            locator_list = WinEleCore.find(pick, wait_time)
+            if not locator_list:
+                return
+            if not isinstance(locator_list, list):
+                locator_list = [locator_list]
+            count = 0
+            for locator in locator_list:
+                if count < start:
+                    count += 1
+                    continue
+                if 0 < end <= count:
+                    return
+                count += 1
+                if get_type == WinLoopGetTypeFlag.GetElement:
+                    win_pick = WinPick()
+                    win_pick.locator = locator
+                    item = win_pick
+                else:
+                    control = locator.control()
+                    if get_type == WinLoopGetTypeFlag.GetText:
+                        item = control.Name
+                    else:  # GetValue
+                        try:
+                            item = control.GetValuePattern().Value
+                        except Exception:
+                            try:
+                                item = control.GetLegacyIAccessiblePattern().Value
+                            except Exception:
+                                item = ""
+                yield count, item
+
+        return get_iterator()
 
     @staticmethod
     @atomicMg.atomic(
