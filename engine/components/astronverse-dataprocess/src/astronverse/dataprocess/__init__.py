@@ -202,3 +202,41 @@ class TimeUnitType(Enum):
     DAY = "day"
     MONTH = "month"
     YEAR = "year"
+
+
+class ExtremumType(Enum):
+    """列表最值类型枚举。"""
+
+    MAX = "max"
+    MIN = "min"
+
+
+class ConvertDirectionType(Enum):
+    """列表项类型转换方向枚举。"""
+
+    STR_TO_NUMBER = "str_to_number"
+    NUMBER_TO_STR = "number_to_str"
+
+
+class ContainModeType(Enum):
+    """列表项判断包含模式枚举。"""
+
+    ITEM_CONTAINS_TEXT = "item_contains_text"
+    TEXT_CONTAINS_ITEM = "text_contains_item"
+
+
+class Filter2DOperatorType(Enum):
+    """二维列表筛选操作符枚举。"""
+
+    EQUAL = "equal"
+    NOT_EQUAL = "not_equal"
+    GREATER = "greater"
+    GREATER_EQUAL = "greater_equal"
+    LESS = "less"
+    LESS_EQUAL = "less_equal"
+    CONTAINS = "contains"
+    NOT_CONTAINS = "not_contains"
+    STARTS_WITH = "starts_with"
+    ENDS_WITH = "ends_with"
+    IS_EMPTY = "is_empty"
+    NOT_EMPTY = "not_empty"
