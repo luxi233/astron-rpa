@@ -6,8 +6,9 @@ from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.types import PATH, WebPick
 from astronverse.baseline.logger.logger import logger
 from astronverse.browser import *
-from astronverse.browser.error import *
 from astronverse.browser.browser import Browser
+from astronverse.browser.browser_script import eval_js_code
+from astronverse.browser.error import *
 from astronverse.browser.utils.table_filter import (
     DataFilter,
     page_values_merge,
@@ -1755,3 +1756,103 @@ class BrowserElement:
         except Exception:
             element_exist = False
         return element_exist
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "element_data",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param(
+                "check_type",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value),
+            ),
+            atomicMg.param("wait_time", types="Float"),
+        ],
+    )
+    def element_visible(
+        browser_obj: Browser,
+        element_data: WebPick,
+        check_type: ElementVisibleTypeFlag = ElementVisibleTypeFlag.VISIBLE,
+        wait_time: float = 10,
+    ) -> bool:
+        """
+        判断元素在网页中是否可见
+        """
+        browser_obj = check_element(browser_obj, element_data, 0)
+        wait_time = max(0, float(wait_time))
+        while wait_time >= 0:
+            start = time.time()
+            try:
+                visible = browser_obj.send_browser_extension(
+                    browser_type=browser_obj.browser_type.value,
+                    key="elementIsRender",
+                    data=element_data["elementData"]["path"],
+                )
+            except Exception:
+                visible = False
+            if check_type == ElementVisibleTypeFlag.VISIBLE and visible:
+                return True
+            if check_type == ElementVisibleTypeFlag.INVISIBLE and not visible:
+                return True
+            if time.time() - start >= wait_time:
+                break
+            time.sleep(0.3)
+            wait_time = wait_time - (time.time() - start)
+        return False
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "text",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "check_type",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value),
+            ),
+            atomicMg.param("wait_time", types="Float"),
+        ],
+    )
+    def text_exist(
+        browser_obj: Browser,
+        text: str,
+        check_type: WebTextExistTypeFlag = WebTextExistTypeFlag.EXIST,
+        wait_time: float = 10,
+    ) -> bool:
+        """
+        判断网页中是否包含指定文本
+        """
+        if not browser_obj:
+            browser_obj = get_default_browser()
+        js_code = "function main(){ return document.body.innerText; }" + eval_js_code(False)
+        wait_time = max(0, float(wait_time))
+        while wait_time >= 0:
+            start = time.time()
+            try:
+                res = browser_obj.send_browser_extension(
+                    browser_type=browser_obj.browser_type.value,
+                    key="runJS",
+                    data={"code": js_code},
+                )
+                page_text = str(res) if res is not None else ""
+            except Exception:
+                page_text = ""
+            found = str(text) in page_text
+            if check_type == WebTextExistTypeFlag.EXIST and found:
+                return True
+            if check_type == WebTextExistTypeFlag.NOT_EXIST and not found:
+                return True
+            if time.time() - start >= wait_time:
+                break
+            time.sleep(0.3)
+            wait_time = wait_time - (time.time() - start)
+        return False

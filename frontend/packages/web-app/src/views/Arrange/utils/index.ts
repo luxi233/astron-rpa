@@ -6,7 +6,7 @@ import { atomScrollIntoViewKey } from '@/constants/eventBusKey'
 import { useFlowStore } from '@/stores/useFlowStore'
 import { useProcessStore } from '@/stores/useProcessStore'
 import useProjectDocStore from '@/stores/useProjectDocStore'
-import { Catch, CONVERT_MAP, CvImageExist, Else, ElseIf, FileExist, Finally, FolderExist, ForDict, ForEnd, ForList, ForStep, Group, GroupEnd, If, IfEnd, Module, Process, ProcessOld, Try, TryEnd, While, WindowExist } from '@/views/Arrange/config/atomKeyMap'
+import { BrowserElementVisible, BrowserTextExist, Catch, CONVERT_MAP, CvImageExist, CvOcrTextExist, Else, ElseIf, ElseIfMulti, FileExist, Finally, FolderExist, ForDict, ForEnd, ForList, ForStep, Group, GroupEnd, If, IfEnd, IfMulti, Module, Process, ProcessOld, Try, TryEnd, While, WinContainElement, WindowExist } from '@/views/Arrange/config/atomKeyMap'
 
 import { defaultValueText, elementTag } from '../config/flow'
 
@@ -134,12 +134,12 @@ export function generateAtomLevel(curAtomKey: string, curAtomIdx: number, preKey
   const parent = res > -1 ? levelPos[arr[res]] : null
   const cur = CONVERT_MAP[curAtomKey]
   if (!cur) {
-    return [If, Else, ElseIf, Try, Catch, Finally, ForStep, ForDict, ForList, While, Group, CvImageExist, FileExist, FolderExist, WindowExist].includes(preKey) ? preLevel + 1 : preLevel
+    return [If, IfMulti, Else, ElseIf, ElseIfMulti, Try, Catch, Finally, ForStep, ForDict, ForList, While, Group, CvImageExist, FileExist, FolderExist, WindowExist, BrowserElementVisible, BrowserTextExist, WinContainElement, CvOcrTextExist].includes(preKey) ? preLevel + 1 : preLevel
   }
   if (parent) {
     const [parentLevel, parentKey] = parent.split('-')
-    if ([ElseIf, Else].includes(cur.key)) {
-      curLevel = [If, CvImageExist, FileExist, FolderExist, WindowExist].includes(parentKey) ? Number(parentLevel) : Number(parentLevel) + 1
+    if ([ElseIf, ElseIfMulti, Else].includes(cur.key)) {
+      curLevel = [If, IfMulti, CvImageExist, FileExist, FolderExist, WindowExist, BrowserElementVisible, BrowserTextExist, WinContainElement, CvOcrTextExist].includes(parentKey) ? Number(parentLevel) : Number(parentLevel) + 1
     }
     else if ([Catch, Finally].includes(cur.key)) {
       curLevel = parentKey !== Try ? Number(parentLevel) + 1 : Number(parentLevel)

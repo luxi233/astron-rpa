@@ -1,4 +1,5 @@
 import os
+import time
 
 import pyautogui
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, DynamicsItem
@@ -7,6 +8,7 @@ from astronverse.actionlib.types import WinPick
 from astronverse.actionlib.utils import FileExistenceType, handle_existence, Credential
 from astronverse.locator import PickerDomain, Point
 from astronverse.winelement import (
+    ElementContainTypeFlag,
     ElementInputType,
     MouseClickButton,
     MouseClickKeyboard,
@@ -213,3 +215,44 @@ class WinEle:
                 win_pick.locator = locator
                 res_list.append(win_pick)
         return res_list
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param(
+                "check_type",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value),
+            ),
+            atomicMg.param("wait_time", types="Float"),
+        ],
+    )
+    def contain_element(
+        pick: WinPick,
+        check_type: ElementContainTypeFlag = ElementContainTypeFlag.CONTAIN,
+        wait_time: float = 10,
+    ) -> bool:
+        """
+        判断窗口中是否包含指定元素
+        """
+        wait_time = max(0, float(wait_time))
+        while wait_time >= 0:
+            start = time.time()
+            try:
+                WinEleCore.find(pick=pick, wait_time=0)
+                found = True
+            except Exception:
+                found = False
+            if check_type == ElementContainTypeFlag.CONTAIN and found:
+                return True
+            if check_type == ElementContainTypeFlag.NOT_CONTAIN and not found:
+                return True
+            if time.time() - start >= wait_time:
+                break
+            time.sleep(0.3)
+            wait_time = wait_time - (time.time() - start)
+        return False

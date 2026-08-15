@@ -35,6 +35,37 @@ def str_is_dict(s):
     return bool(s.startswith("{") and s.endswith("}"))
 
 
+def consequence_multi(
+    args1_1: Any = None,
+    condition_1: str = "true",
+    args2_1: Any = None,
+    args1_2: Any = None,
+    condition_2: str = "true",
+    args2_2: Any = None,
+    args1_3: Any = None,
+    condition_3: str = "true",
+    args2_3: Any = None,
+    relation: str = "and",
+    **kwargs,
+):
+    """多条件判断：将多组(args, condition, args2)按 且/或 组合"""
+    results = []
+    for a1, cond, a2 in (
+        (args1_1, condition_1, args2_1),
+        (args1_2, condition_2, args2_2),
+        (args1_3, condition_3, args2_3),
+    ):
+        if a1 is None or (isinstance(a1, str) and a1.strip() == ""):
+            continue
+        results.append(consequence(a1, cond, a2))
+
+    if not results:
+        return True
+    if relation == "or":
+        return any(results)
+    return all(results)
+
+
 def consequence(args1: Any, condition: str, args2: Any = None, **kwargs):
     match condition:
         case CondType.C_TRUE.value | CondType.C_FALSE.value:

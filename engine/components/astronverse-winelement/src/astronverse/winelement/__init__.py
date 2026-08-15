@@ -30,3 +30,10 @@ class GetInfoType(Enum):
     TEXT = "text"
     VALUE = "value"
     RECT = "rect"
+
+
+class ElementContainTypeFlag(Enum):
+    """窗口元素包含判断枚举"""
+
+    CONTAIN = "contain"  # 包含
+    NOT_CONTAIN = "notcontain"  # 不包含

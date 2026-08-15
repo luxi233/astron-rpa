@@ -11,7 +11,7 @@ import { useFlowStore } from '@/stores/useFlowStore'
 import useProjectDocStore from '@/stores/useProjectDocStore'
 import { requiredItem } from '@/views/Arrange/components/flow/hooks/useValidate'
 import { useToolsClear } from '@/views/Arrange/components/tools/hooks/useToolsClear'
-import { Catch, Else, ElseIf, Finally, Group, GroupEnd, LOOP_END_MAP } from '@/views/Arrange/config/atomKeyMap'
+import { Catch, Else, ElseIf, ElseIfMulti, Finally, Group, GroupEnd, LOOP_END_MAP } from '@/views/Arrange/config/atomKeyMap'
 import { getMultiSelectIds } from '@/views/Arrange/utils/flowUtils'
 import { createComponentAbility, generateInputMap, loadSmartComponentAbility, loopAtomByKey, setAddAtomIdx } from '@/views/Arrange/utils/generateData'
 import { changeSelectAtoms } from '@/views/Arrange/utils/selectItemByClick'
@@ -56,7 +56,7 @@ export async function createFlowNode(key: string, idx: number | number[], isDrag
     if (i.key === GroupEnd)
       curIdx = last(arr)
 
-    if (Object.keys(LOOP_END_MAP).concat([ElseIf, Else]).includes(i.key)) {
+    if (Object.keys(LOOP_END_MAP).concat([ElseIf, ElseIfMulti, Else]).includes(i.key)) {
       i.hasFold = true
       i.isOpen = true
     }

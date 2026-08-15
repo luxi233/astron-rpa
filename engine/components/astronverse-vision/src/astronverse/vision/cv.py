@@ -1,5 +1,10 @@
+import base64
+import io
+import json
 import random
+import re
 import time
+import urllib.request
 
 import pyautogui
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, AtomicLevel, DynamicsItem
@@ -566,3 +571,100 @@ class CV:
                     time.sleep(0.5)
 
         raise BaseException(CV_MATCH_ERROR, "超时未匹配到目标元素，请检查当前界面或降低匹配相似度重试")
+
+    @staticmethod
+    @atomicMg.atomic(
+        "CV",
+        inputList=[
+            atomicMg.param(
+                "text",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "is_regex",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.CHECKBOX.value),
+                required=False,
+            ),
+            atomicMg.param(
+                "exist_type",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value),
+                required=False,
+            ),
+            atomicMg.param("wait_time", types="Int"),
+        ],
+    )
+    def ocr_text_exist(
+        text: str,
+        is_regex: bool = False,
+        exist_type: ExistType = ExistType.EXIST,
+        x1: int = 0,
+        y1: int = 0,
+        x2: int = 0,
+        y2: int = 0,
+        wait_time: int = 10,
+    ) -> bool:
+        """
+        判断屏幕上是否存在指定文本(OCR)
+        :param text: 待查找文本
+        :param is_regex: 是否正则表达式
+        :param exist_type: 存在/不存在
+        :param x1: 查找区域左上角X（0表示全屏）
+        :param y1: 查找区域左上角Y
+        :param x2: 查找区域右下角X
+        :param y2: 查找区域右下角Y
+        :param wait_time: 等待时间(秒)
+        """
+        start_time = time.time()
+        while True:
+            if x2 > x1 and y2 > y1:
+                screenshot = pyautogui.screenshot(region=(x1, y1, x2 - x1, y2 - y1))
+            else:
+                screenshot = pyautogui.screenshot()
+            page_text = CV.__ocr_screen_text__(screenshot)
+
+            if is_regex:
+                found = re.search(str(text), page_text) is not None
+            else:
+                found = str(text) in page_text
+
+            if exist_type == ExistType.EXIST and found:
+                return True
+            if exist_type == ExistType.NOT_EXIST and not found:
+                return True
+
+            if time.time() - start_time > wait_time:
+                break
+            time.sleep(0.5)
+
+        return False
+
+    @staticmethod
+    def __ocr_screen_text__(screenshot) -> str:
+        """截图OCR识别全部文本"""
+        buf = io.BytesIO()
+        screenshot.save(buf, format="PNG")
+        image_b64 = str(base64.b64encode(buf.getvalue()), "UTF-8")
+        body = {"encoding": "png", "image": image_b64, "status": 3}
+        port = atomicMg.cfg().get("GATEWAY_PORT") if atomicMg.cfg().get("GATEWAY_PORT") else "13159"
+        url = "http://127.0.0.1:{}/api/rpa-ai-service/ocr/general".format(port)
+        req = urllib.request.Request(
+            url, data=json.dumps(body).encode("utf-8"), headers={"content-type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                ret = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            raise BaseException(CV_MATCH_ERROR, "OCR服务无响应或错误: {}".format(e))
+        try:
+            ret_dict = json.loads(base64.b64decode(ret["payload"]["result"]["text"]).decode())
+            lines = ret_dict["pages"][0]["lines"]
+        except Exception:
+            return ""
+        contents = []
+        for line in lines:
+            if line.get("words"):
+                for word in line["words"]:
+                    contents.append(word.get("content", ""))
+        return "".join(contents)

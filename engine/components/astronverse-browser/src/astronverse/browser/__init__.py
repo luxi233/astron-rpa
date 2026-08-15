@@ -93,6 +93,20 @@ class WaitElementForStatusFlag(Enum):
     ElementDisappears = "n"
 
 
+class ElementVisibleTypeFlag(Enum):
+    """元素可见性判断枚举"""
+
+    VISIBLE = "visible"  # 可见
+    INVISIBLE = "invisible"  # 不可见
+
+
+class WebTextExistTypeFlag(Enum):
+    """网页文本存在判断枚举"""
+
+    EXIST = "exist"  # 包含
+    NOT_EXIST = "notexist"  # 不包含
+
+
 class ButtonForClickTypeFlag(Enum):
     """按钮点击类型标志枚举"""
 

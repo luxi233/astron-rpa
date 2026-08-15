@@ -116,6 +116,22 @@ atomic:
       - key: get_similar_ele
         title: 元素信息
         tip: ''
+  WinEle.contain_element:
+    title: IF窗口包含元素
+    comment: 当前窗口中是否@{check_type}元素 @{pick}
+    icon: check-window-exists
+    helpManual: 判断指定窗口中是否包含拾取的元素。常用于判断窗口内容加载完成、弹窗出现等场景
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: 拾取需要判断的窗口元素
+      - key: check_type
+        title: 判断方式
+        tip: 选择窗口包含或不包含该元素时进入执行
+      - key: wait_time
+        title: 超时时间(秒)
+        tip: 在该时间内持续检测，默认10秒
+    outputList: []
 options:
   MouseClickButton:
     - value: left
@@ -154,6 +170,11 @@ options:
       label: 剪贴板输入
     - value: credential
       label: 凭据输入
+  ElementContainTypeFlag:
+    - value: contain
+      label: 包含
+    - value: notcontain
+      label: 不包含
   Bool:
     - value: true
       label: 是

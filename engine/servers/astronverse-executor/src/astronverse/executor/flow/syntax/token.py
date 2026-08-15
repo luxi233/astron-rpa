@@ -9,7 +9,9 @@ class TokenType(Enum):
     Return = "Code.Return"
 
     If = "Code.If"
+    IfMulti = "Code.IfMulti"
     ElseIf = "Code.ElseIf"
+    ElseIfMulti = "Code.ElseIfMulti"
     Else = "Code.Else"
 
     IfEnd = "Code.IfEnd"
@@ -37,9 +39,31 @@ class TokenType(Enum):
 token_type_key_dict = TokenType.to_dict()
 
 special_token_type_end = {
-    TokenType.If.value: [TokenType.Else.value, TokenType.ElseIf.value, TokenType.IfEnd.value],
+    TokenType.If.value: [
+        TokenType.Else.value,
+        TokenType.ElseIf.value,
+        TokenType.ElseIfMulti.value,
+        TokenType.IfEnd.value,
+    ],
+    TokenType.IfMulti.value: [
+        TokenType.Else.value,
+        TokenType.ElseIf.value,
+        TokenType.ElseIfMulti.value,
+        TokenType.IfEnd.value,
+    ],
     TokenType.Else.value: [TokenType.IfEnd.value],
-    TokenType.ElseIf.value: [TokenType.Else.value, TokenType.ElseIf.value, TokenType.IfEnd.value],
+    TokenType.ElseIf.value: [
+        TokenType.Else.value,
+        TokenType.ElseIf.value,
+        TokenType.ElseIfMulti.value,
+        TokenType.IfEnd.value,
+    ],
+    TokenType.ElseIfMulti.value: [
+        TokenType.Else.value,
+        TokenType.ElseIf.value,
+        TokenType.ElseIfMulti.value,
+        TokenType.IfEnd.value,
+    ],
     TokenType.Try.value: [TokenType.Catch.value],
     TokenType.Catch.value: [TokenType.Finally.value, TokenType.TryEnd.value],
     TokenType.Finally.value: [TokenType.TryEnd.value],
@@ -54,6 +78,10 @@ exist_atomic_dict = [
     "File.file_exist",
     "Folder.folder_exist",
     "Window.exist",
+    "BrowserElement.element_visible",
+    "BrowserElement.text_exist",
+    "WinEle.contain_element",
+    "CV.ocr_text_exist",
 ]
 
 for_atomic_dict = [

@@ -1,7 +1,9 @@
 export const If = 'Code.If'
+export const IfMulti = 'Code.IfMulti'
 export const IfEnd = 'Code.IfEnd'
 export const ElseIf = 'Code.ElseIf'
 export const ElseIfEnd = 'Code.ElseIfEnd'
+export const ElseIfMulti = 'Code.ElseIfMulti'
 export const Else = 'Code.Else'
 export const ElseEnd = 'Code.ElseEnd'
 export const Try = 'Code.Try'
@@ -33,6 +35,10 @@ export const CvImageExistEnd = 'CV.is_image_exist_end' // 判断图像存在结�
 export const FileExist = 'File.file_exist'
 export const FolderExist = 'Folder.folder_exist'
 export const WindowExist = 'Window.exist'
+export const BrowserElementVisible = 'BrowserElement.element_visible' // IF元素可见(web)
+export const BrowserTextExist = 'BrowserElement.text_exist' // IF网页包含文本
+export const WinContainElement = 'WinEle.contain_element' // IF窗口包含元素
+export const CvOcrTextExist = 'CV.ocr_text_exist' // IF屏幕文本存在(OCR)
 export const Process = 'Script.process' // 运行子流程
 export const ProcessOld = 'Code.Process' // 运行子流程（旧版子流程Key）
 export const Module = 'Script.module' // 运行子模块
@@ -59,6 +65,7 @@ export const GROUP_END_TEXT = 'groupend'
 // 嵌套类节点key对应的结束节点key
 export const LOOP_END_MAP = {
   [If]: IfEnd,
+  [IfMulti]: IfEnd,
   [Try]: Catch,
   [Catch]: TryEnd,
   // [Finally]: TryEnd,
@@ -75,6 +82,10 @@ export const LOOP_END_MAP = {
   [FileExist]: IfEnd,
   [FolderExist]: IfEnd,
   [WindowExist]: IfEnd,
+  [BrowserElementVisible]: IfEnd,
+  [BrowserTextExist]: IfEnd,
+  [WinContainElement]: IfEnd,
+  [CvOcrTextExist]: IfEnd,
 }
 
 // 结束节点key对应的嵌套类节点key
@@ -89,8 +100,8 @@ export const LOOP_START_MAP = {
 
 // 配置结束节点之后下一个节点的类型
 export const hideEndNextMap = {
-  [IfEnd]: [ElseIf, Else],
-  [ElseIfEnd]: [ElseIf, Else],
+  [IfEnd]: [ElseIf, ElseIfMulti, Else],
+  [ElseIfEnd]: [ElseIf, ElseIfMulti, Else],
   [TryEnd]: [Catch, Finally],
   [CatchEnd]: [Finally],
 }
@@ -113,7 +124,9 @@ export const LOOP_END = [
 
 export const CONVERT_MAP = {
   [If]: IF_TEXT,
+  [IfMulti]: IF_TEXT,
   [ElseIf]: ELSE_IF_TEXT,
+  [ElseIfMulti]: ELSE_IF_TEXT,
   [Else]: ELSE_TEXT,
   [IfEnd]: IF_END_TEXT,
   [Try]: TRY_TEXT,
@@ -134,6 +147,10 @@ export const CONVERT_MAP = {
   [FileExist]: IF_TEXT,
   [FolderExist]: IF_TEXT,
   [WindowExist]: IF_TEXT,
+  [BrowserElementVisible]: IF_TEXT,
+  [BrowserTextExist]: IF_TEXT,
+  [WinContainElement]: IF_TEXT,
+  [CvOcrTextExist]: IF_TEXT,
 }
 
 export const IS_SAME_GROUP = [GROUP_TEXT, IF_TEXT, ELSE_IF_TEXT, ELSE_TEXT, TRY_TEXT, CATCH_TEXT, FINALLY_TEXT, FOR_STEP_TEXT, FOR_DICT_TEXT, FOR_LIST_TEXT, WHILE_TEXT]
@@ -150,11 +167,15 @@ export const hideEndKeys = Object.keys(hideEndNextMap)
  */
 export const orderMap = {
   [Else]: {
-    pre: [If, ElseIf],
+    pre: [If, IfMulti, ElseIf, ElseIfMulti],
     preDesc: '“else”组件前同级组件必须是“if条件”组件或者“esle if”组件',
   },
   [ElseIf]: {
-    pre: [If, ElseIf],
+    pre: [If, IfMulti, ElseIf, ElseIfMulti],
+    preDesc: '“else if”组件前同级组件必须是“if条件”组件或者“esle if”组件',
+  },
+  [ElseIfMulti]: {
+    pre: [If, IfMulti, ElseIf, ElseIfMulti],
     preDesc: '“else if”组件前同级组件必须是“if条件”组件或者“esle if”组件',
   },
   [Try]: {

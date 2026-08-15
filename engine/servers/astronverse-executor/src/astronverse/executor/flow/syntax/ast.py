@@ -38,7 +38,7 @@ class Program(Node):
                 "from .package import element, element_vision, module, component, gv, complex_param_parser, smart_component",
             ),
             CodeLine(tab_num, "from astronverse.actionlib.types import *"),
-            CodeLine(tab_num, "from astronverse.workflowlib.consequence import consequence"),
+            CodeLine(tab_num, "from astronverse.workflowlib.consequence import consequence, consequence_multi"),
         ]
         if self.token.value:
             import_python = svc.get_import_python(project_id, process_id)
@@ -482,11 +482,17 @@ class IF(Node):
         self.__arguments__ = svc.param.parse_input(self.token)
         arguments = [i.show() for i in self.__arguments__.values()]
 
+        # 多条件判断使用consequence_multi
+        if self.token.type in ("Code.IfMulti", "Code.ElseIfMulti"):
+            cond_func = "consequence_multi"
+        else:
+            cond_func = "consequence"
+
         # if块
         if is_else_if:
-            code_lines.append(CodeLine(tab_num, "elif consequence({}):".format(", ".join(arguments))))
+            code_lines.append(CodeLine(tab_num, "elif {}({}):".format(cond_func, ", ".join(arguments))))
         else:
-            code_lines.append(CodeLine(tab_num, "if consequence({}):".format(", ".join(arguments))))
+            code_lines.append(CodeLine(tab_num, "if {}({}):".format(cond_func, ", ".join(arguments))))
 
         # if body块
         if self.consequence:

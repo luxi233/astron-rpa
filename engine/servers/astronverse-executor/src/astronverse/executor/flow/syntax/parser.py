@@ -52,6 +52,7 @@ class Parser:
         self.register_prefix(TokenType.Continue, self.__parse_continue__)
         self.register_prefix(TokenType.While, self.__parse_while__)
         self.register_prefix(TokenType.If, self.__parse_if__)
+        self.register_prefix(TokenType.IfMulti, self.__parse_if__)
         self.register_prefix(TokenType.ForStep, self.__parse_for__)
         self.register_prefix(TokenType.ForList, self.__parse_for__)
         self.register_prefix(TokenType.ForDict, self.__parse_for__)
@@ -118,9 +119,9 @@ class Parser:
             stmt = AtomicExist()
             stmt.token = self.cur_token
             stmt.consequence = self.parse_block()
-            if self.cur_token.type == TokenType.ElseIf.value:
+            if self.cur_token.type in (TokenType.ElseIf.value, TokenType.ElseIfMulti.value):
                 stmt.conditions_and_blocks = []
-                while self.cur_token.type == TokenType.ElseIf.value:
+                while self.cur_token.type in (TokenType.ElseIf.value, TokenType.ElseIfMulti.value):
                     el_stem = IF()
                     el_stem.token = self.cur_token
                     el_stem.consequence = self.parse_block()
@@ -180,9 +181,9 @@ class Parser:
         stmt.token = self.cur_token
         stmt.consequence = self.parse_block()
 
-        if self.cur_token.type == TokenType.ElseIf.value:
+        if self.cur_token.type in (TokenType.ElseIf.value, TokenType.ElseIfMulti.value):
             stmt.conditions_and_blocks = []
-            while self.cur_token.type == TokenType.ElseIf.value:
+            while self.cur_token.type in (TokenType.ElseIf.value, TokenType.ElseIfMulti.value):
                 el_stem = IF()
                 el_stem.token = self.cur_token
                 el_stem.consequence = self.parse_block()

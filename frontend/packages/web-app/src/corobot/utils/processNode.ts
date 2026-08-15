@@ -7,7 +7,7 @@ import { ProjectDocument } from '@/corobot'
 import type { ArgumentValue, NodeArgument, ProcessNode } from '@/corobot/type'
 import { useProcessStore } from '@/stores/useProcessStore'
 import { requiredItem } from '@/views/Arrange/components/flow/hooks/useValidate'
-import { CONVERT_MAP, Else, ElseIf, LOOP_END_MAP, Module, Process, ProcessOld } from '@/views/Arrange/config/atomKeyMap'
+import { CONVERT_MAP, Else, ElseIf, ElseIfMulti, LOOP_END_MAP, Module, Process, ProcessOld } from '@/views/Arrange/config/atomKeyMap'
 import { pickProcessAndModuleOptions } from '@/views/Arrange/utils'
 import { exceptionKeys } from '@/views/Arrange/utils/generateData'
 
@@ -100,7 +100,7 @@ export function createSingleNode(node: ProcessNodeVM, astNode: ASTNode, nodeAbil
   obj.nodeError = requiredItem(obj)
   if (astNode?.raw?.error)
     obj.nodeError = [...obj.nodeError, astNode.raw.error]
-  if (Object.keys(LOOP_END_MAP).concat([ElseIf, Else]).includes(node.key)) {
+  if (Object.keys(LOOP_END_MAP).concat([ElseIf, ElseIfMulti, Else]).includes(node.key)) {
     obj.isOpen = true
     obj.hasFold = true
   }

@@ -635,6 +635,44 @@ atomic:
       - key: element_exist
         title: 元素存在/不存在
         tip: 输出元素是否存在，存在为True，不存在为False
+  BrowserElement.element_visible:
+    title: IF元素可见（web）
+    comment: 浏览器对象 @{browser_obj} 中元素 @{element_data} 是否可见（@{check_type}）
+    icon: element-to-visible-web
+    helpManual: 判断指定元素在网页中是否可见。与"元素是否存在（web）"不同，本指令只判定元素处于可见状态；元素存在但被隐藏（如display:none）时判定为不可见
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择指定的网页元素所在的浏览器对象
+      - key: element_data
+        title: 元素拾取
+        tip: 拾取需要判断可见性的网页元素
+      - key: check_type
+        title: 判断方式
+        tip: 选择元素可见或不可见时进入执行
+      - key: wait_time
+        title: 超时时间(秒)
+        tip: 在该时间内持续检测，默认10秒
+    outputList: []
+  BrowserElement.text_exist:
+    title: IF网页包含文本
+    comment: 浏览器对象 @{browser_obj} 的网页中是否@{check_type}文本 @{text}
+    icon: get-element-text-web
+    helpManual: 判断指定网页页面文本中是否包含指定文本内容，常用于判断页面加载完成、操作成功提示等场景
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择需要判断的网页所在的浏览器对象
+      - key: text
+        title: 文本内容
+        tip: 输入待判断的文本内容，支持变量
+      - key: check_type
+        title: 判断方式
+        tip: 选择网页包含或不包含该文本时进入执行
+      - key: wait_time
+        title: 超时时间(秒)
+        tip: 在该时间内持续检测，默认10秒
+    outputList: []
   BrowserScript.js_run:
     title: Js脚本
     comment: >-
@@ -1038,6 +1076,16 @@ options:
       label: 等待元素出现
     - value: 'n'
       label: 等待元素消失
+  ElementVisibleTypeFlag:
+    - value: visible
+      label: 可见
+    - value: invisible
+      label: 不可见
+  WebTextExistTypeFlag:
+    - value: exist
+      label: 包含
+    - value: notexist
+      label: 不包含
   Bool:
     - value: true
       label: 是

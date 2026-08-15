@@ -142,6 +142,25 @@ atomic:
         title: 等待图像出现时间(秒)
         tip: 超过该时间停止等待，默认为10秒
     outputList: []
+  CV.ocr_text_exist:
+    title: IF屏幕文本存在(OCR)
+    comment: 屏幕上是否@{exist_type}文本 @{text}
+    icon: general-text-recognition
+    helpManual: 通过OCR识别屏幕文本，判断是否存在指定文本内容，支持普通文本与正则表达式匹配，常用于判断软件界面状态、提示信息等场景
+    inputList:
+      - key: text
+        title: 文本内容
+        tip: 输入待判断的文本内容，支持变量
+      - key: is_regex
+        title: 正则匹配
+        tip: 勾选后按正则表达式匹配文本
+      - key: exist_type
+        title: 判断方式
+        tip: 选择屏幕存在或不存在该文本时进入执行
+      - key: wait_time
+        title: 超时时间(秒)
+        tip: 在该时间内持续检测，默认10秒
+    outputList: []
 options:
   BtnType:
     - value: left
