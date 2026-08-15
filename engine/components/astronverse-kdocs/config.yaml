@@ -1,0 +1,210 @@
+atomic:
+  WPS.create_client:
+    title: 创建WPS表格连接
+    comment: 建立与WPS在线表格AirScript脚本(@{hook_url})的连接，输出为(@{wps_client})
+    icon: excel-open-file
+    helpManual: 使用WPS在线表格AirScript脚本Webhook地址与令牌建立连接，并返回连接对象。需先在WPS在线表格中部署AirScript脚本并开启Webhook
+    inputList:
+      - key: hook_url
+        title: Webhook地址
+        tip: WPS在线表格AirScript脚本的Webhook地址，以http开头
+      - key: token
+        title: AirScript令牌
+        tip: WPS AirScript Webhook生成的AirScript-Token
+      - key: time_out
+        title: 超时时间(秒)
+        tip: 请求超时时间，默认30秒
+    outputList:
+      - key: wps_client
+        title: 保存WPS连接对象至
+        tip: 将创建的WPS在线表格连接对象保存至指定变量中
+  WPS.read_range:
+    title: 读取区域数据(WPS)
+    comment: 读取工作表(@{sheet_name})中区域(@{range_address})的数据，输出为(@{read_result})
+    icon: excel-read-content
+    helpManual: 读取WPS在线表格指定工作表的区域数据。区域为空读取整表，"3"读取第3行，"A"读取A列，"A2:D5"读取指定区域
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 目标工作表名称，如 Sheet1
+      - key: range_address
+        title: 区域地址
+        tip: '为空读取整表；"3"读取第3行；"A"读取A列；"A2:D5"读取指定区域'
+    outputList:
+      - key: read_result
+        title: 读取结果保存至
+        tip: 输出二维列表形式的数据
+  WPS.write_range:
+    title: 写入数据(WPS)
+    comment: 将数据(@{write_value})写入工作表(@{sheet_name})的(@{range_address})起始位置，输出为(@{write_result})
+    icon: excel-write-file
+    helpManual: 向WPS在线表格写入数据，支持标量或二维列表，二维列表如[["a","b"],["c","d"]]
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 目标工作表名称，如 Sheet1
+      - key: range_address
+        title: 起始单元格地址
+        tip: 写入起始位置，如 A1
+      - key: write_value
+        title: 写入内容
+        tip: 标量或二维列表，二维列表如[["a","b"],["c","d"]]
+    outputList:
+      - key: write_result
+        title: 写入结果保存至
+        tip: 输出写入后的数据
+  WPS.get_count:
+    title: 获取总行数/列数(WPS)
+    comment: 获取工作表(@{sheet_name})的(@{target_type})总数，输出为(@{count_result})
+    icon: excel-get-row-count
+    helpManual: 获取WPS在线表格已使用区域的总行数或总列数
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 目标工作表名称，如 Sheet1
+      - key: target_type
+        title: 统计对象
+        tip: 选择统计行数或列数
+    outputList:
+      - key: count_result
+        title: 总数保存至
+        tip: 输出总行数或总列数
+  WPS.get_first_available:
+    title: 获取首个空行/空列(WPS)
+    comment: 获取工作表(@{sheet_name})的首个空(@{target_type})，输出为(@{first_available_result})
+    icon: excel-get-first-available-row
+    helpManual: 获取WPS在线表格已使用区域后的首个可用行号或列字母
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 目标工作表名称，如 Sheet1
+      - key: target_type
+        title: 查找对象
+        tip: 选择查找空行或空列
+    outputList:
+      - key: first_available_result
+        title: 结果保存至
+        tip: 空行输出行号，空列输出大写列字母
+  WPS.get_image:
+    title: 获取单元格图片(WPS)
+    comment: 获取工作表(@{sheet_name})中单元格(@{range_address})的图片，输出为(@{image_result})
+    icon: excel-insert-image
+    helpManual: 获取WPS在线表格目标单元格关联的图片数据
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 目标工作表名称，如 Sheet1
+      - key: range_address
+        title: 单元格地址
+        tip: 目标单元格地址，如 A1
+    outputList:
+      - key: image_result
+        title: 图片数据保存至
+        tip: 输出单元格关联的图片数据
+  WPS.insert_image:
+    title: 插入图片(WPS)
+    comment: 将图片(@{image_source})插入工作表(@{sheet_name})的(@{range_address})位置，输出为(@{insert_image_result})
+    icon: excel-insert-image
+    helpManual: 向WPS在线表格指定单元格插入图片，图片来源支持本地文件路径或http/https图片URL
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 目标工作表名称，如 Sheet1
+      - key: range_address
+        title: 单元格地址
+        tip: 插入位置，如 E1
+      - key: image_source
+        title: 图片来源
+        tip: 本地图片文件路径，或http/https图片URL
+    outputList:
+      - key: insert_image_result
+        title: 插入结果保存至
+        tip: 输出是否插入成功
+  WPS.get_hyperlink:
+    title: 获取单元格超链接(WPS)
+    comment: 获取工作表(@{sheet_name})中单元格(@{range_address})的超链接地址，输出为(@{hyperlink_result})
+    icon: word-insert-hyperlink
+    helpManual: 获取WPS在线表格目标单元格的超链接地址，无超链接时返回空字符串
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 目标工作表名称，如 Sheet1
+      - key: range_address
+        title: 单元格地址
+        tip: 目标单元格地址，如 A1
+    outputList:
+      - key: hyperlink_result
+        title: 超链接保存至
+        tip: 输出超链接地址字符串
+  WPS.list_sheets:
+    title: 获取工作表列表(WPS)
+    comment: 获取当前工作簿的所有工作表名称，输出为(@{sheet_names})
+    icon: excel-get-sheet-names
+    helpManual: 获取WPS在线表格当前工作簿中的所有工作表名称列表
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+    outputList:
+      - key: sheet_names
+        title: 工作表列表保存至
+        tip: 输出所有工作表名称，数据类型为列表
+  WPS.create_sheet:
+    title: 创建工作表(WPS)
+    comment: 在当前工作簿创建工作表(@{new_sheet_names})，输出为(@{created_sheets})
+    icon: add-excel-worksheet
+    helpManual: 在WPS在线表格当前工作簿中创建一个或多个工作表，传入名称列表如["Sheet2","Sheet3"]
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: new_sheet_names
+        title: 新工作表名称列表
+        tip: '工作表名称列表，如 ["Sheet2","Sheet3"]'
+    outputList:
+      - key: created_sheets
+        title: 创建结果保存至
+        tip: 输出实际创建的工作表名称列表
+  WPS.delete_sheet:
+    title: 删除工作表(WPS)
+    comment: 删除工作表(@{sheet_name})，输出为(@{delete_sheet_result})
+    icon: excel-delete-sheet
+    helpManual: 删除WPS在线表格当前工作簿中的指定工作表
+    inputList:
+      - key: wps_client
+        title: WPS连接对象
+        tip: 已创建的WPS在线表格连接对象
+      - key: sheet_name
+        title: 工作表名称
+        tip: 待删除的工作表名称
+    outputList:
+      - key: delete_sheet_result
+        title: 删除结果保存至
+        tip: 输出是否删除成功
+options:
+  TargetType:
+    - value: row
+      label: 行
+    - value: column
+      label: 列
