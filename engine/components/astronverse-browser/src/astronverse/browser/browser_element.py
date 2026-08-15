@@ -3,6 +3,7 @@ import os
 import time
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, AtomicLevel, DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
+from astronverse.actionlib.humansim import human_sim
 from astronverse.actionlib.types import PATH, WebPick
 from astronverse.baseline.logger.logger import logger
 from astronverse.browser import *
@@ -176,6 +177,9 @@ class BrowserElement:
         try:
             browser_obj = check_element(browser_obj, element_data, element_timeout)
 
+            # 模拟真人：操作前随机停顿
+            human_sim.pre_action_pause()
+
             if assistive_key != ButtonForAssistiveKeyFlag.Nothing:
                 from astronverse.input.code.keyboard import Keyboard
 
@@ -304,6 +308,9 @@ class BrowserElement:
         """
         browser_obj = check_element(browser_obj, element_data, element_timeout)
 
+        # 模拟真人：操作前随机停顿
+        human_sim.pre_action_pause()
+
         if fill_type == FillInputForFillTypeFlag.Text:
             text = fill_input
         elif fill_type == FillInputForFillTypeFlag.Clipboard:
@@ -404,6 +411,8 @@ class BrowserElement:
         鼠标悬停在元素上（web）
         """
         browser_obj = check_element(browser_obj, element_data, element_timeout)
+        # 模拟真人：操作前随机停顿
+        human_sim.pre_action_pause()
         element = locator.locator(
             element_data.get("elementData"),
             cur_target_app=browser_obj.browser_type.value,

@@ -695,17 +695,26 @@ const ContentHandler = {
       if (!result)
         return elementNotFoundReason(data)
 
+      // 模拟真人：在元素范围内随机取点作为点击坐标（留 4px 边距，小元素退回中心）
+      const rect = result.getBoundingClientRect()
+      const jitterX = rect.width > 8 ? (Math.random() - 0.5) * (rect.width - 8) : 0
+      const jitterY = rect.height > 8 ? (Math.random() - 0.5) * (rect.height - 8) : 0
+      const coords = {
+        clientX: Math.round(rect.left + rect.width / 2 + jitterX),
+        clientY: Math.round(rect.top + rect.height / 2 + jitterY),
+      }
+
       try {
         switch (buttonType) {
           case 'right':
-            dispatchMouseSequence(result, ['mousedown', 'mouseup', 'contextmenu'])
+            dispatchMouseSequence(result, ['mousedown', 'mouseup', 'contextmenu'], coords)
             break
           case 'dbclick':
-            dispatchMouseSequence(result, ['mousedown', 'mouseup', 'click', 'mousedown', 'mouseup', 'click', 'dblclick'])
+            dispatchMouseSequence(result, ['mousedown', 'mouseup', 'click', 'mousedown', 'mouseup', 'click', 'dblclick'], coords)
             break
           case 'click':
           default:
-            dispatchMouseSequence(result, ['mousedown', 'mouseup', 'click'])
+            dispatchMouseSequence(result, ['mousedown', 'mouseup', 'click'], coords)
         }
       }
       catch (e) {
