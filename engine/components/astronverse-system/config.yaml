@@ -133,6 +133,35 @@ atomic:
       - key: wait_seconds
         title: 输出实际等待时长(秒)至变量
         tip: 流程实际等待的时长，随机模式下为随机取到的时长
+  System.human_sim_start:
+    title: 开启模拟真人操作
+    comment: 开启模拟真人操作（仿真移动鼠标@{enable_move}、仿真点击元素@{enable_click}、仿真操作停顿@{enable_pause}），直至执行【结束模拟真人操作】指令
+    icon: keyboard-simulate-key
+    helpManual: 一次对多个指令模拟真人的操作习惯运行（从开启到结束区间内的指令），可降低被反爬的概率。仿真移动鼠标：模拟真人按随机路线和速度移动鼠标；仿真点击元素：模拟真人在元素附近随机位置点击；仿真操作停顿：模拟真人在操作之间随机停顿
+    inputList:
+      - key: enable_move
+        title: 仿真移动鼠标
+        tip: 模拟真人按随机路线和速度移动鼠标
+      - key: enable_click
+        title: 仿真点击元素
+        tip: 模拟真人在元素附近随机位置点击
+      - key: enable_pause
+        title: 仿真操作停顿
+        tip: 模拟真人在操作之间随机停顿
+      - key: min_pause
+        title: 最小停顿时长(秒)
+        tip: 指令执行完成后的最短等待时间
+      - key: max_pause
+        title: 最大停顿时长(秒)
+        tip: 指令执行完成后的最长等待时间
+    outputList: []
+  System.human_sim_end:
+    title: 结束模拟真人操作
+    comment: 结束模拟真人操作，之后的指令恢复正常执行
+    icon: group-end
+    helpManual: 结束模拟真人操作区间，之后的桌面鼠标/键盘指令恢复正常执行模式
+    inputList: []
+    outputList: []
   File.file_exist:
     title: IF文件存在
     comment: 判断文件 @{file_path} 是否存在，存在就执行以下操作

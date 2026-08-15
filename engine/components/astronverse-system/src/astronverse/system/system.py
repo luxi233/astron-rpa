@@ -90,6 +90,77 @@ class System:
         "System",
         inputList=[
             atomicMg.param(
+                "enable_move",
+                formType=AtomicFormTypeMeta(AtomicFormType.SWITCH.value),
+            ),
+            atomicMg.param(
+                "enable_click",
+                formType=AtomicFormTypeMeta(AtomicFormType.SWITCH.value),
+            ),
+            atomicMg.param(
+                "enable_pause",
+                formType=AtomicFormTypeMeta(AtomicFormType.SWITCH.value),
+            ),
+            atomicMg.param(
+                "min_pause",
+                types="Float",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.min_pause.show",
+                        expression="return $this.enable_pause.value == true",
+                    ),
+                ],
+            ),
+            atomicMg.param(
+                "max_pause",
+                types="Float",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.max_pause.show",
+                        expression="return $this.enable_pause.value == true",
+                    ),
+                ],
+            ),
+        ],
+    )
+    def human_sim_start(
+        enable_move: bool = True,
+        enable_click: bool = True,
+        enable_pause: bool = True,
+        min_pause: float = 0.1,
+        max_pause: float = 0.5,
+    ):
+        """
+        开启模拟真人操作：区间内（直至执行【结束模拟真人操作】）的桌面鼠标/键盘操作
+        按仿真模式执行，可降低被反爬检测的概率
+        """
+        from astronverse.actionlib.humansim import human_sim
+
+        human_sim.start(
+            enable_move=enable_move,
+            enable_click=enable_click,
+            enable_pause=enable_pause,
+            min_pause=min_pause,
+            max_pause=max_pause,
+        )
+
+    @staticmethod
+    @atomicMg.atomic("System", inputList=[])
+    def human_sim_end():
+        """
+        结束模拟真人操作
+        """
+        from astronverse.actionlib.humansim import human_sim
+
+        human_sim.stop()
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
                 "png_path",
                 formType=AtomicFormTypeMeta(
                     AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,

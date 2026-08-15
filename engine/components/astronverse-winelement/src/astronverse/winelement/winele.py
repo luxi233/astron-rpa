@@ -4,6 +4,7 @@ import time
 import pyautogui
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
+from astronverse.actionlib.humansim import human_sim
 from astronverse.actionlib.types import WinPick
 from astronverse.actionlib.utils import FileExistenceType, handle_existence, Credential
 from astronverse.locator import PickerDomain, Point
@@ -45,14 +46,23 @@ class WinEle:
         locator = WinEleCore.find(pick, wait_time)
         point = locator.point()
 
+        # 模拟真人：操作前随机停顿 + 点击坐标随机偏移
+        human_sim.pre_action_pause()
+        target_x = point.x + int(horizontals_offset)
+        target_y = point.y + int(verticals_offset)
+        if human_sim.should_jitter_click():
+            target_x = human_sim.jitter(target_x)
+            target_y = human_sim.jitter(target_y)
+
         # 按下辅助按键
         if keyboard_input != MouseClickKeyboard.NONE:
             pyautogui.keyDown(keyboard_input.value)
         try:
-            locator.move(Point(point.x + int(horizontals_offset), point.y + int(verticals_offset)))
+            locator.move(Point(target_x, target_y))
             pyautogui.click(
                 clicks=1 if click_type == MouseClickType.CLICK else 2,
                 button=click_button.value,
+                interval=human_sim.click_interval(),
             )
         except Exception as e:
             raise e
@@ -114,6 +124,8 @@ class WinEle:
     )
     def hover_element(pick: WinPick, wait_time: float = 10.0):
         locator = WinEleCore.find(pick, wait_time)
+        # 模拟真人：操作前随机停顿
+        human_sim.pre_action_pause()
         locator.hover()
 
     @staticmethod
@@ -157,6 +169,8 @@ class WinEle:
             raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
 
         locator = WinEleCore.find(pick, wait_time)
+        # 模拟真人：操作前随机停顿
+        human_sim.pre_action_pause()
         locator.move()
         pyautogui.click()
 

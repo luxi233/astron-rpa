@@ -2,6 +2,7 @@ import random
 import time
 
 import pyautogui
+from astronverse.actionlib.humansim import human_sim
 from astronverse.input import Speed
 
 speed_to_int = {Speed.SLOW: 0.5, Speed.NORMAL: 1, Speed.FAST: 2}
@@ -34,8 +35,13 @@ class Mouse:
     @staticmethod
     def move(x=None, y=None, duration: float = 0.0, tween=pyautogui.linear) -> None:
         """
-        鼠标移动
+        鼠标移动（开启模拟真人后，瞬移调用自动改为仿真曲线移动）
         """
+        if duration == 0 and x is not None and y is not None and human_sim.should_simulate_move():
+            human_sim.pre_action_pause()
+            cur_x, cur_y = Mouse.position()
+            duration = Mouse.calculate_movement_duration(cur_x, cur_y, x, y, Speed.NORMAL)
+            return Mouse.move_simulate(x=x, y=y, duration=duration)
         return pyautogui.moveTo(x=x, y=y, duration=duration, tween=tween)
 
     @staticmethod
@@ -82,8 +88,8 @@ class Mouse:
             # 使用pyautogui的moveTo函数，但减少调用次数
             pyautogui.moveTo(new_x, new_y, duration=interval, tween=pyautogui.easeInOutQuad)  # type: ignore
 
-        # 确保最终位置准确
-        Mouse.move(x=x, y=y)
+        # 确保最终位置准确（直接调 pyautogui 避免再次触发仿真分支递归）
+        pyautogui.moveTo(x=x, y=y)
 
     @staticmethod
     def click(
@@ -96,8 +102,14 @@ class Mouse:
         tween=pyautogui.linear,
     ) -> None:
         """
-        鼠标点击
+        鼠标点击（开启模拟真人后，坐标随机偏移 + 按下/抬起随机间隔 + 前置随机停顿）
         """
+        human_sim.pre_action_pause()
+        if x is not None:
+            x = human_sim.jitter(x)
+        if y is not None:
+            y = human_sim.jitter(y)
+        interval = human_sim.click_interval(interval)
         return pyautogui.click(
             x=x,
             y=y,
