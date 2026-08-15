@@ -1,0 +1,57 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Actions run ID containing the artifact'
+        required: true
+      tag:
+        description: 'Release tag (e.g. v1.1.8)'
+        required: true
+      title:
+        description: 'Release title'
+        required: true
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+      notes:
+        description: 'Release notes (single line)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Attach build artifact to release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download EXE artifact from source run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: AstronRPA-windows-exe
+          path: dist
+
+      - name: List downloaded files
+        run: ls -lhR dist
+
+      - name: Create release with EXE asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          TITLE: ${{ inputs.title }}
+          NOTES: ${{ inputs.notes }}
+          PRE: ${{ inputs.prerelease }}
+        run: |
+          FLAGS=""
+          [ "$PRE" = "true" ] && FLAGS="--prerelease"
+          gh release create "$TAG" --title "$TITLE" --notes "$NOTES" $FLAGS dist/AstronRPA-windows-exe/*.exe
