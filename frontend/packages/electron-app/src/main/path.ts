@@ -14,6 +14,8 @@ export const pythonCore = path.join(appWorkPath, 'python_core')
 export const pythonExe = path.join(pythonCore, 'python.exe')
 export const confPath = path.join(resourcePath, 'conf.yaml')
 export const d7zrPath = path.join(resourcePath, '7zr.exe')
+// Appium 预装目录（构建时由 scripts/install-appium.mjs 生成，随 extraFiles 打包）
+export const appiumHome = path.join(resourcePath, 'appium')
 // 插件目录
 export const extensionPath = [
   path.join(appPath, 'extensions'), // 系统插件目录

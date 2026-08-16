@@ -7,6 +7,7 @@ import logger from './log'
 import { envJson } from './env'
 import { listenRender } from './event'
 import { checkPythonRpaProcess, closeSubProcess, startBackend } from './server'
+import { ensureAppiumServer, stopAppiumServer } from './appium'
 import { changeTray, createTray } from './tray'
 import { createSubWindow, createMainWindow as createWindow, electronInfo, getWindowFromLabel, getMainWindow, WindowStack } from './window'
 import { rendererPath, windowBaseUrl, extensionHost } from './path'
@@ -164,6 +165,7 @@ app.on('before-quit', async (e) => {
   e.preventDefault()
   isQuitting = true
   await closeSubProcess()
+  await stopAppiumServer()
   app.exit()
 })
 
@@ -189,6 +191,8 @@ ipcMain.handle('main_window_onload', (_event) => {
   if (globalThis.MainWindowLoaded)
     return true
   startBackend()
+  // 后台拉起内置 Appium server（手机自动化 Appium 模式开箱即用），不阻塞主流程
+  ensureAppiumServer().catch(err => logger.error('ensureAppiumServer error', err.toString()))
   globalThis.MainWindowLoaded = true
   return true
 })
