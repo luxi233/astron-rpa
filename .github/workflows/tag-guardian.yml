@@ -1,0 +1,229 @@
+name: Tag Guardian (tag version format + consistency gate)
+
+# Triggers when ANY tag starting with 'v' is pushed to remote,
+# or when manually dispatched against a tag.
+# This CANNOT block the push itself (GitHub Actions runs after the push completes),
+# but it WILL create a failed check run on the tag's commit, making malformed /
+# inconsistent tags immediately obvious — so you can fix them BEFORE anyone
+# kicks off a release pipeline.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Specific tag to validate (例: v1.1.8-2; 必须已推送)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate-tag:
+    name: 🏷️ Validate tag format & consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Resolve target tag
+        id: resolve
+        shell: bash
+        run: |
+          set -e
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # GITHUB_REF_NAME is the tag name (without refs/tags/ prefix)
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.tag }}"
+            if [[ -z "$TAG" ]]; then
+              echo "❌ workflow_dispatch requires tag input"
+              exit 1
+            fi
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "🎯 Target tag: $TAG"
+
+      - name: Checkout full history (so we can look up tag commit, compare with previous tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # all history + all tags
+          fetch-tags: true
+          ref: ${{ steps.resolve.outputs.tag }}
+
+      - name: Setup Node.js 22 (to read package.json)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # ---- 1. Format check ----
+      - name: Gate 1 — Tag format (must be semver w/ optional pre-release)
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.resolve.outputs.tag }}"
+          # Accept: vMAJOR.MINOR.PATCH  OR  vMAJOR.MINOR.PATCH-<prerelease-id>
+          # 例: v1.1.8 , v1.1.8-2 , v1.1.8-rc1 , v2.0.0-beta.3
+          REGEX='^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$'
+          if [[ "$TAG" =~ $REGEX ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+            PRE="${BASH_REMATCH[4]#-}"
+            echo "✅ Tag format valid"
+            echo "   Major=$MAJOR Minor=$MINOR Patch=$PATCH Pre-release=${PRE:-<none>}"
+          else
+            echo ""
+            echo "❌ INVALID TAG FORMAT: $TAG"
+            echo ""
+            echo "   Expected pattern:  v<MAJOR>.<MINOR>.<PATCH>[-<prerelease>]"
+            echo "   Examples:"
+            echo "     ✓ v1.1.8"
+            echo "     ✓ v1.1.8-2          (semver pre-release, project convention for patch builds)"
+            echo "     ✓ v2.0.0-rc1"
+            echo "     ✗ 1.1.8             (missing 'v' prefix)"
+            echo "     ✗ v1.1.8.2          (4-part dotted; use v1.1.8-2 instead)"
+            echo "     ✗ v1.1.8-1-fix3     (too many hyphenated segments; squash to v1.1.8-<next>)"
+            echo "     ✗ V1.1.8            (uppercase V)"
+            echo ""
+            echo "👉 To fix a bad tag that was already pushed:"
+            echo "   git tag -d $TAG"
+            echo "   git push origin :refs/tags/$TAG"
+            echo "   # then re-create with correct format + push"
+            exit 1
+          fi
+
+      # ---- 2. Check: not a downgrade vs existing tags ----
+      - name: Gate 2 — Version ordering (warn on back-step)
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.resolve.outputs.tag }}"
+          echo "=== All existing tags matching v* pattern ==="
+          git tag --list 'v*' --sort=-v:refname | head -30 || true
+          echo ""
+
+          # Sort all semver-valid tags and find the highest "stable" (no pre-release) one.
+          VALID_TAGS=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || true)
+          if [[ -z "$VALID_TAGS" ]]; then
+            echo "⚠️ No other v* tags found (first tag ever) — skipping ordering check"
+            exit 0
+          fi
+          # Use sort -V (version sort available on ubuntu)
+          HIGHEST=$(echo "$VALID_TAGS" | sort -V | tail -n 1)
+          echo "Highest existing tag (by version-sort): $HIGHEST"
+
+          # Warn (do not hard-fail) if the new tag is lower than the highest tag.
+          # This allows maintenance releases (e.g. v1.1.8-3 after v1.2.0 has shipped).
+          if [[ "$(echo -e "$TAG\n$HIGHEST" | sort -V | tail -n 1)" != "$TAG" ]] && [[ "$TAG" != "$HIGHEST" ]]; then
+            echo ""
+            echo "⚠️  WARNING: $TAG sorts LOWER than existing highest tag $HIGHEST"
+            echo "   This is OK for maintenance / patch branches, but if you didn't"
+            echo "   intend that, cancel release pipelines and use a higher version."
+            echo ""
+          else
+            echo "✅ $TAG is >= all existing tags (good)"
+          fi
+
+      # ---- 3. Version consistency: tag vs electron package.json ----
+      - name: Gate 3 — Tag version ↔ electron-app package.json
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.resolve.outputs.tag }}"
+          TAG_VER="${TAG#v}"
+
+          PKG="./frontend/packages/electron-app/package.json"
+          if [[ ! -f "$PKG" ]]; then
+            echo "❌ File not found: $PKG (did you check out the right commit?)"
+            echo "   Aborting consistency check."
+            exit 1
+          fi
+          PKG_VER=$(node -p "require('$PKG').version")
+          echo "🔖 Tag (stripped):  $TAG_VER"
+          echo "📦 package.json:    $PKG_VER"
+
+          if [[ "$TAG_VER" != "$PKG_VER" ]]; then
+            echo ""
+            echo "❌ VERSION MISMATCH between tag and electron-app package.json!"
+            echo ""
+            echo "   Tag says:      $TAG_VER"
+            echo "   package.json:  $PKG_VER"
+            echo ""
+            echo "👉 Fix one of:"
+            echo "   A) Fix the tag (preferred if tag is wrong):"
+            echo "      git tag -d $TAG"
+            echo "      git push origin :refs/tags/$TAG"
+            echo "      # point tag at the correct commit (package.json already says $PKG_VER → use v$PKG_VER)"
+            echo "      git tag v$PKG_VER <correct-commit-sha>"
+            echo "      git push origin v$PKG_VER"
+            echo ""
+            echo "   B) Fix package.json (preferred if code already has the new features but version wasn't bumped):"
+            echo "      Edit frontend/packages/electron-app/package.json → version = \"$TAG_VER\""
+            echo "      Commit + push the bump commit, then retag to that commit"
+            exit 1
+          fi
+          echo "✅ Version match: tag ($TAG_VER) == package.json ($PKG_VER)"
+
+      # ---- 4. (optional) WPS AirScript existence check ----
+      - name: Gate 4 — Expected release source files present on tagged commit
+        shell: bash
+        run: |
+          set -e
+          FAIL=0
+          WPS="engine/components/astronverse-kdocs/scripts/wps_read_sheet.js"
+          if [[ ! -f "$WPS" ]]; then
+            echo "❌ MISSING: $WPS (WPS AirScript for release asset attachment)"
+            FAIL=1
+          else
+            WPS_LINES=$(wc -l < "$WPS")
+            echo "✅ $WPS exists ($WPS_LINES lines)"
+          fi
+
+          DOCKER_COMPOSE="docker/docker-compose.yml"
+          if [[ ! -f "$DOCKER_COMPOSE" ]]; then
+            echo "❌ MISSING: $DOCKER_COMPOSE (server deploy needs this)"
+            FAIL=1
+          else
+            echo "✅ $DOCKER_COMPOSE exists"
+          fi
+
+          BACKEND_DIRS=(
+            "backend/ai-service"
+            "backend/openapi-service"
+            "backend/resource-service"
+            "backend/robot-service"
+            "backend/rpa-auth"
+          )
+          for d in "${BACKEND_DIRS[@]}"; do
+            if [[ ! -d "$d" ]]; then
+              echo "⚠️ MISSING backend dir: $d (may be in separate repo, verify before release)"
+            fi
+          done
+
+          if [[ "$FAIL" -ne 0 ]]; then
+            echo ""
+            echo "🚫 Expected release source files missing (see above)."
+            echo "   Release pipeline will fail asset gate if you proceed."
+            exit 1
+          fi
+
+      - name: 🎉 Tag Guardian — ALL CHECKS PASSED
+        if: success()
+        shell: bash
+        run: |
+          TAG="${{ steps.resolve.outputs.tag }}"
+          echo ""
+          echo "=================================================================="
+          echo "  🏷️  Tag Guardian: $TAG VALID"
+          echo "=================================================================="
+          echo "  ✅ Format:      semver-compliant"
+          echo "  ✅ Consistency: matches electron-app/package.json"
+          echo "  ✅ Assets:      WPS AirScript + docker-compose.yml present on commit"
+          echo ""
+          echo "  🚀 Safe to proceed with release pipelines:"
+          echo "     • .github/workflows/release-full-pipeline.yml   (recommended, all-in-one)"
+          echo "     • .github/workflows/build-windows-client.yml + publish-release.yml  (manual split)"
+          echo "=================================================================="

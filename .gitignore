@@ -162,5 +162,7 @@ resources/vnc/*
 frontend/pnpm-lock.yaml
 engine/servers/astronverse-executor/astron/*
 engine/servers/astronverse-executor/astron_extension/*
+# runtime data tables created by datatable component (ensure_xlsx_file)
+engine/components/*/astron/
 # runtime db backups (docker/scripts/hot-update-atom-meta.sh)
 docker/volumes/backup/

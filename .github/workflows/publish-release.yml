@@ -4,40 +4,171 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: 'Actions run ID containing the artifact'
-        required: true
+        description: 'Build Windows Client 运行ID(包含AstronRPA-windows-exe artifact); 若使用上游流水线可留空'
+        required: false
       tag:
-        description: 'Release tag (e.g. v1.1.8)'
+        description: 'Release tag (例: v1.1.8-2)'
         required: true
       title:
-        description: 'Release title'
-        required: true
+        description: 'Release标题(留空则自动生成 "Astron RPA <tag>")'
+        required: false
+        default: ''
       prerelease:
-        description: 'Mark as pre-release'
+        description: '标记为预发布(留空则根据tag自动判断:含"-"即预发布)'
+        required: false
+        type: choice
+        options:
+          - 'auto'
+          - 'true'
+          - 'false'
+        default: 'auto'
+      notes:
+        description: 'Release说明(单行; 留空则从最近tag生成)'
+        required: false
+        default: ''
+      skip_version_check:
+        description: '跳过版本一致性校验(package.json vs tag) — 紧急发布时使用'
         required: false
         default: false
         type: boolean
-      notes:
-        description: 'Release notes (single line)'
+  workflow_call:
+    inputs:
+      run_id:
+        description: 'Build Windows Client run ID'
+        type: string
         required: false
+      tag:
+        description: 'Release tag'
+        type: string
+        required: true
+      title:
+        type: string
         default: ''
+      prerelease:
+        type: string
+        default: 'auto'
+      notes:
+        type: string
+        default: ''
+      skip_version_check:
+        type: boolean
+        default: false
+    secrets:
+      GH_RELEASE_TOKEN:
+        description: '用于gh release create的token(workflow_call时传递)'
+        required: false
 
 permissions:
   contents: write
 
 jobs:
   publish:
-    name: Attach build artifact to release
+    name: Attach assets & create GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repo at release tag (for WPS AirScript & server snapshot)
+      # ============================================================
+      # 1. Resolve parameters
+      # ============================================================
+      - name: Resolve parameters (prerelease auto-detect / default title)
+        id: params
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          # prerelease auto-detect
+          PRE_IN="${{ inputs.prerelease }}"
+          if [[ "$PRE_IN" == "auto" ]]; then
+            if [[ "$TAG" == *"-"* ]]; then
+              PRE_OUT="true"
+              PRE_REASON="tag contains '-' (semver prerelease format)"
+            else
+              PRE_OUT="false"
+              PRE_REASON="tag is stable release format"
+            fi
+          else
+            PRE_OUT="$PRE_IN"
+            PRE_REASON="manually set"
+          fi
+          # default title
+          TITLE="${{ inputs.title }}"
+          if [[ -z "$TITLE" ]]; then
+            TITLE="Astron RPA ${TAG}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "prerelease=$PRE_OUT" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "pre_reason=$PRE_REASON" >> $GITHUB_OUTPUT
+
+          echo "🏷️  Tag:          $TAG"
+          echo "📌  Title:        $TITLE"
+          echo "🧪  Pre-release:  $PRE_OUT  ($PRE_REASON)"
+          echo "🔖  Source run_id: ${{ inputs.run_id || '(workflow_call inline artifact)' }}"
+
+      # ============================================================
+      # 2. Checkout repo at release tag (for WPS AirScript, snapshot, version check)
+      # ============================================================
+      - name: Checkout repo at release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ steps.params.outputs.tag }}
 
+      # ============================================================
+      # 3. Pre-flight: Version consistency gate
+      # ============================================================
+      - name: Pre-flight — Version consistency check (package.json ↔ tag)
+        if: ${{ inputs.skip_version_check != true }}
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.params.outputs.tag }}"
+          # strip 'v' prefix: v1.1.8-2 -> 1.1.8-2
+          TAG_VER="${TAG#v}"
+          PKG_VER=$(node -p "require('./frontend/packages/electron-app/package.json').version")
+          echo "🔖 Tag version (stripped): $TAG_VER"
+          echo "📦 Electron package.json:  $PKG_VER"
+          if [[ "$TAG_VER" != "$PKG_VER" ]]; then
+            echo ""
+            echo "❌ FATAL: Tag version mismatch!"
+            echo "   Tag says:        $TAG_VER"
+            echo "   package.json:    $PKG_VER"
+            echo ""
+            echo "👉 Fix options:"
+            echo "   A) Correct the tag: git tag -d $TAG && git tag $TAG <correct-commit> && git push origin :$TAG && git push origin $TAG"
+            echo "   B) Bump package.json version to $TAG_VER, commit, then retag to new commit"
+            echo "   C) Emergency bypass: re-run this workflow with 'skip_version_check=true'"
+            exit 1
+          fi
+          echo "✅ Version check passed: tag ($TAG_VER) == package.json ($PKG_VER)"
+
+      # ============================================================
+      # 4. Pre-flight: Asset (WPS script) sanity
+      # ============================================================
+      - name: Pre-flight — Required asset files existence
+        shell: bash
+        run: |
+          set -e
+          WPS="engine/components/astronverse-kdocs/scripts/wps_read_sheet.js"
+          if [[ ! -f "$WPS" ]]; then
+            echo "❌ WPS AirScript file NOT found at expected path: $WPS"
+            echo "   Release requires wps_read_sheet.js attachment per project convention"
+            exit 1
+          fi
+          WPS_LINES=$(wc -l < "$WPS")
+          WPS_SIZE=$(stat -c%s "$WPS" 2>/dev/null || stat -f%z "$WPS")
+          echo "✅ WPS AirScript present: $WPS ($WPS_LINES lines, $WPS_SIZE bytes)"
+          echo ""
+          echo "Expected release assets will be (must exist at gh release create time):"
+          echo "  • *.exe (Windows installer, from build artifact)"
+          echo "  • wps_read_sheet.js (WPS AirScript, copied here)"
+          echo "  • server-snapshot-${{ steps.params.outputs.tag }}.tar.gz (git archive)"
+          echo "  • SERVER-DEPLOY.txt (deploy / upgrade / rollback guide)"
+
+      # ============================================================
+      # 5. Download EXE artifact (two modes: run_id OR inline)
+      # ============================================================
       - name: Download EXE artifact from source run
+        if: ${{ inputs.run_id != '' }}
         uses: actions/download-artifact@v4
         with:
           run-id: ${{ inputs.run_id }}
@@ -46,17 +177,33 @@ jobs:
           path: dist
 
       - name: List downloaded files
-        run: ls -lhR dist
+        shell: bash
+        run: ls -lhR dist 2>/dev/null || echo "(dist/ empty or not populated yet)"
 
+      # ============================================================
+      # 6. Copy WPS AirScript
+      # ============================================================
       - name: Copy WPS AirScript to dist
-        run: cp engine/components/astronverse-kdocs/scripts/wps_read_sheet.js dist/
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist
+          cp engine/components/astronverse-kdocs/scripts/wps_read_sheet.js dist/
+          echo "✅ Copied wps_read_sheet.js"
+          ls -lh dist/wps_read_sheet.js
 
+      # ============================================================
+      # 7. Build server snapshot tarball + SERVER-DEPLOY.txt
+      # ============================================================
       - name: Build server snapshot (full repo minus client-only resources)
         env:
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ steps.params.outputs.tag }}
+        shell: bash
         run: |
+          set -e
           COMMIT=$(git rev-parse HEAD)
           STAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+          mkdir -p dist
           git archive --format=tar.gz -o "dist/server-snapshot-${TAG}.tar.gz" HEAD -- ':!resources'
           cat > dist/SERVER-DEPLOY.txt <<EOF
           AstronRPA Server Deployment Snapshot
@@ -64,6 +211,7 @@ jobs:
           Tag:    ${TAG}
           Commit: ${COMMIT}
           Built:  ${STAMP}
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
           Contents: full repository source snapshot (git archive, no .git).
           Excludes resources/ (Windows client packaging only). .env is NOT
@@ -86,18 +234,134 @@ jobs:
             4. If metadata still broken, restore from auto backup:
                gunzip -c docker/volumes/backup/<latest>.sql.gz | docker exec -i rpa-opensource-mysql mysql -u<user> -p<pass> rpa
           EOF
+          echo "✅ Server snapshot built:"
+          ls -lh "dist/server-snapshot-${TAG}.tar.gz" dist/SERVER-DEPLOY.txt
 
+      # ============================================================
+      # 8. Final asset gate — block until everything present
+      # ============================================================
+      - name: Asset gate — verify all 4 required assets before creating release
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.params.outputs.tag }}"
+          EXE_COUNT=$(find dist -maxdepth 1 -name "*.exe" | wc -l | tr -d ' ')
+          echo "=== Asset inventory ==="
+          echo "  🪟  EXE installer:  $(find dist -maxdepth 1 -name '*.exe' -exec ls -lh {} \; 2>/dev/null || echo '(MISSING)')"
+          echo "  📄  WPS AirScript: $(ls -lh dist/wps_read_sheet.js 2>/dev/null || echo 'MISSING')"
+          echo "  📦  Snapshot:      $(ls -lh dist/server-snapshot-${TAG}.tar.gz 2>/dev/null || echo 'MISSING')"
+          echo "  📋  Deploy guide:  $(ls -lh dist/SERVER-DEPLOY.txt 2>/dev/null || echo 'MISSING')"
+
+          FAIL=0
+          if [[ "$EXE_COUNT" -lt 1 ]]; then
+            echo "❌ MISSING: No .exe installer found in dist/. Expected one from Build Windows Client."
+            echo "   If running standalone publish-release: verify run_id=$RUN_ID points to a successful build that uploaded AstronRPA-windows-exe artifact"
+            FAIL=1
+          fi
+          [[ -f dist/wps_read_sheet.js ]] || { echo "❌ MISSING: wps_read_sheet.js"; FAIL=1; }
+          [[ -f "dist/server-snapshot-${TAG}.tar.gz" ]] || { echo "❌ MISSING: server-snapshot-${TAG}.tar.gz"; FAIL=1; }
+          [[ -f dist/SERVER-DEPLOY.txt ]] || { echo "❌ MISSING: SERVER-DEPLOY.txt"; FAIL=1; }
+          if [[ "$FAIL" -ne 0 ]]; then
+            echo ""
+            echo "🚫 Release aborted — required assets missing (see above)."
+            exit 1
+          fi
+          echo ""
+          echo "✅ All 4 required assets present. Proceeding to gh release create."
+
+      # ============================================================
+      # 9. Generate release notes (auto if blank)
+      # ============================================================
+      - name: Generate auto release notes if empty
+        id: notes
+        shell: bash
+        run: |
+          TAG="${{ steps.params.outputs.tag }}"
+          USER_NOTES="${{ inputs.notes }}"
+          if [[ -n "$USER_NOTES" ]]; then
+            NOTES="$USER_NOTES"
+          else
+            PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+            if [[ -n "$PREV_TAG" ]]; then
+              LOG=$(git log --oneline "${PREV_TAG}..HEAD" 2>/dev/null || echo "")
+            else
+              LOG=$(git log --oneline -20 2>/dev/null || echo "")
+            fi
+            NOTES=$(cat <<EOF
+          ## Release ${TAG}
+
+          **Auto-generated release notes** — edit to add polish.
+
+          ### What's Changed (${PREV_TAG:-first 20 commits} → ${TAG})
+          $(echo "$LOG" | sed 's/^/- /')
+
+          ### Included Assets
+          - 🪟 **Windows installer (.exe)** — Install AstronRPA desktop client
+          - 📄 **wps_read_sheet.js** — WPS AirScript for KDocs online spreadsheet integration
+          - 📦 **server-snapshot-${TAG}.tar.gz** — Full server-side source snapshot for deployment
+          - 📋 **SERVER-DEPLOY.txt** — Fresh-deploy / upgrade / rollback instructions
+
+          ### Next Steps
+          1. Windows client: download and run the `.exe` installer
+          2. Server: download `server-snapshot-${TAG}.tar.gz` and follow `SERVER-DEPLOY.txt`
+          3. After release is created, backend Docker image build (build-push-backend.yml) auto-triggers
+
+          *Published by workflow run ${{ github.run_id }}*
+          EOF
+          )
+          fi
+          # Use GITHUB_ENV multi-line safe write
+          {
+            echo 'NOTES_BODY<<GH_EOF_MARKER'
+            echo "$NOTES"
+            echo 'GH_EOF_MARKER'
+          } >> $GITHUB_ENV
+
+      # ============================================================
+      # 10. Create release with ALL assets attached
+      # ============================================================
       - name: Create release with EXE + server snapshot assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ inputs.tag }}
-          TITLE: ${{ inputs.title }}
-          NOTES: ${{ inputs.notes }}
-          PRE: ${{ inputs.prerelease }}
+          TAG: ${{ steps.params.outputs.tag }}
+          TITLE: ${{ steps.params.outputs.title }}
+          PRE: ${{ steps.params.outputs.prerelease }}
+        shell: bash
         run: |
+          set -e
           FLAGS=""
-          [ "$PRE" = "true" ] && FLAGS="--prerelease"
-          gh release create "$TAG" --title "$TITLE" --notes "$NOTES" $FLAGS \
+          [[ "$PRE" == "true" ]] && FLAGS="--prerelease"
+          echo "🚀 Creating release $TAG (pre=$PRE)... title='$TITLE'"
+          gh release create "$TAG" --title "$TITLE" --notes "$NOTES_BODY" $FLAGS \
             dist/*.exe dist/wps_read_sheet.js \
-            dist/server-snapshot-${TAG}.tar.gz dist/SERVER-DEPLOY.txt
+            "dist/server-snapshot-${TAG}.tar.gz" dist/SERVER-DEPLOY.txt
+
+      # ============================================================
+      # 11. Post-release summary
+      # ============================================================
+      - name: 🎉 Post-release summary
+        if: success()
+        shell: bash
+        run: |
+          TAG="${{ steps.params.outputs.tag }}"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+          echo ""
+          echo "=================================================================="
+          echo "  ✅ Release ${{ steps.params.outputs.title }} published successfully!"
+          echo "=================================================================="
+          echo "  🔗 Release URL:    $RELEASE_URL"
+          echo "  🏷️  Tag:            $TAG (pre-release=${{ steps.params.outputs.prerelease }})"
+          echo "  🤖 Triggered by:   ${{ github.actor }}"
+          echo "  ⚙️  Workflow run:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          echo "  📦 Attached assets:"
+          cd dist
+          for f in *.exe wps_read_sheet.js server-snapshot-*.tar.gz SERVER-DEPLOY.txt; do
+            SIZE=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
+            echo "    • $f ($SIZE bytes)"
+          done 2>/dev/null
+          echo ""
+          echo "  🐳 Next (auto): build-push-backend.yml triggers on release:published → builds + pushes 5 images to ghcr.io:"
+          echo "     ai-service, openapi-service, resource-service, robot-service, rpa-auth (tagged $TAG + :latest)"
+          echo "=================================================================="
