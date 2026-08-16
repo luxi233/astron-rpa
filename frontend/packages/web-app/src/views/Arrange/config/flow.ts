@@ -1,11 +1,12 @@
 /**
  * 定义常量
  */
-import { Break, Catch, CatchEnd, Continue, Else, ElseEnd, ElseIfEnd, Finally, FinallyEnd, ForDictEnd, ForEnd, ForListEnd, ForStepEnd, Group, GroupEnd, IfEnd, Try, TryEnd, WhileEnd } from '@/views/Arrange/config/atomKeyMap'
+import { Break, Catch, CatchEnd, Continue, Else, ElseEnd, ElseIfEnd, Finally, FinallyEnd, ForDictEnd, ForEnd, ForListEnd, ForStepEnd, Group, GroupEnd, IfEnd, Note, Raise, Try, TryEnd, WhileEnd } from '@/views/Arrange/config/atomKeyMap'
 
 export const DISABLED_BREAKPOINT_TYPE = [
   Group,
   GroupEnd,
+  Note,
   IfEnd,
   ElseIfEnd,
   ElseEnd,
@@ -24,6 +25,7 @@ export const DISABLED_BREAKPOINT_TYPE = [
   Finally,
   Break,
   Continue,
+  Raise,
 ]
 export const PAGE_INIT_INDENT = 82
 export const PAGE_LEVEL_INDENT = 25

@@ -1,0 +1,615 @@
+atomic:
+  Phone.connect:
+    title: 连接手机
+    comment: 连接手机(@{serial})，连接对象保存至(@{conn})
+    icon: phone-connect
+    helpManual: '与指定/自动选择/所有已连接的手机建立连接; 指定手机需填写serial(可通过【获取手机设备列表】查看); 连接所有手机时返回(连接列表, 失败列表); 连接模式: Uiautomator2直连(默认, 数据更精准)/Appium(需先启动Appium服务, 兼容安卓9+读写剪贴板); 高级选项支持连接时自动解锁(数字密码/图案密码)'
+    inputList:
+      - key: target_type
+        title: 连接对象
+        tip: 指定手机/运行时自动选择/所有已连接的手机
+      - key: serial
+        title: 手机serial
+        tip: 指定手机时填写, 可通过【获取手机设备列表】查看
+      - key: ignore_failed
+        title: 忽略连接失败的手机
+        tip: 连接所有手机时生效, 勾选则跳过连接失败的手机
+      - key: custom_name
+        title: 自定义手机名称
+        tip: 自定义手机连接名称, 保存在连接详情custom_name字段
+      - key: connect_mode
+        title: 连接模式
+        tip: Uiautomator2直连(默认,数据精准)/Appium(兼容安卓9+剪贴板,需Appium服务)
+      - key: appium_server
+        title: Appium服务地址
+        tip: Appium模式时填写, 如http://127.0.0.1:4723
+      - key: unlock_type
+        title: 连接时自动解锁
+        tip: 选择解锁方式(无/数字密码/图案密码)
+      - key: unlock_secret
+        title: 手机密码
+        tip: 数字密码或图案数字串(如5416)
+    outputList:
+      - key: conn
+        title: 保存连接对象至
+        tip: 指定/自动选择模式保存手机连接对象
+      - key: conn_list
+        title: 保存连接对象列表至
+        tip: 所有手机模式保存连接对象列表
+      - key: failed_list
+        title: 保存连接失败列表至
+        tip: 勾选忽略失败手机时, 保存连接失败的serial列表
+  Phone.disconnect:
+    title: 断开手机连接
+    comment: 断开手机连接(@{conn})
+    icon: phone-disconnect
+    helpManual: 关闭与指定手机的连接, 停止设备上的uiautomator服务
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+  Phone.get_connect_info:
+    title: 获取手机连接详情
+    comment: 获取手机连接详情保存至(@{info})
+    icon: phone-info
+    helpManual: '获取手机连接详情信息字典: platform/platformName/platformVersion/deviceUDID/deviceScreenSize/deviceModel/deviceManufacturer/custom_name'
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+    outputList:
+      - key: info
+        title: 保存连接详情至
+        tip: 连接详情字典
+  Phone.get_devices:
+    title: 获取手机设备列表
+    comment: 获取adb已连接的手机serial列表保存至(@{device_list})
+    icon: phone-devices
+    helpManual: 获取当前电脑adb已连接的手机serial列表, 用于【连接手机】指定serial
+    outputList:
+      - key: device_list
+        title: 保存设备列表至
+        tip: 手机serial字符串列表
+  Phone.get_element:
+    title: 获取手机元素对象
+    comment: 按(@{by})=(@{value})获取元素保存至(@{element})
+    icon: phone-element
+    helpManual: '按定位方式获取手机元素对象; 支持id/text/text_contains/description/xpath/selector/class; selector传JSON字典如{"text":"设置","resourceId":"com.x:id/y"}; 通常与【获取手机UI树】配合使用'
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: by
+        title: 定位方式
+        tip: id/text/text_contains/description/xpath/selector/class
+      - key: value
+        title: 元素特征
+        tip: 所选定位方式对应的值(selector为JSON字典)
+      - key: index
+        title: 元素序号
+        tip: 第N个匹配元素(从0开始)
+      - key: timeout
+        title: 等待超时秒数
+        tip: 等待元素出现的超时时间
+    outputList:
+      - key: element
+        title: 保存元素对象至
+        tip: 获取到的元素对象
+  Phone.click_element:
+    title: 点击元素(手机)
+    comment: 点击手机元素(单击/双击/长按)
+    icon: phone-click-element
+    helpManual: 点击手机内的元素(按钮/链接等); 可直接使用元素对象变量, 或通过定位方式(id/text/xpath等)定位后点击; 点击方式支持单击/双击/长按
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: element
+        title: 元素对象
+        tip: 通过【获取手机元素对象】获取(与定位方式二选一)
+      - key: by
+        title: 定位方式
+        tip: 未填元素对象时按此定位
+      - key: value
+        title: 元素特征
+        tip: 所选定位方式对应的值
+      - key: index
+        title: 元素序号
+        tip: 第N个匹配元素(从0开始)
+      - key: click_type
+        title: 点击方式
+        tip: 单击/双击/长按
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 指令执行完成后的等待时间
+  Phone.click_screen:
+    title: 点击屏幕(手机)
+    comment: 点击屏幕坐标(@{x},@{y})或图像匹配位置
+    icon: phone-click-screen
+    helpManual: 模拟人工点击手机屏幕; 支持通过坐标指定(相对屏幕左上角)或通过图像匹配(自动匹配屏幕上目标图像位置后点击)
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: position_type
+        title: 点击位置
+        tip: 通过坐标指定/通过图像匹配
+      - key: x
+        title: 横坐标
+        tip: 相对手机屏幕左上角的横向坐标
+      - key: y
+        title: 纵坐标
+        tip: 相对手机屏幕左上角的纵向坐标
+      - key: img_path
+        title: 目标图像
+        tip: 图像匹配模式下选择图像文件, 点击第一个匹配位置
+      - key: click_type
+        title: 点击方式
+        tip: 单击/双击/长按
+      - key: threshold
+        title: 匹配阈值
+        tip: 图像匹配置信度阈值(0-1)
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 指令执行完成后的等待时间
+  Phone.get_image_coords:
+    title: 获取图像坐标(手机)
+    comment: 获取图像(@{img_path})匹配位置保存至(@{coords})
+    icon: phone-image-coords
+    helpManual: 使用图像匹配方式返回目标图像位置列表[[x,y],...]; 目标点支持中心点/随机位置/自定义(按比例)
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: img_path
+        title: 目标图像
+        tip: 需要匹配的图像文件
+      - key: part
+        title: 目标图像部位
+        tip: 中心点/随机位置/自定义
+      - key: x_ratio
+        title: 横向比例
+        tip: 自定义部位时图像区域内横向相对位置(0-1)
+      - key: y_ratio
+        title: 纵向比例
+        tip: 自定义部位时图像区域内纵向相对位置(0-1)
+      - key: threshold
+        title: 匹配阈值
+        tip: 匹配置信度阈值(0-1)
+    outputList:
+      - key: coords
+        title: 保存图像位置列表至
+        tip: 匹配到的位置列表[[x,y],...]
+  Phone.input_text:
+    title: 输入文本(手机)
+    comment: 向手机输入(@{text})
+    icon: phone-input
+    helpManual: 向手机输入文本; 光标所在位置模式需先聚焦输入框; 指定输入框模式直接传入元素对象; 支持追加/清空后输入及输入后回车
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: text
+        title: 输入内容
+        tip: 待输入的文本内容
+      - key: input_target
+        title: 输入对象
+        tip: 光标所在位置/指定输入框
+      - key: element
+        title: 输入框元素
+        tip: 指定输入框模式时传入元素对象
+      - key: append
+        title: 追加输入
+        tip: 勾选则在现有内容后追加, 否则清空后输入
+      - key: press_enter
+        title: 输入后回车
+        tip: 勾选则输入后执行回车(搜索)
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 指令执行完成后的等待时间
+  Phone.wait_element:
+    title: 等待元素(手机)
+    comment: 等待元素出现/消失，结果保存至(@{result})
+    icon: phone-wait-element
+    helpManual: 等待手机元素出现或消失再继续执行; 超时后自动继续, 返回True/False
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: element
+        title: 元素对象
+        tip: 通过【获取手机元素对象】获取
+      - key: wait_type
+        title: 等待方式
+        tip: 等待目标元素出现/消失
+      - key: timeout
+        title: 超时时间(秒)
+        tip: 超时后流程自动继续执行
+    outputList:
+      - key: result
+        title: 等待结果保存至
+        tip: 超时时间内状态符合为True, 否则False
+  Phone.wait_image:
+    title: 等待图像(手机)
+    comment: 等待图像出现/消失，结果保存至(@{result})
+    icon: phone-wait-image
+    helpManual: 等待目标图像出现或消失再继续执行; 支持多张图像(等待全部或任一符合); 超时后自动继续
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: img_paths
+        title: 目标图像
+        tip: 目标图像路径列表(支持单张)
+      - key: wait_type
+        title: 等待方式
+        tip: 等待目标图像出现/消失
+      - key: all_images
+        title: 等待全部图像
+        tip: 勾选则需全部图像符合等待方式
+      - key: timeout
+        title: 超时时间(秒)
+        tip: 超时后流程自动继续执行
+      - key: threshold
+        title: 匹配阈值
+        tip: 匹配置信度阈值(0-1)
+    outputList:
+      - key: result
+        title: 等待结果保存至
+        tip: 超时时间内状态符合为True, 否则False
+  Phone.swipe_screen:
+    title: 滑动手机屏幕
+    comment: 滑动手机屏幕(方向/坐标)
+    icon: phone-swipe
+    helpManual: 模拟人工滑动手机屏幕; 滑动方式支持按方向(上/下/左/右)或按坐标(起始点到结束点); 滑动区域可选整个屏幕或指定元素内
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: mode
+        title: 滑动方式
+        tip: 方向/坐标
+      - key: direction
+        title: 滑动方向
+        tip: 向上/向下/向左/向右
+      - key: area
+        title: 滑动区域
+        tip: 在整个屏幕中/在指定元素中
+      - key: element
+        title: 区域元素
+        tip: 滑动区域选择指定元素时传入元素对象
+      - key: sx
+        title: 起始点横坐标
+        tip: 坐标模式下起始点X
+      - key: sy
+        title: 起始点纵坐标
+        tip: 坐标模式下起始点Y
+      - key: ex
+        title: 结束点横坐标
+        tip: 坐标模式下结束点X
+      - key: ey
+        title: 结束点纵坐标
+        tip: 坐标模式下结束点Y
+      - key: duration
+        title: 滑动时间(毫秒)
+        tip: 用于调整滑动速度
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 指令执行完成后的等待时间
+  Phone.press_key:
+    title: 点击按键(手机)
+    comment: 点击手机按键(@{key_name})
+    icon: phone-key
+    helpManual: '点击手机中的功能按键: 主页/后退/切换应用/回车确认'
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: key_name
+        title: 按键
+        tip: 主页/后退/切换应用/回车确认
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 指令执行完成后的等待时间
+  Phone.screenshot:
+    title: 屏幕截图(手机)
+    comment: 手机屏幕截图保存至(@{file_path})
+    icon: phone-screenshot
+    helpManual: 对当前手机屏幕进行截图并保存至指定文件; 文件名可为空(自动时间戳命名)
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: folder_path
+        title: 保存文件夹
+        tip: 设置图片的保存文件夹路径
+      - key: filename
+        title: 自定义文件名
+        tip: 带后缀名的完整名称, 可为空
+    outputList:
+      - key: file_path
+        title: 截图保存位置
+        tip: 保存截图文件路径信息为变量
+  Phone.element_screenshot:
+    title: 元素截图(手机)
+    comment: 手机元素截图保存至(@{file_path})
+    icon: phone-element-shot
+    helpManual: 对手机中的元素进行截图并保存至指定文件; 文件名可为空(自动时间戳命名)
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: element
+        title: 元素对象
+        tip: 通过【获取手机元素对象】获取
+      - key: folder_path
+        title: 保存文件夹
+        tip: 设置图片的保存文件夹路径
+      - key: filename
+        title: 自定义文件名
+        tip: 带后缀名的完整名称, 可为空
+    outputList:
+      - key: file_path
+        title: 截图保存位置
+        tip: 保存截图文件路径信息为变量
+  Phone.get_element_info:
+    title: 获取手机元素信息
+    comment: 获取元素信息保存至(@{info})
+    icon: phone-element-info
+    helpManual: '获取手机元素的文本内容或属性值; 属性包括text/contentDescription/className/bounds/resourceId/clickable/enabled/focusable/selected/displayed等'
+    inputList:
+      - key: element
+        title: 元素对象
+        tip: 通过【获取手机元素对象】获取
+      - key: info_type
+        title: 操作
+        tip: 获取元素文本内容/获取元素属性
+      - key: attr_name
+        title: 属性名
+        tip: 获取属性时填写, 如resourceId
+    outputList:
+      - key: info
+        title: 保存元素信息至
+        tip: 获取到的元素信息
+  Phone.open_close_app:
+    title: 打开/关闭手机App
+    comment: 打开/关闭App(@{package})
+    icon: phone-app
+    helpManual: 打开或关闭指定App; App包名如com.tencent.mm(微信)/com.android.settings(设置)
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: action
+        title: 操作
+        tip: 打开/关闭
+      - key: package
+        title: App包名
+        tip: 如com.tencent.mm
+  Phone.get_clipboard:
+    title: 获取手机剪切板文本
+    comment: 获取手机剪贴板内容保存至(@{text})
+    icon: phone-clipboard-get
+    helpManual: 获取手机剪切板文本内容
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+    outputList:
+      - key: text
+        title: 保存剪切板文本内容至
+        tip: 获取到的剪贴板内容
+  Phone.set_clipboard:
+    title: 发送文本到剪贴板(手机)
+    comment: 设置手机剪贴板内容(@{text})
+    icon: phone-clipboard-set
+    helpManual: 设置手机剪切板文本内容
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: text
+        title: 内容源
+        tip: 设置手机剪切板的文本内容
+  Phone.rotate_screen:
+    title: 旋转手机屏幕
+    comment: 设置屏幕方向为(@{orientation})
+    icon: phone-rotate
+    helpManual: 将手机的屏幕方向设置为横屏或竖屏; 对页面不支持旋转的无法强行旋转
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: orientation
+        title: 屏幕方向
+        tip: 横屏/竖屏
+  Phone.get_orientation:
+    title: 获取手机屏幕方向
+    comment: 获取屏幕方向保存至(@{orientation})
+    icon: phone-orientation
+    helpManual: 获取手机当前的屏幕方向, 0表示竖屏 1表示横屏
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+    outputList:
+      - key: orientation
+        title: 保存方向信息至
+        tip: 0竖屏 1横屏
+  Phone.lock_unlock_screen:
+    title: 锁定屏幕及解锁
+    comment: 锁定/解锁手机屏幕
+    icon: phone-lock
+    helpManual: 锁定或解锁手机屏幕; 解锁时如有密码需选择解锁方式并填写密码(数字密码或图案数字串如5416)
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: action
+        title: 操作
+        tip: 锁定/解锁
+      - key: unlock_type
+        title: 解锁方式
+        tip: 无/数字密码/图案密码
+      - key: unlock_secret
+        title: 手机密码
+        tip: 数字密码或图案数字串(如5416)
+  Phone.push_file:
+    title: 发送文件到手机
+    comment: 推送本地文件(@{local_path})到手机(@{remote_path})
+    icon: phone-push
+    helpManual: 将本机PC中的指定文件推送到手机中的指定位置; 如本地"C:\图片.png"到"/sdcard/dcim/camera/图片.png"
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: local_path
+        title: 本地文件
+        tip: 待推送的本地文件路径
+      - key: remote_path
+        title: 手机中的存储位置
+        tip: 如/sdcard/dcim/camera/测试图片.png
+  Phone.pull_file:
+    title: 获取手机文件
+    comment: 拉取手机文件(@{remote_path})保存至(@{file_path})
+    icon: phone-pull
+    helpManual: 拉取手机中指定路径的文件到本地
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: remote_path
+        title: 文件存储路径
+        tip: 手机中的文件路径如/sdcard/dcim/camera/测试图片.png
+      - key: local_path
+        title: 本地保存位置
+        tip: 选择文件保存至本地文件路径
+    outputList:
+      - key: file_path
+        title: 保存文件路径至
+        tip: 本地文件路径
+  Phone.get_ui_tree:
+    title: 获取手机UI树
+    comment: 获取UI树保存至(@{ui_tree})
+    icon: phone-uitree
+    helpManual: 获取手机当前页面的树结构信息, 返回XML结构的字符串; 通常与【获取手机元素对象】配合定位元素
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+    outputList:
+      - key: ui_tree
+        title: 保存UI树至
+        tip: XML结构字符串
+options:
+  ConnectMode:
+    - value: uiautomator2
+      label: Uiautomator2模式
+    - value: appium
+      label: Appium模式
+  ConnectTargetType:
+    - value: specified
+      label: 指定手机
+    - value: auto
+      label: 运行时自动选择
+    - value: all
+      label: 所有已连接的手机
+  UnlockType:
+    - value: none
+      label: 无
+    - value: password
+      label: 数字密码
+    - value: pattern
+      label: 图案密码
+  ClickType:
+    - value: single
+      label: 单击
+    - value: double
+      label: 双击
+    - value: long
+      label: 长按
+  PositionType:
+    - value: coord
+      label: 通过坐标指定
+    - value: image
+      label: 通过图像匹配
+  ImageTargetPart:
+    - value: center
+      label: 中心点
+    - value: random
+      label: 随机位置
+    - value: custom
+      label: 自定义
+  InputTargetType:
+    - value: cursor
+      label: 光标所在位置
+    - value: element
+      label: 指定输入框
+  WaitType:
+    - value: appear
+      label: 出现
+    - value: disappear
+      label: 消失
+  SwipeMode:
+    - value: direction
+      label: 方向
+    - value: coord
+      label: 坐标
+  SwipeDirection:
+    - value: up
+      label: 向上滑动
+    - value: down
+      label: 向下滑动
+    - value: left
+      label: 向左滑动
+    - value: right
+      label: 向右滑动
+  KeyType:
+    - value: home
+      label: 主页
+    - value: back
+      label: 后退
+    - value: switch_app
+      label: 切换应用
+    - value: enter
+      label: 回车确认
+  LocatorType:
+    - value: id
+      label: id
+    - value: text
+      label: text
+    - value: text_contains
+      label: text_contains
+    - value: description
+      label: accessibility_id
+    - value: xpath
+      label: xpath
+    - value: selector
+      label: uiautomator_selector
+    - value: class
+      label: label_name
+  ElementInfoType:
+    - value: text
+      label: 获取元素文本内容
+    - value: attribute
+      label: 获取元素属性
+  AppActionType:
+    - value: open
+      label: 打开
+    - value: close
+      label: 关闭
+  OrientationType:
+    - value: portrait
+      label: 竖屏
+    - value: landscape
+      label: 横屏
+  ScreenActionType:
+    - value: lock
+      label: 锁定
+    - value: unlock
+      label: 解锁
+  SwipeAreaType:
+    - value: screen
+      label: 在整个屏幕中
+    - value: element
+      label: 在指定元素中
