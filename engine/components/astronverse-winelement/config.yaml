@@ -172,6 +172,179 @@ atomic:
       - key: item
         title: 循环项
         tip: 默认变量可修改，用于遍历列表的变量
+  WinEle.set_select:
+    title: 设置下拉框（桌面）
+    comment: 设置下拉框元素 @{pick} ，通过@{select_type}选择选项
+    icon: fill-input-win
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: ''
+      - key: select_type
+        title: 选择方式
+        tip: 按选项内容或选项位置选择
+      - key: item_text
+        title: 选项内容
+        tip: 按选项内容选择时填写，支持模糊匹配
+      - key: item_index
+        title: 选项位置
+        tip: 按选项位置选择时填写，从1开始
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList: []
+  WinEle.set_checked:
+    title: 设置复选框（桌面）
+    comment: '设置复选框元素 @{pick} ，操作方式为 @{check_type}'
+    icon: click-element-win
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: ''
+      - key: check_type
+        title: 操作方式
+        tip: 勾选、取消勾选或反选
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList: []
+  WinEle.set_value:
+    title: 设置元素值（桌面）
+    comment: 通过UIA接口直接设置元素 @{pick} 的值为 @{value} ，一般用于输入框和下拉框
+    icon: fill-input-win
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: ''
+      - key: value
+        title: 元素值
+        tip: 设置到元素上的值
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList: []
+  WinEle.wait_element:
+    title: 等待元素（桌面）
+    comment: 等待元素 @{pick} (@{wait_type})，最长等待 @{wait_time} 秒，结果保存至 @{wait_result}
+    icon: check-window-exists
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: ''
+      - key: wait_type
+        title: 等待方式
+        tip: 等待元素出现或消失
+      - key: wait_time
+        title: 等待时间（秒）
+        tip: 在该时间内持续检测
+    outputList:
+      - key: wait_result
+        title: 等待结果
+        tip: true表示等待成功，false表示超时
+  WinEle.get_element_info:
+    title: 获取元素信息（桌面）
+    comment: 获取元素 @{pick} 的信息（@{info_type}），保存至 @{ele_info}
+    icon: get-element-text-win
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: ''
+      - key: info_type
+        title: 信息类型
+        tip: 获取元素文本、值或属性
+      - key: attribute_name
+        title: 属性名称
+        tip: 信息类型为获取元素属性时填写，如Name、AutomationId、ClassName、ControlTypeName
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: ele_info
+        title: 元素信息
+        tip: ''
+  WinEle.get_element_position:
+    title: 获取元素位置（桌面）
+    comment: 获取元素 @{pick} 相对@{relative_to}的位置信息
+    icon: get-element-text-win
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: ''
+      - key: relative_to
+        title: 参照物
+        tip: 相对屏幕或元素所在窗口左上角
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: pos_left
+        title: 左边距
+        tip: 元素左上角横坐标
+      - key: pos_top
+        title: 上边距
+        tip: 元素左上角纵坐标
+      - key: pos_width
+        title: 宽度
+        tip: 元素宽度（像素）
+      - key: pos_height
+        title: 高度
+        tip: 元素高度（像素）
+      - key: center_x
+        title: 中心点横坐标
+        tip: 元素中心点横坐标
+      - key: center_y
+        title: 中心点纵坐标
+        tip: 元素中心点纵坐标
+  WinEle.get_relative_element:
+    title: 获取关联元素（桌面）
+    comment: 获取元素 @{pick} 的@{relative_type}，保存至 @{relative_ele}
+    icon: get-similar-elements-win
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: ''
+      - key: relative_type
+        title: 关联方式
+        tip: 父元素、子元素或同级元素
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: relative_ele
+        title: 关联元素
+        tip: 获取到的元素对象，可供其他桌面元素指令使用
+  WinEle.drag_element:
+    title: 拖拽元素（桌面）
+    comment: 将元素 @{pick} 拖拽至@{drag_type}
+    icon: click-element-win
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 起始元素拾取
+        tip: 拾取需要拖拽的元素
+      - key: drag_type
+        title: 拖拽方式
+        tip: 拖拽至目标元素或目标点偏移量
+      - key: pick_to
+        title: 目标元素拾取
+        tip: 拖拽方式为目标元素时拾取拖拽目标
+      - key: offset_x
+        title: 横向偏移量
+        tip: 拖拽方式为目标点时填写，相对元素中心点的横向偏移
+      - key: offset_y
+        title: 纵向偏移量
+        tip: 拖拽方式为目标点时填写，相对元素中心点的纵向偏移
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList: []
 options:
   MouseClickButton:
     - value: left
@@ -224,6 +397,49 @@ options:
       label: 获取元素值
     - value: getAttribute
       label: 获取元素属性
+  ElementSelectTypeFlag:
+    - value: byText
+      label: 按选项内容选择
+    - value: byIndex
+      label: 按选项位置选择
+  ElementCheckedTypeFlag:
+    - value: check
+      label: 勾选
+    - value: uncheck
+      label: 取消勾选
+    - value: toggle
+      label: 反选
+  ElementWaitTypeFlag:
+    - value: appear
+      label: 等待元素出现
+    - value: disappear
+      label: 等待元素消失
+  ElementInfoTypeFlag:
+    - value: text
+      label: 获取元素文本内容
+    - value: value
+      label: 获取元素值
+    - value: attribute
+      label: 获取元素属性
+  PositionRelativeToFlag:
+    - value: screen
+      label: 相对屏幕左上角
+    - value: window
+      label: 相对元素所在窗口左上角
+  RelativeTypeFlag:
+    - value: parent
+      label: 父元素
+    - value: firstChild
+      label: 第一个子元素
+    - value: nextSibling
+      label: 下一个同级元素
+    - value: prevSibling
+      label: 上一个同级元素
+  DragTypeFlag:
+    - value: toElement
+      label: 拖拽至目标元素上
+    - value: toOffset
+      label: 拖拽至目标点（偏移量）
   Bool:
     - value: true
       label: 是

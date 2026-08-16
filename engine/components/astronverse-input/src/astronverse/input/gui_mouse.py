@@ -5,33 +5,107 @@ from astronverse.actionlib.types import WinPick
 from astronverse.input import (
     BtnModel,
     BtnType,
+    ClickMoveType,
     ControlType,
     Direction,
     MoveType,
+    PositionReferenceType,
     ScrollType,
     Speed,
     WindowType,
 )
 from astronverse.input.code.keyboard import Keyboard
 from astronverse.input.code.mouse import Mouse
-from astronverse.input.code.win32gui import window_find, window_info, window_top
+from astronverse.input.code.win32gui import (
+    get_foreground_window_position,
+    window_find,
+    window_info,
+    window_top,
+)
 from astronverse.input.error import *
 
 
 class GuiMouse:
     @staticmethod
-    @atomicMg.atomic("Gui", inputList=[atomicMg.param("ctrl_type", level=AtomicLevel.ADVANCED.value)])
+    @atomicMg.atomic(
+        "Gui",
+        inputList=[
+            atomicMg.param("ctrl_type", level=AtomicLevel.ADVANCED.value),
+            atomicMg.param("click_move_type", required=False),
+            atomicMg.param(
+                "click_x",
+                types="Int",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.click_x.show",
+                        expression="return ['{}', '{}'].includes($this.click_move_type.value)".format(
+                            ClickMoveType.SCREEN.value, ClickMoveType.ACTIVE_WINDOW.value
+                        ),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "click_y",
+                types="Int",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.click_y.show",
+                        expression="return ['{}', '{}'].includes($this.click_move_type.value)".format(
+                            ClickMoveType.SCREEN.value, ClickMoveType.ACTIVE_WINDOW.value
+                        ),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "click_move_speed",
+                level=AtomicLevel.ADVANCED.value,
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.click_move_speed.show",
+                        expression="return ['{}', '{}'].includes($this.click_move_type.value)".format(
+                            ClickMoveType.SCREEN.value, ClickMoveType.ACTIVE_WINDOW.value
+                        ),
+                    )
+                ],
+            ),
+        ],
+    )
     def mouse(
         btn_type: BtnType = BtnType.LEFT,
         btn_model: BtnModel = BtnModel.CLICK,
         ctrl_type: ControlType = ControlType.EMPTY,
+        click_move_type: ClickMoveType = ClickMoveType.CURRENT,
+        click_x: int = 0,
+        click_y: int = 0,
+        click_move_speed: Speed = Speed.NORMAL,
     ):
         """
         鼠标点击
         :param btn_type: 鼠标按键类型   LEFT:左键，RIGHT:右键，MIDDLE:中键
         :param btn_model: 鼠标按键模式  Click:单击, DoubleClick:双击, Down:按下, Up:松开
         :param ctrl_type: 辅助按键类型  无/Ctrl/Alt/Shift/Win/Shape
+        :param click_move_type: 点击前移动方式  当前位置/屏幕坐标/激活窗口坐标
+        :param click_x: 点击位置横坐标x
+        :param click_y: 点击位置纵坐标y
+        :param click_move_speed: 移动速度
         """
+        # 点击前将鼠标移动到指定位置
+        if click_move_type == ClickMoveType.SCREEN:
+            target_x, target_y = click_x, click_y
+        elif click_move_type == ClickMoveType.ACTIVE_WINDOW:
+            offset_x, offset_y = get_foreground_window_position()
+            target_x, target_y = offset_x + click_x, offset_y + click_y
+        else:
+            target_x = None
+
+        if target_x is not None:
+            screen_weight, screen_height = Mouse.screen_size()
+            if target_x < 0 or target_x > screen_weight or target_y < 0 or target_y > screen_height:
+                raise BaseException(REGION_ERROR, "坐标参数不合法！")
+            current_x, current_y = Mouse.position()
+            duration = Mouse.calculate_movement_duration(current_x, current_y, target_x, target_y, click_move_speed)
+            Mouse.move(target_x, target_y, duration=duration, tween=pyautogui.linear)
+
         # 按下辅助按键
         if ctrl_type != ControlType.EMPTY:
             Keyboard.key_down(ctrl_type.value)
@@ -194,7 +268,7 @@ class GuiMouse:
         move_speed: Speed = Speed.NORMAL,
     ):
         """
-        :param window_type: 窗口类型  全屏/活动窗口
+        :param window_type: 窗口类型  全屏/活动窗口/当前鼠标位置
         :param window_position: 激活窗口左上角坐标
         :param position_x: 移动终点位置x坐标
         :param position_y: 移动终点位置y坐标
@@ -204,6 +278,10 @@ class GuiMouse:
         if window_type == WindowType.ACTIVE_WINDOW and window_position is not None:
             position_x = window_position[0] + position_x
             position_y = window_position[1] + position_y
+        elif window_type == WindowType.CURRENT_POSITION:
+            current_x, current_y = Mouse.position()
+            position_x = current_x + position_x
+            position_y = current_y + position_y
 
         screen_weight, screen_height = Mouse.screen_size()
         if position_x < 0 or position_x > screen_weight or position_y < 0 or position_y > screen_height:
@@ -280,7 +358,7 @@ class GuiMouse:
         move_speed: Speed = Speed.NORMAL,
     ):
         """
-        :param window_type: 窗口类型  全屏/活动窗口
+        :param window_type: 窗口类型  全屏/活动窗口/当前鼠标位置
         :param pick: 目标窗口
         :param position_x: 移动终点位置x坐标
         :param position_y: 移动终点位置y坐标
@@ -294,6 +372,10 @@ class GuiMouse:
             position = info.position
             position_x = position[0] + position_x
             position_y = position[1] + position_y
+        elif window_type == WindowType.CURRENT_POSITION:
+            current_x, current_y = Mouse.position()
+            position_x = current_x + position_x
+            position_y = current_y + position_y
 
         screen_weight, screen_height = Mouse.screen_size()
         if position_x < 0 or position_x > screen_weight or position_y < 0 or position_y > screen_height:
@@ -423,6 +505,7 @@ class GuiMouse:
     @staticmethod
     @atomicMg.atomic(
         "Gui",
+        inputList=[atomicMg.param("reference_type", required=False)],
         outputList=[
             atomicMg.param(
                 "point_x",
@@ -436,7 +519,13 @@ class GuiMouse:
             ),
         ],
     )
-    def mouse_position() -> tuple:
-        """获取鼠标位置"""
+    def mouse_position(reference_type: PositionReferenceType = PositionReferenceType.SCREEN) -> tuple:
+        """
+        获取鼠标位置
+        :param reference_type: 参照物  相对屏幕左上角/相对激活窗口左上角
+        """
         point_x, point_y = Mouse.position()
+        if reference_type == PositionReferenceType.ACTIVE_WINDOW:
+            offset_x, offset_y = get_foreground_window_position()
+            point_x, point_y = point_x - offset_x, point_y - offset_y
         return point_x, point_y

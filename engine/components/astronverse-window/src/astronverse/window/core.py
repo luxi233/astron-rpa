@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from astronverse.actionlib.types import WinPick
-from astronverse.window import ControlInfo, WindowSizeType
+from astronverse.window import ControlInfo, WindowInfoTypeFlag, WindowVisibleTypeFlag, WindowSizeType
 
 
 class IWindowsCore(ABC):
@@ -49,6 +49,36 @@ class IWindowsCore(ABC):
     @abstractmethod
     def toControl(handler: Any) -> Any:
         """转换成Control"""
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def find_list(title_contains: str = "") -> list[tuple[str, str]]:
+        """按标题包含匹配枚举窗口，返回 (标题, 类名) 列表"""
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def info_value(handler: Any, info_type: WindowInfoTypeFlag) -> Any:
+        """按类型获取窗口信息（标题/类名/进程名/位置）"""
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def move(handler: Any, x: int, y: int):
+        """移动窗口位置"""
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def set_visible(handler: Any, visible_type: WindowVisibleTypeFlag):
+        """设置窗口显示/隐藏"""
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_selected_text() -> str:
+        """获取当前激活窗口中被选中的文本"""
         pass
 
 

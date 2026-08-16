@@ -10,11 +10,18 @@ from astronverse.actionlib.types import WinPick
 from astronverse.actionlib.utils import FileExistenceType, handle_existence, Credential
 from astronverse.locator import PickerDomain, Point
 from astronverse.winelement import (
+    DragTypeFlag,
+    ElementCheckedTypeFlag,
     ElementContainTypeFlag,
+    ElementInfoTypeFlag,
     ElementInputType,
+    ElementSelectTypeFlag,
+    ElementWaitTypeFlag,
     MouseClickButton,
     MouseClickKeyboard,
     MouseClickType,
+    PositionRelativeToFlag,
+    RelativeTypeFlag,
     WinLoopGetTypeFlag,
 )
 from astronverse.winelement.core import IWinEleCore
@@ -411,3 +418,435 @@ class WinEle:
             time.sleep(0.3)
             wait_time = wait_time - (time.time() - start)
         return False
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param(
+                "item_text",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.item_text.show",
+                        expression="return $this.select_type.value == '{}'".format(ElementSelectTypeFlag.BY_TEXT.value),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "item_index",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.item_index.show",
+                        expression="return $this.select_type.value == '{}'".format(
+                            ElementSelectTypeFlag.BY_INDEX.value
+                        ),
+                    )
+                ],
+            ),
+        ],
+    )
+    def set_select(
+        pick: WinPick,
+        select_type: ElementSelectTypeFlag = ElementSelectTypeFlag.BY_TEXT,
+        item_text: str = "",
+        item_index: int = 1,
+        wait_time: float = 10.0,
+    ):
+        """设置下拉框（桌面）：按选项内容或选项位置选择"""
+        if pick.get("elementData", {}).get("type", None) != PickerDomain.UIA.value:
+            raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
+
+        control = WinEleCore.find(pick, wait_time).control()
+
+        # 模拟真人：操作前随机停顿
+        human_sim.pre_action_pause()
+
+        # 1. 展开下拉框（组合框需先展开）
+        expanded = False
+        try:
+            expand_pattern = control.GetExpandCollapsePattern()
+            if expand_pattern.ExpandState == 0:  # Collapsed
+                expand_pattern.Expand()
+                expanded = True
+                time.sleep(0.3)
+        except Exception:
+            pass
+
+        # 2. 定位选项列表容器（元素本身为List或展开后的父级下的List）
+        list_control = None
+        if control.ControlTypeName == "ListControl":
+            list_control = control
+        else:
+            try:
+                import uiautomation
+
+                parent = control.GetParentControl()
+                search_root = parent if parent else control
+                list_control = uiautomation.ListControl(searchDepth=8, searchFromControl=search_root)
+                if not list_control or not list_control.Exists(1, 0.5):
+                    list_control = None
+            except Exception:
+                list_control = None
+
+        def _select_item(item_control):
+            try:
+                item_control.GetSelectionItemPattern().Select()
+                return True
+            except Exception:
+                # 兜底：点击选项
+                try:
+                    rect = item_control.BoundingRectangle
+                    center_x = rect.left + (rect.right - rect.left) // 2
+                    center_y = rect.top + (rect.bottom - rect.top) // 2
+                    pyautogui.click(center_x, center_y)
+                    return True
+                except Exception:
+                    return False
+
+        selected = False
+        if list_control:
+            children = list_control.GetChildren()
+            if select_type == ElementSelectTypeFlag.BY_INDEX:
+                idx = int(item_index) - 1
+                if 0 <= idx < len(children):
+                    selected = _select_item(children[idx])
+            else:
+                target = str(item_text)
+                for child in children:
+                    if target == child.Name or (target and target in child.Name):
+                        selected = _select_item(child)
+                        break
+
+        # 3. 收起下拉框
+        if expanded:
+            try:
+                control.GetExpandCollapsePattern().Collapse()
+            except Exception:
+                pass
+
+        if not selected:
+            raise BaseException(ELEMENT_NO_FOUND, "未找到匹配的下拉框选项")
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+    )
+    def set_checked(
+        pick: WinPick,
+        check_type: ElementCheckedTypeFlag = ElementCheckedTypeFlag.CHECK,
+        wait_time: float = 10.0,
+    ):
+        """设置复选框（桌面）：勾选/取消勾选/反选"""
+        if pick.get("elementData", {}).get("type", None) != PickerDomain.UIA.value:
+            raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
+
+        control = WinEleCore.find(pick, wait_time).control()
+
+        # 模拟真人：操作前随机停顿
+        human_sim.pre_action_pause()
+
+        if check_type == ElementCheckedTypeFlag.TOGGLE:
+            try:
+                control.GetTogglePattern().Toggle()
+                return
+            except Exception:
+                pass
+        else:
+            want_on = check_type == ElementCheckedTypeFlag.CHECK
+            try:
+                toggle_pattern = control.GetTogglePattern()
+                # ToggleState: 0=Off 1=On 2=Indeterminate
+                is_on = toggle_pattern.ToggleState == 1
+                if is_on != want_on:
+                    toggle_pattern.Toggle()
+                return
+            except Exception:
+                pass
+            try:
+                item_pattern = control.GetSelectionItemPattern()
+                if want_on:
+                    item_pattern.Select()
+                else:
+                    item_pattern.RemoveFromSelection()
+                return
+            except Exception:
+                pass
+
+        # 兜底：点击切换
+        locator = WinEleCore.find(pick, wait_time)
+        point = locator.point()
+        if human_sim.should_jitter_click():
+            pyautogui.click(human_sim.jitter(point.x), human_sim.jitter(point.y))
+        else:
+            pyautogui.click(point.x, point.y)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+    )
+    def set_value(pick: WinPick, value: str = "", wait_time: float = 10.0):
+        """设置元素值（桌面）：通过UIA接口直接设置元素值，一般用于输入框和下拉框"""
+        if pick.get("elementData", {}).get("type", None) != PickerDomain.UIA.value:
+            raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
+
+        control = WinEleCore.find(pick, wait_time).control()
+        try:
+            control.GetValuePattern().SetValue(str(value))
+        except Exception:
+            try:
+                control.GetLegacyIAccessiblePattern().SetValue(str(value))
+            except Exception:
+                raise BaseException(
+                    ELEMENT_NO_FOUND,
+                    "该元素不支持设置值，请使用填写输入框指令",
+                )
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param(
+                "wait_type",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value),
+            ),
+            atomicMg.param("wait_time", types="Float"),
+        ],
+        outputList=[atomicMg.param("wait_result", types="Bool")],
+    )
+    def wait_element(
+        pick: WinPick,
+        wait_type: ElementWaitTypeFlag = ElementWaitTypeFlag.APPEAR,
+        wait_time: float = 10.0,
+    ) -> bool:
+        """等待元素（桌面）：等待元素出现或消失，返回等待结果"""
+        wait_time = max(0, float(wait_time))
+        deadline = time.time() + wait_time
+        while True:
+            try:
+                WinEleCore.find(pick=pick, wait_time=0)
+                found = True
+            except Exception:
+                found = False
+            if wait_type == ElementWaitTypeFlag.APPEAR and found:
+                return True
+            if wait_type == ElementWaitTypeFlag.DISAPPEAR and not found:
+                return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.3)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param(
+                "info_type",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value),
+            ),
+            atomicMg.param(
+                "attribute_name",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.attribute_name.show",
+                        expression="return $this.info_type.value == '{}'".format(ElementInfoTypeFlag.ATTRIBUTE.value),
+                    )
+                ],
+            ),
+        ],
+        outputList=[atomicMg.param("ele_info", types="Any")],
+    )
+    def get_element_info(
+        pick: WinPick,
+        info_type: ElementInfoTypeFlag = ElementInfoTypeFlag.TEXT,
+        attribute_name: str = "",
+        wait_time: float = 10.0,
+    ):
+        """获取元素信息（桌面）：获取元素的文本内容、值或属性"""
+        locator = WinEleCore.find(pick, wait_time)
+        control = locator.control()
+        if info_type == ElementInfoTypeFlag.TEXT:
+            return control.Name
+        elif info_type == ElementInfoTypeFlag.VALUE:
+            try:
+                return control.GetValuePattern().Value
+            except Exception:
+                try:
+                    return control.GetLegacyIAccessiblePattern().Value
+                except Exception:
+                    return ""
+        else:  # ATTRIBUTE
+            return _get_element_attribute(control, attribute_name, 0)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param(
+                "relative_to",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.RADIO.value),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("pos_left", types="Int"),
+            atomicMg.param("pos_top", types="Int"),
+            atomicMg.param("pos_width", types="Int"),
+            atomicMg.param("pos_height", types="Int"),
+            atomicMg.param("center_x", types="Int"),
+            atomicMg.param("center_y", types="Int"),
+        ],
+    )
+    def get_element_position(
+        pick: WinPick,
+        relative_to: PositionRelativeToFlag = PositionRelativeToFlag.SCREEN,
+        wait_time: float = 10.0,
+    ):
+        """获取元素位置（桌面）：相对屏幕或所在窗口的位置信息"""
+        locator = WinEleCore.find(pick, wait_time)
+        rect = locator.rect()
+        left, top = rect.left, rect.top
+        if relative_to == PositionRelativeToFlag.WINDOW:
+            control = locator.control()
+            top_level = control.GetTopLevelControl()
+            if top_level:
+                window_rect = top_level.BoundingRectangle
+                left -= window_rect.left
+                top -= window_rect.top
+        width, height = rect.width(), rect.height()
+        return left, top, width, height, left + width // 2, top + height // 2
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+        outputList=[atomicMg.param("relative_ele", types="WinPick")],
+    )
+    def get_relative_element(
+        pick: WinPick,
+        relative_type: RelativeTypeFlag = RelativeTypeFlag.PARENT,
+        wait_time: float = 10.0,
+    ):
+        """获取关联元素（桌面）：获取元素的父元素、第一个子元素、相邻同级元素"""
+        if pick.get("elementData", {}).get("type", None) != PickerDomain.UIA.value:
+            raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
+
+        control = WinEleCore.find(pick, wait_time).control()
+        if relative_type == RelativeTypeFlag.PARENT:
+            target = control.GetParentControl()
+        elif relative_type == RelativeTypeFlag.FIRST_CHILD:
+            target = control.GetFirstChildControl()
+        elif relative_type == RelativeTypeFlag.NEXT_SIBLING:
+            target = control.GetNextSiblingControl()
+        else:
+            target = control.GetPreviousSiblingControl()
+
+        if not target:
+            raise BaseException(ELEMENT_NO_FOUND, "未找到{}元素".format(relative_type.value))
+
+        from astronverse.locator.core.uia_locator import UIALocator
+
+        win_pick = WinPick()
+        win_pick.locator = UIALocator(control=target)
+        return win_pick
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+            atomicMg.param(
+                "pick_to",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.pick_to.show",
+                        expression="return $this.drag_type.value == '{}'".format(DragTypeFlag.TO_ELEMENT.value),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "offset_x",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.offset_x.show",
+                        expression="return $this.drag_type.value == '{}'".format(DragTypeFlag.TO_OFFSET.value),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "offset_y",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.offset_y.show",
+                        expression="return $this.drag_type.value == '{}'".format(DragTypeFlag.TO_OFFSET.value),
+                    )
+                ],
+            ),
+        ],
+    )
+    def drag_element(
+        pick: WinPick,
+        drag_type: DragTypeFlag = DragTypeFlag.TO_ELEMENT,
+        pick_to: WinPick = None,
+        offset_x: int = 0,
+        offset_y: int = 0,
+        wait_time: float = 10.0,
+    ):
+        """拖拽元素（桌面）：将元素拖拽至目标元素上或目标点"""
+        start_point = WinEleCore.find(pick, wait_time).point()
+
+        if drag_type == DragTypeFlag.TO_ELEMENT:
+            if not pick_to:
+                raise BaseException(UNPICKABLE, "未指定拖拽目标元素")
+            end_point = WinEleCore.find(pick_to, wait_time).point()
+        else:
+            end_point = Point(start_point.x + int(offset_x), start_point.y + int(offset_y))
+
+        # 模拟真人：操作前随机停顿
+        human_sim.pre_action_pause()
+
+        pyautogui.moveTo(start_point.x, start_point.y, duration=0.2)
+        pyautogui.mouseDown(button="left")
+        try:
+            pyautogui.moveTo(
+                end_point.x,
+                end_point.y,
+                duration=human_sim.move_duration() if hasattr(human_sim, "move_duration") else 0.4,
+            )
+        finally:
+            pyautogui.mouseUp(button="left")

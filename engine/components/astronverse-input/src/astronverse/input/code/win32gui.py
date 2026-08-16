@@ -56,3 +56,15 @@ def window_top(handler):
         shell = win32com.client.Dispatch("WScript.Shell")
         shell.SendKeys("%")
         win32gui.SetForegroundWindow(handler)
+
+
+def get_foreground_window_position() -> tuple:
+    """
+    获取当前激活窗口左上角坐标（去除阴影偏移）
+    :return: (x, y) 无激活窗口时返回 (0, 0)
+    """
+    handler = win32gui.GetForegroundWindow()
+    if not handler:
+        return (0, 0)
+    info = window_info(handler)
+    return (info.position[0], info.position[1])

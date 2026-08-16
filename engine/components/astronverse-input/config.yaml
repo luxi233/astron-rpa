@@ -46,9 +46,21 @@ atomic:
       - key: btn_model
         title: 点击方式
         tip: 选择操作鼠标的点击方式
+      - key: click_move_type
+        title: 点击前移动鼠标
+        tip: 点击前将鼠标移动到指定位置，默认在当前位置点击
+      - key: click_x
+        title: 点击位置横坐标x
+        tip: 移动到屏幕/激活窗口内指定位置时填写
+      - key: click_y
+        title: 点击位置纵坐标y
+        tip: 移动到屏幕/激活窗口内指定位置时填写
       - key: ctrl_type
         title: 键盘辅助按键
         tip: 选择键盘辅助按键，默认为无
+      - key: click_move_speed
+        title: 移动速度
+        tip: ''
     outputList: []
   Gui.mouse_wheel:
     title: 鼠标滚动
@@ -166,7 +178,10 @@ atomic:
     comment: 获取当前鼠标位置并输出至(@{point_x}, @{point_y})
     icon: get-mouse-position
     helpManual: ''
-    inputList: []
+    inputList:
+      - key: reference_type
+        title: 参照物
+        tip: 相对屏幕左上角或相对激活窗口左上角
     outputList:
       - key: point_x
         title: 鼠标x位置
@@ -178,6 +193,8 @@ options:
   KeyboardType:
     - value: normal
       label: 普通输入
+    - value: special
+      label: 特殊按键输入
     - value: driver
       label: 驱动输入
     - value: clip
@@ -240,6 +257,20 @@ options:
       label: 整个屏幕
     - value: active_window
       label: 激活窗口
+    - value: current_position
+      label: 当前鼠标位置
+  ClickMoveType:
+    - value: current
+      label: 当前位置点击
+    - value: screen
+      label: 移动到屏幕指定位置
+    - value: active_window
+      label: 移动到激活窗口内指定位置
+  PositionReferenceType:
+    - value: screen
+      label: 相对屏幕左上角
+    - value: active_window
+      label: 相对激活窗口左上角
   MoveType:
     - value: linear
       label: 匀速直线移动

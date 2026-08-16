@@ -29,8 +29,9 @@ class GuiKeyBoard:
                 dynamics=[
                     DynamicsItem(
                         key="$this.message.show",
-                        expression="return ['{}', '{}', '{}'].includes($this.keyboard_type.value)".format(
+                        expression="return ['{}', '{}', '{}', '{}'].includes($this.keyboard_type.value)".format(
                             KeyboardType.NORMAL.value,
+                            KeyboardType.SPECIAL.value,
                             KeyboardType.DRIVER.value,
                             KeyboardType.GBLID.value,
                         ),
@@ -52,8 +53,8 @@ class GuiKeyBoard:
                 dynamics=[
                     DynamicsItem(
                         key="$this.interval.show",
-                        expression="return ['{}', '{}'].includes($this.keyboard_type.value)".format(
-                            KeyboardType.NORMAL.value, KeyboardType.DRIVER.value
+                        expression="return ['{}', '{}', '{}'].includes($this.keyboard_type.value)".format(
+                            KeyboardType.NORMAL.value, KeyboardType.SPECIAL.value, KeyboardType.DRIVER.value
                         ),
                     )
                 ],
@@ -88,6 +89,13 @@ class GuiKeyBoard:
                 # Keyboard.change_language(CHINESE)
             else:
                 raise NotImplementedError()
+        elif keyboard_type == KeyboardType.SPECIAL:
+            message = str(message)
+            if message == "":
+                raise BaseException(KEYBOARD_MSG_ERROR, "输入内容为空，请检查输入内容")
+            # 特殊按键语法: ^!+#修饰键前缀, {ENTER}按键, {TAB 3}重复, {ASC nnnn}Alt码
+            human_sim.pre_action_pause()
+            Keyboard.write_special(message, interval)
         elif keyboard_type == KeyboardType.CLIP:
             msg = Clipboard.paste()
             if not msg:

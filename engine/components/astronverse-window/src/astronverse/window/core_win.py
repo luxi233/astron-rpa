@@ -3,8 +3,9 @@ from typing import Any
 import win32com.client
 import win32con
 import win32gui
+import win32process
 from astronverse.actionlib.types import WinPick
-from astronverse.window import ControlInfo, WalkControlInfo, WindowSizeType
+from astronverse.window import ControlInfo, WalkControlInfo, WindowInfoTypeFlag, WindowVisibleTypeFlag, WindowSizeType
 from astronverse.window.core import IUITreeCore, IWindowsCore
 from astronverse.window.error import *
 
@@ -112,6 +113,160 @@ class WindowsCore(IWindowsCore):
             )
         elif size_type == WindowSizeType.MIN:
             win32gui.ShowWindow(handler, win32con.SW_MINIMIZE)
+
+    @staticmethod
+    def find_list(title_contains: str = "") -> list[tuple[str, str]]:
+        """
+        find_list 按标题包含匹配枚举所有可见顶层窗口，返回 (标题, 类名) 列表
+        """
+        results = []
+
+        def _enum_handler(hwnd, _):
+            if not win32gui.IsWindowVisible(hwnd):
+                return
+            title = win32gui.GetWindowText(hwnd)
+            if not title:
+                return
+            if title_contains and title_contains not in title:
+                return
+            results.append((title, win32gui.GetClassName(hwnd)))
+
+        win32gui.EnumWindows(_enum_handler, None)
+        return results
+
+    @staticmethod
+    def info_value(handler: Any, info_type: WindowInfoTypeFlag) -> Any:
+        """
+        info_value 按类型获取窗口信息（标题/类名/进程名/位置尺寸）
+        """
+        if info_type == WindowInfoTypeFlag.TITLE:
+            return win32gui.GetWindowText(handler)
+        elif info_type == WindowInfoTypeFlag.CLASS_NAME:
+            return win32gui.GetClassName(handler)
+        elif info_type == WindowInfoTypeFlag.PROCESS_NAME:
+            import os
+
+            _, pid = win32process.GetWindowThreadProcessId(handler)
+            if not pid:
+                return ""
+            import win32api
+
+            process_name = ""
+            try:
+                handle = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+                if handle:
+                    process_name = win32process.GetModuleFileNameEx(handle, 0)
+                    win32api.CloseHandle(handle)
+            except Exception:
+                pass
+            if not process_name:
+                try:
+                    import psutil
+
+                    process_name = psutil.Process(pid).exe()
+                except Exception:
+                    process_name = str(pid)
+            return os.path.basename(process_name) if process_name else ""
+        else:  # RECT
+            left, top, right, bottom = win32gui.GetWindowRect(handler)
+            return [int(left), int(top), int(right), int(bottom)]
+
+    @staticmethod
+    def move(handler: Any, x: int, y: int):
+        """
+        move 移动窗口位置（保持窗口尺寸不变）
+        """
+        if win32gui.IsIconic(handler):
+            win32gui.ShowWindow(handler, win32con.SW_RESTORE)
+        rect = win32gui.GetWindowRect(handler)
+        width = rect[2] - rect[0]
+        height = rect[3] - rect[1]
+        win32gui.SetWindowPos(
+            handler,
+            0,
+            int(x),
+            int(y),
+            width,
+            height,
+            win32con.SWP_NOZORDER | win32con.SWP_SHOWWINDOW,
+        )
+
+    @staticmethod
+    def set_visible(handler: Any, visible_type: WindowVisibleTypeFlag):
+        """
+        set_visible 设置窗口显示/隐藏
+        """
+        if visible_type == WindowVisibleTypeFlag.SHOW:
+            win32gui.ShowWindow(handler, win32con.SW_SHOW)
+        else:
+            win32gui.ShowWindow(handler, win32con.SW_HIDE)
+
+    @staticmethod
+    def get_selected_text() -> str:
+        """
+        get_selected_text 获取当前激活窗口中被选中的文本（UIA TextPattern 优先，剪贴板兜底）
+        """
+        import time as _time
+
+        # 1. UIA TextPattern 方式
+        try:
+            import uiautomation
+
+            focused = uiautomation.GetFocusedControl()
+            text_pattern = focused.GetTextPattern()
+            if text_pattern:
+                selections = text_pattern.GetSelection()
+                texts = []
+                for text_range in selections:
+                    texts.append(text_range.GetText(-1))
+                return "".join(texts)
+        except Exception:
+            pass
+
+        # 2. 剪贴板兜底：保存原剪贴板 → Ctrl+C → 读取 → 还原
+        import pyautogui
+
+        backup = None
+        try:
+            import win32clipboard
+            import win32con as _wc
+
+            win32clipboard.OpenClipboard()
+            if win32clipboard.IsClipboardFormatAvailable(_wc.CF_UNICODETEXT):
+                backup = win32clipboard.GetClipboardData(_wc.CF_UNICODETEXT)
+            win32clipboard.CloseClipboard()
+        except Exception:
+            backup = None
+
+        pyautogui.hotkey("ctrl", "c")
+        _time.sleep(0.3)
+
+        selected = ""
+        try:
+            import win32clipboard
+            import win32con as _wc
+
+            win32clipboard.OpenClipboard()
+            if win32clipboard.IsClipboardFormatAvailable(_wc.CF_UNICODETEXT):
+                selected = win32clipboard.GetClipboardData(_wc.CF_UNICODETEXT)
+            win32clipboard.CloseClipboard()
+        except Exception:
+            selected = ""
+
+        # 还原剪贴板
+        if backup is not None:
+            try:
+                import win32clipboard
+                import win32con as _wc
+
+                win32clipboard.OpenClipboard()
+                win32clipboard.EmptyClipboard()
+                win32clipboard.SetClipboardData(_wc.CF_UNICODETEXT, backup)
+                win32clipboard.CloseClipboard()
+            except Exception:
+                pass
+
+        return selected
 
 
 class UITreeCore(IUITreeCore):

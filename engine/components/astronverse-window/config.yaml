@@ -56,6 +56,96 @@ atomic:
         title: 窗口高度
         tip: 设置指定窗口高度值，单位为屏幕的分辨率像素px，一般为0-9999之间的数值
     outputList: []
+  Window.get:
+    title: 获取窗口对象
+    comment: 获取窗口对象并保存至变量 @{window_obj} ，供后续窗口指令直接调用
+    icon: pin-window
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 窗口拾取
+        tip: 拾取需要获取的桌面软件窗口
+      - key: wait_time
+        title: 等待窗口出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: window_obj
+        title: 窗口对象
+        tip: 获取到的窗口对象变量，可供其他窗口指令使用
+  Window.get_info:
+    title: 获取窗口信息
+    comment: 获取窗口(@{pick})的信息（@{info_type}），保存至 @{window_info}
+    icon: resize-window
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 窗口拾取
+        tip: 拾取需要获取信息的桌面软件窗口
+      - key: info_type
+        title: 信息类型
+        tip: 获取窗口标题、类名、进程名或位置尺寸
+    outputList:
+      - key: window_info
+        title: 窗口信息
+        tip: ''
+  Window.get_list:
+    title: 获取窗口列表
+    comment: 获取所有标题包含@{title_contains}的窗口对象，输出至 @{window_obj_list} ，窗口数量为 @{window_count}
+    icon: pin-window
+    helpManual: ''
+    inputList:
+      - key: title_contains
+        title: 标题包含
+        tip: 匹配窗口标题包含的文字，留空获取所有可见窗口
+    outputList:
+      - key: window_obj_list
+        title: 窗口对象列表
+        tip: 获取到的窗口对象数组，可供其他窗口指令使用
+      - key: window_count
+        title: 窗口数量
+        tip: 获取到的窗口个数
+  Window.move:
+    title: 移动窗口
+    comment: 移动窗口(@{pick})至屏幕坐标(@{x}, @{y})
+    icon: resize-window
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 窗口拾取
+        tip: 拾取需要移动的桌面软件窗口
+      - key: x
+        title: 横坐标x
+        tip: 窗口移动后的左上角横坐标，单位为像素
+      - key: y
+        title: 纵坐标y
+        tip: 窗口移动后的左上角纵坐标，单位为像素
+    outputList: []
+  Window.set_visible:
+    title: 设置窗口显示/隐藏
+    comment: '设置窗口(@{pick})@{visible_type}'
+    icon: pin-window
+    helpManual: ''
+    inputList:
+      - key: pick
+        title: 窗口拾取
+        tip: 拾取需要设置的桌面软件窗口
+      - key: visible_type
+        title: 设置方式
+        tip: 显示或隐藏窗口
+    outputList: []
+  Window.get_selected_text:
+    title: 获取选中文字
+    comment: 获取当前激活窗口中被选中的文本，保存至 @{selected_text}
+    icon: resize-window
+    helpManual: ''
+    inputList:
+      - key: wait_time
+        title: 等待时间（秒）
+        tip: 在该时间内持续检测选中文本
+    outputList:
+      - key: selected_text
+        title: 选中文本
+        tip: 获取到的被选中文本内容
 options:
   WindowExistType:
     - value: exist
@@ -73,3 +163,17 @@ options:
       label: 最大化
     - value: min
       label: 最小化
+  WindowInfoTypeFlag:
+    - value: title
+      label: 窗口标题
+    - value: className
+      label: 窗口类名
+    - value: processName
+      label: 进程名
+    - value: rect
+      label: 窗口位置尺寸
+  WindowVisibleTypeFlag:
+    - value: show
+      label: 显示窗口
+    - value: hide
+      label: 隐藏窗口

@@ -161,6 +161,115 @@ atomic:
         title: 超时时间(秒)
         tip: 在该时间内持续检测，默认10秒
     outputList: []
+  CV.ocr_click:
+    title: 点击文本(OCR)
+    comment: OCR识别屏幕文本并点击文本 @{text} (@{btn_type:左键/右键}) (@{btn_model:单击/双击})位置(@{click_position})
+    icon: general-text-recognition
+    helpManual: >-
+      通过OCR识别屏幕文本并点击匹配文本的位置，支持普通文本与正则表达式匹配。适用于无元素拾取能力的场景（远程桌面、画布类应用、图片化界面）。支持指定查找区域缩小识别范围提高准确率，多个匹配结果时可选择点击第几个
+    inputList:
+      - key: text
+        title: 文本内容
+        tip: 输入待查找的文本内容，支持变量
+      - key: is_regex
+        title: 正则匹配
+        tip: 勾选后按正则表达式匹配文本
+      - key: x1
+        title: 查找区域左上角X
+        tip: 0表示整个屏幕
+      - key: y1
+        title: 查找区域左上角Y
+        tip: 0表示整个屏幕
+      - key: x2
+        title: 查找区域右下角X
+        tip: 0表示整个屏幕
+      - key: y2
+        title: 查找区域右下角Y
+        tip: 0表示整个屏幕
+      - key: similar_index
+        title: 相似结果位置
+        tip: 匹配到多个结果时点击第几个，从1开始，默认第1个
+      - key: btn_type
+        title: 鼠标按键
+        tip: 选择点击鼠标上的键位
+      - key: btn_model
+        title: 点击方式
+        tip: 选择单击或双击
+      - key: click_position
+        title: 点击位置
+        tip: 点击匹配文本的中心点、随机位置或指定位置
+      - key: specified_position
+        title: 指定位置
+        tip: 点击位置为指定位置时选择九宫格位置
+      - key: horizontal_move
+        title: 横向平移
+        tip: 点击位置为指定位置时填写，点击位置横向偏移量
+      - key: vertical_move
+        title: 纵向平移
+        tip: 点击位置为指定位置时填写，点击位置纵向偏移量
+      - key: ctrl_type
+        title: 键盘辅助按键
+        tip: 选择键盘辅助按键，默认为无
+      - key: move_type
+        title: 移动方式
+        tip: ''
+      - key: move_speed
+        title: 移动速度
+        tip: ''
+      - key: wait_time
+        title: 超时时间(秒)
+        tip: 在该时间内持续检测，默认10秒
+    outputList: []
+  CV.ocr_hover:
+    title: 鼠标悬停在文本上(OCR)
+    comment: OCR识别屏幕文本并悬停在文本 @{text} 位置(@{click_position})
+    icon: general-text-recognition
+    helpManual: >-
+      通过OCR识别屏幕文本并将鼠标悬停在匹配文本的位置，支持普通文本与正则表达式匹配。适用于触发悬停提示、菜单展开等场景，支持指定查找区域和相似结果位置
+    inputList:
+      - key: text
+        title: 文本内容
+        tip: 输入待查找的文本内容，支持变量
+      - key: is_regex
+        title: 正则匹配
+        tip: 勾选后按正则表达式匹配文本
+      - key: x1
+        title: 查找区域左上角X
+        tip: 0表示整个屏幕
+      - key: y1
+        title: 查找区域左上角Y
+        tip: 0表示整个屏幕
+      - key: x2
+        title: 查找区域右下角X
+        tip: 0表示整个屏幕
+      - key: y2
+        title: 查找区域右下角Y
+        tip: 0表示整个屏幕
+      - key: similar_index
+        title: 相似结果位置
+        tip: 匹配到多个结果时悬停第几个，从1开始，默认第1个
+      - key: click_position
+        title: 悬停位置
+        tip: 悬停匹配文本的中心点、随机位置或指定位置
+      - key: specified_position
+        title: 指定位置
+        tip: 悬停位置为指定位置时选择九宫格位置
+      - key: horizontal_move
+        title: 横向平移
+        tip: 悬停位置为指定位置时填写，横向偏移量
+      - key: vertical_move
+        title: 纵向平移
+        tip: 悬停位置为指定位置时填写，纵向偏移量
+      - key: move_type
+        title: 移动方式
+        tip: ''
+      - key: move_speed
+        title: 移动速度
+        tip: ''
+      - key: wait_time
+        title: 超时时间(秒)
+        tip: 在该时间内持续检测，默认10秒
+    outputList: []
 options:
   BtnType:
     - value: left
@@ -200,6 +309,17 @@ options:
       label: 存在
     - value: not_exist
       label: 不存在
+  ControlType:
+    - value: none
+      label: 无
+    - value: ctrl
+      label: Ctrl键
+    - value: alt
+      label: Alt键
+    - value: shift
+      label: Shift键
+    - value: win
+      label: Win键
   WaitType:
     - value: appear
       label: 图像出现

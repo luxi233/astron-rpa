@@ -2,7 +2,7 @@ import subprocess
 from typing import Any
 
 from astronverse.actionlib.types import WinPick
-from astronverse.window import ControlInfo, WindowSizeType
+from astronverse.window import ControlInfo, WindowInfoTypeFlag, WindowVisibleTypeFlag, WindowSizeType
 from astronverse.window.core import IWindowsCore
 
 
@@ -89,3 +89,95 @@ class WindowsCore(IWindowsCore):
     @staticmethod
     def toControl(handler: Any) -> Any:
         raise NotImplementedError
+
+    @staticmethod
+    def find_list(title_contains: str = "") -> list[tuple[str, str]]:
+        """xdotool 枚举窗口，按标题包含匹配，返回 (标题, 类名) 列表"""
+        results = []
+        try:
+            output = subprocess.check_output(
+                ["xdotool", "search", "--onlyvisible", "--name", "."],
+                encoding="utf-8",
+                errors="replace",
+            )
+            for line in output.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                win_id = int(line)
+                title = subprocess.check_output(
+                    ["xdotool", "getwindowname", str(win_id)], encoding="utf-8", errors="replace"
+                ).strip()
+                if not title:
+                    continue
+                if title_contains and title_contains not in title:
+                    continue
+                results.append((title, ""))
+        except Exception:
+            pass
+        return results
+
+    @staticmethod
+    def info_value(handler: Any, info_type: WindowInfoTypeFlag) -> Any:
+        assert isinstance(handler, int)
+        win_id = handler
+        if info_type == WindowInfoTypeFlag.TITLE:
+            return subprocess.check_output(
+                ["xdotool", "getwindowname", str(win_id)], encoding="utf-8", errors="replace"
+            ).strip()
+        elif info_type == WindowInfoTypeFlag.CLASS_NAME:
+            try:
+                output = subprocess.check_output(
+                    ["xdotool", "getwindowclassname", str(win_id)], encoding="utf-8", errors="replace"
+                )
+                return output.strip()
+            except Exception:
+                return ""
+        elif info_type == WindowInfoTypeFlag.PROCESS_NAME:
+            try:
+                output = subprocess.check_output(
+                    ["xdotool", "getwindowpid", str(win_id)], encoding="utf-8", errors="replace"
+                )
+                pid = output.strip()
+                link = subprocess.check_output(["readlink", f"/proc/{pid}/exe"], encoding="utf-8", errors="replace")
+                return link.strip().split("/")[-1]
+            except Exception:
+                return ""
+        else:  # RECT
+            geom = {}
+            output = subprocess.check_output(
+                ["xdotool", "getwindowgeometry", "--shell", str(win_id)], encoding="utf-8", errors="replace"
+            )
+            for line in output.splitlines():
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    geom[key] = int(value)
+            return [
+                geom.get("X", 0),
+                geom.get("Y", 0),
+                geom.get("X", 0) + geom.get("WIDTH", 0),
+                geom.get("Y", 0) + geom.get("HEIGHT", 0),
+            ]
+
+    @staticmethod
+    def move(handler: Any, x: int, y: int):
+        assert isinstance(handler, int)
+        subprocess.check_output(
+            ["xdotool", "windowmove", str(handler), str(int(x)), str(int(y))],
+            encoding="utf-8",
+            errors="replace",
+        )
+
+    @staticmethod
+    def set_visible(handler: Any, visible_type: WindowVisibleTypeFlag):
+        assert isinstance(handler, int)
+        action = "windowmap" if visible_type == WindowVisibleTypeFlag.SHOW else "windowunmap"
+        subprocess.check_output(["xdotool", action, str(handler)], encoding="utf-8", errors="replace")
+
+    @staticmethod
+    def get_selected_text() -> str:
+        # xdotool 无选中文本API，用 xclip 读取选区（XA_PRIMARY）
+        try:
+            return subprocess.check_output(["xclip", "-selection", "primary", "-o"], encoding="utf-8", errors="replace")
+        except Exception:
+            return ""
