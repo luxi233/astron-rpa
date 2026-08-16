@@ -425,7 +425,7 @@ jobs:
           - 📋 **SERVER-DEPLOY.txt** — Deploy / upgrade / rollback guide
 
           ### Pipeline Stages Status
-          - 🧪 QA Gate: ${{ needs.qa-gate.result == 'success' && '✅ PASSED' || (needs.qa-gate.result == 'skipped' ? '⏭️ SKIPPED (skip_qa=true)' : '❌ UNKNOWN') }}
+          - 🧪 QA Gate: ${{ needs.qa-gate.result == 'success' && '✅ PASSED' || (needs.qa-gate.result == 'skipped' && '⏭️ SKIPPED (skip_qa=true)' || '❌ UNKNOWN') }}
           - 🪟 Build Client: ✅ PASSED
           - 🚀 Publish: in progress
 
