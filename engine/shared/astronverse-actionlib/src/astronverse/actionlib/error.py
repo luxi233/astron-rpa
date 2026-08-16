@@ -1,6 +1,8 @@
 from astronverse.baseline.error.error import BaseException, BizCode, ErrorCode
 from astronverse.baseline.i18n.i18n import _
 
+import builtins
+
 BaseException = BaseException
 
 
@@ -36,3 +38,14 @@ class ParamException(BaseException):
     """参数错误，额外携带出错的参数名"""
 
     pass
+
+
+class TerminateAppSignal(builtins.BaseException):
+    """终止应用信号: 由 System.terminate_app 原子抛出, 穿透流程错误处理(Try/except Exception), 由执行器捕获后以 CANCEL 状态结束整个应用
+
+    注意: 本文件顶部 `BaseException = BaseException` 已将内置名遮蔽为业务异常(其父类为 Exception), 因此必须显式继承 builtins.BaseException, 否则会被流程的异常捕获节点吞掉导致终止失效
+    """
+
+    def __init__(self, message: str = ""):
+        self.message = message
+        super().__init__(message)

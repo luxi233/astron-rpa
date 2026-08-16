@@ -469,6 +469,22 @@ class Return(Node):
 
 
 @dataclass
+class Raise(Node):
+    token: Token = None
+    __arguments__: dict[str, InputParam] = None
+
+    def display(self, svc, tab_num=0):
+        self.__arguments__ = svc.param.parse_input(self.token)
+        reason = self.__arguments__.get("reason")
+        reason_expr = reason.show_value() if reason else "''"
+        line = self.token.value.get("__line__")
+        code = "raise BaseException(IGNORE_ERROR_FORMAT.format(str(__REASON__)), str(__REASON__))".replace(
+            "__REASON__", reason_expr
+        )
+        return [CodeLine(tab_num, code, line)]
+
+
+@dataclass
 class IF(Node):
     token: Token = None
     __arguments__: dict[str, InputParam] = None
@@ -573,10 +589,14 @@ class Try(Node):
         # except块
         if self.catch_block:
             code_lines.append(CodeLine(tab_num, "except Exception as e:"))
+            # Catch节点配置了"保存异常信息"输出变量时, 将异常信息赋值给该变量
+            catch_returned = svc.param.parse_output(self.catch_block.token)
+            if catch_returned:
+                code_lines.append(CodeLine(tab_num + 1, "{} = str(e)".format(catch_returned[0].show())))
             temp = self.catch_block.display(svc, tab_num)
             if temp:
                 code_lines.extend(temp)
-            else:
+            elif not catch_returned:
                 code_lines.append(CodeLine(tab_num + 1, "pass"))
 
         # finally块

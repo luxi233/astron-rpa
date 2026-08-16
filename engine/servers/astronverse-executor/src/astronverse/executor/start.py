@@ -7,6 +7,7 @@ import traceback
 from urllib.parse import unquote
 from astronverse.executor.error import *
 from astronverse.actionlib import ReportFlow, ReportFlowStatus, ReportType
+from astronverse.actionlib.error import TerminateAppSignal
 from astronverse.executor import ExecuteStatus
 from astronverse.executor.config import Config
 from astronverse.executor.debug.apis.ws import Ws
@@ -100,7 +101,14 @@ def debug_start(args, svc, flow_tip=None):
     svc.report.info(
         ReportFlow(log_type=ReportType.Flow, status=ReportFlowStatus.TASK_START, msg_str=MSG_TASK_EXECUTION_START)
     )
-    data = debug.start(params=args.run_param)
+    data = {}
+    try:
+        data = debug.start(params=args.run_param)
+    except TerminateAppSignal:
+        # 终止应用: 主动停止整个应用的运行(非失败), 以 CANCEL 状态结束
+        logger.info("terminate app by TerminateAppSignal")
+        svc.end(ExecuteStatus.CANCEL, reason=MSG_TASK_TERMINATED)
+        return
 
     # 执行后验证
     if Config.open_log_ws and Config.wait_web_ws:

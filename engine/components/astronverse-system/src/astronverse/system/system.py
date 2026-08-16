@@ -1,4 +1,5 @@
 import os
+import platform
 import random
 import time
 
@@ -7,6 +8,8 @@ from astronverse.actionlib.atomic import atomicMg
 from astronverse.system import *
 from astronverse.system.core.printer_core import PrinterCore
 from astronverse.system.core.screenshot_core import ScreenShotCore
+from astronverse.system.core.selection_core import get_selected_files
+from astronverse.system.core import app_core, ime_core, screensaver_core
 from astronverse.system.error import *
 from astronverse.system.utils import file_is_exists, folder_is_exists, get_files_in_folder, path_join
 
@@ -332,6 +335,453 @@ class System:
         password_rsa: str = "",
     ):
         raise NotImplementedError()
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        outputList=[
+            atomicMg.param("selected_file_list", types="List"),
+        ],
+    )
+    def get_selected_files() -> list:
+        """
+        获取资源管理器/桌面(Finder)中当前选中的文件(夹)路径列表
+        :return: 选中项绝对路径列表
+        """
+        system = platform.system()
+        if system == "Linux":
+            raise BaseException(SELECTED_FILES_ERROR_FORMAT.format("linux"), "当前操作系统不支持获取选中文件列表")
+        try:
+            selected = get_selected_files()
+        except NotImplementedError:
+            raise BaseException(SELECTED_FILES_ERROR_FORMAT.format(system), "当前操作系统不支持获取选中文件列表")
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(SELECTED_FILES_ERROR_FORMAT.format(str(e)), str(e))
+        if not selected:
+            raise BaseException(
+                SELECTED_FILES_NOT_FOUND_FORMAT, "未找到选中的文件(夹)，请先在资源管理器或桌面中选择后再执行"
+            )
+        return selected
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        outputList=[
+            atomicMg.param("ime_status", types="String"),
+        ],
+    )
+    def get_ime() -> str:
+        """
+        获取当前激活窗口输入法的中英文输入状态
+        :return: unknow(未知)/english(英文输入状态)/chinese(中文输入状态)
+        """
+        if platform.system() != "Windows":
+            raise BaseException(IME_NOT_SUPPORTED_FORMAT, "仅支持Windows系统")
+        try:
+            return ime_core.get_ime_status()
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(IME_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param("ime_type"),
+        ],
+    )
+    def set_ime(ime_type: IMEStatusType = IMEStatusType.ENGLISH) -> None:
+        """
+        设置当前激活窗口的输入法为中/英文输入状态(仅支持Windows，支持搜狗/百度/QQ/Bing等主流输入法)
+        :param ime_type: english(英文输入法)/chinese(中文输入法)
+        """
+        if platform.system() != "Windows":
+            raise BaseException(IME_NOT_SUPPORTED_FORMAT, "仅支持Windows系统")
+        try:
+            ime_core.set_ime_status(ime_type.value)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(IME_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic("System")
+    def screensaver_start() -> None:
+        """
+        唤起屏幕保护(全屏置顶黑窗，如已设置屏保提示则显示提示文字)
+        """
+        try:
+            screensaver_core.start_screensaver()
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(SCREENSAVER_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic("System")
+    def screensaver_stop() -> None:
+        """
+        关闭已唤起的屏幕保护
+        """
+        try:
+            stopped = screensaver_core.stop_screensaver()
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(SCREENSAVER_ERROR_FORMAT.format(str(e)), str(e))
+        if not stopped:
+            raise BaseException(SCREENSAVER_NOT_RUNNING_FORMAT, "当前没有已唤起的屏幕保护")
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "tip_text",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=True,
+            ),
+        ],
+    )
+    def set_screensaver_tip(tip_text: str = "") -> None:
+        """
+        设置屏保提示文字(唤起屏幕保护时全屏显示，屏保运行中设置会自动刷新)
+        :param tip_text: 提示文字
+        """
+        try:
+            screensaver_core.write_tip(tip_text)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(SCREENSAVER_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic("System")
+    def clear_screensaver_tip() -> None:
+        """
+        清空屏保提示文字
+        """
+        try:
+            if not screensaver_core.clear_tip():
+                raise BaseException(SCREENSAVER_TIP_EMPTY_FORMAT, "当前未设置屏保提示文字")
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(SCREENSAVER_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "data_key",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "content",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=True,
+            ),
+        ],
+    )
+    def save_custom_data(data_key: str = "", content: str = "") -> None:
+        """
+        保存自定义数据(同Key覆盖，持久保存跨流程执行可用，单条最大20000字符)
+        :param key: 数据Key
+        :param content: 数据内容
+        """
+        try:
+            app_core.save_custom_data(data_key, content)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(CUSTOM_DATA_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "data_key",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("content", types="String"),
+        ],
+    )
+    def read_custom_data(data_key: str = ""):
+        """
+        读取已保存的自定义数据，未保存过返回None
+        :param key: 数据Key
+        :return: 数据内容(未保存过返回None)
+        """
+        try:
+            return app_core.read_custom_data(data_key)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(CUSTOM_DATA_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic("System")
+    def terminate_app() -> None:
+        """
+        终止应用(停止整个应用的运行，后续所有流程不再执行，应用以取消状态结束)
+        """
+        from astronverse.actionlib.error import TerminateAppSignal
+
+        raise TerminateAppSignal("terminate app")
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param("param_type"),
+        ],
+        outputList=[
+            atomicMg.param("param_value", types="String"),
+        ],
+    )
+    def get_app_param(param_type: AppParamType = AppParamType.PROJECT_ID) -> str:
+        """
+        获取当前应用的运行参数(应用ID/应用名称/执行ID/资源文件目录)
+        :param param_type: 参数类型
+        :return: 参数值
+        """
+        try:
+            if param_type == AppParamType.PROJECT_ID:
+                value = app_core.get_project_id()
+            elif param_type == AppParamType.PROJECT_NAME:
+                value = app_core.get_project_name()
+            elif param_type == AppParamType.EXEC_ID:
+                value = app_core.get_exec_id()
+            else:
+                value = app_core.get_resource_dir()
+            return str(value)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(APP_PARAM_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "file_name",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param("read_type"),
+            atomicMg.param(
+                "encode",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("content", types="String"),
+        ],
+    )
+    def read_resource_file(
+        file_name: str = "", read_type: ResourceReadType = ResourceReadType.TEXT, encode: str = "utf-8"
+    ):
+        """
+        读取资源文件内容(文本或二进制)
+        :param file_name: 资源文件名(相对资源目录)
+        :param read_type: 读取类型: text(文本)/byte(二进制)
+        :param encode: 文本编码(utf-8/gbk等)
+        :return: 文件内容(文本为字符串, 二进制为bytes)
+        """
+        try:
+            import os
+
+            path = app_core.resolve_resource_path(file_name)
+            if read_type == ResourceReadType.TEXT:
+                with open(path, encoding=encode) as f:
+                    return f.read()
+            with open(path, "rb") as f:
+                return f.read()
+        except BaseException:
+            raise
+        except Exception as e:
+            msg = str(e)
+            if isinstance(e, FileNotFoundError):
+                raise BaseException(RESOURCE_FILE_NOT_FOUND_FORMAT.format(file_name), msg)
+            raise BaseException(RESOURCE_FILE_ERROR_FORMAT.format(msg), msg)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "file_name",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("file_path", types="String"),
+        ],
+    )
+    def get_resource_file_path(file_name: str = "") -> str:
+        """
+        获取资源文件的绝对路径
+        :param file_name: 资源文件名(相对资源目录)
+        :return: 文件绝对路径
+        """
+        try:
+            return app_core.resolve_resource_path(file_name)
+        except BaseException:
+            raise
+        except Exception as e:
+            msg = str(e)
+            if isinstance(e, FileNotFoundError):
+                raise BaseException(RESOURCE_FILE_NOT_FOUND_FORMAT.format(file_name), msg)
+            raise BaseException(RESOURCE_FILE_ERROR_FORMAT.format(msg), msg)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "file_name",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "target_path",
+                types="String",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value, params={"filters": [], "file_type": "file"}
+                ),
+                required=True,
+            ),
+            atomicMg.param("exist_option"),
+        ],
+    )
+    def copy_resource_file(
+        file_name: str = "",
+        target_path: str = "",
+        exist_option: ResourceCopyExistOption = ResourceCopyExistOption.OVERWRITE,
+    ) -> None:
+        """
+        拷贝资源文件到指定位置
+        :param file_name: 资源文件名(相对资源目录)
+        :param target_path: 目标文件路径
+        :param exist_option: 目标文件已存在时: overwrite(覆盖)/skip(不拷贝)
+        """
+        try:
+            import os
+            import shutil
+
+            path = app_core.resolve_resource_path(file_name)
+            if os.path.exists(target_path) and exist_option == ResourceCopyExistOption.SKIP:
+                return
+            os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+            shutil.copyfile(path, target_path)
+        except BaseException:
+            raise
+        except Exception as e:
+            msg = str(e)
+            if isinstance(e, FileNotFoundError):
+                raise BaseException(RESOURCE_FILE_NOT_FOUND_FORMAT.format(file_name), msg)
+            raise BaseException(RESOURCE_FILE_ERROR_FORMAT.format(msg), msg)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "file_name",
+                types="String",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+    )
+    def clipboard_resource_file(file_name: str = "") -> None:
+        """
+        将资源文件添加到剪切板(配合Ctrl+V可将文件粘贴到目标位置)
+        :param file_name: 资源文件名(相对资源目录)
+        """
+        try:
+            from astronverse.system.clipboard import Clipboard, ContentType
+
+            path = app_core.resolve_resource_path(file_name)
+            Clipboard.copy_clip(content_type=ContentType.FILE, file_path=path)
+        except BaseException:
+            raise
+        except Exception as e:
+            msg = str(e)
+            if isinstance(e, FileNotFoundError):
+                raise BaseException(RESOURCE_FILE_NOT_FOUND_FORMAT.format(file_name), msg)
+            raise BaseException(RESOURCE_FILE_ERROR_FORMAT.format(msg), msg)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "System",
+        inputList=[
+            atomicMg.param(
+                "folder_path",
+                types="Str",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value, params={"filters": [], "file_type": "folder"}
+                ),
+                required=True,
+            ),
+            atomicMg.param(
+                "file_name",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("file_path", types="Str"),
+        ],
+    )
+    def export_log(folder_path: str = "", file_name: str = "") -> str:
+        """
+        导出运行日志(将当前应用的运行日志导出到txt文件)
+        :param folder_path: 导出文件夹路径
+        :param file_name: 导出文件名称(.txt)
+        :return: 导出文件的完整路径
+        """
+        try:
+            import os
+
+            log_file = app_core.get_run_log_file()
+            if not log_file:
+                raise BaseException(LOG_EXPORT_ERROR_FORMAT, "未找到当前执行的运行日志文件")
+            if file_name and not file_name.lower().endswith(".txt"):
+                file_name = "{}.txt".format(file_name)
+            if not file_name:
+                file_name = "run_log.txt"
+            os.makedirs(folder_path, exist_ok=True)
+            target = os.path.join(folder_path, file_name)
+            content = app_core.format_run_log(log_file)
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(content)
+            return target
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(LOG_EXPORT_ERROR_FORMAT.format(str(e)), str(e))
 
     @staticmethod
     @atomicMg.atomic(

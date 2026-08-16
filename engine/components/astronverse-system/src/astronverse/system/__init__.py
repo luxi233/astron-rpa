@@ -206,3 +206,47 @@ class XlsAppType(Enum):
     EXCEL = "Excel"
     WPS = "WPS"
     DEFAULT = "Default"
+
+
+class SystemFolderType(Enum):
+    """系统文件夹类型"""
+
+    DESKTOP = "desktop"  # 桌面
+    DOCUMENTS = "documents"  # 文档
+    DOWNLOADS = "downloads"  # 下载
+    PICTURES = "pictures"  # 图片
+    MUSIC = "music"  # 音乐
+    VIDEOS = "videos"  # 视频
+    FAVORITES = "favorites"  # 收藏夹
+    START_MENU = "start_menu"  # 开始菜单
+    TEMP = "temp"  # 临时目录
+
+
+class IMEStatusType(Enum):
+    """输入法中英文状态"""
+
+    ENGLISH = "english"  # 英文输入状态
+    CHINESE = "chinese"  # 中文输入状态
+
+
+class ResourceReadType(Enum):
+    """资源文件读取类型"""
+
+    TEXT = "text"  # 文本
+    BYTE = "byte"  # 二进制
+
+
+class ResourceCopyExistOption(Enum):
+    """资源文件拷贝已存在选项"""
+
+    OVERWRITE = "overwrite"  # 覆盖
+    SKIP = "skip"  # 不拷贝(保留原文件)
+
+
+class AppParamType(Enum):
+    """应用参数类型"""
+
+    PROJECT_ID = "project_id"  # 当前应用ID
+    PROJECT_NAME = "project_name"  # 当前应用名称
+    EXEC_ID = "exec_id"  # 当前执行ID
+    RESOURCE_DIR = "resource_dir"  # 资源文件目录

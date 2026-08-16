@@ -3,6 +3,9 @@ import os
 import re
 import tempfile
 
+from docx import Document
+from PIL import Image
+
 import psutil
 import win32clipboard
 import win32com.client as wc
@@ -315,14 +318,24 @@ class WordDocumentCore(IDocumentCore):
         doc.Activate()
         selection = doc.Application.Selection
         replace_count = 0
+        match_case = not ignore_case
         wdReplaceIndex = 2 if replace_method == ReplaceMethodType.ALL else 1
+        # 文本替换时先统计匹配个数(替换后原文本将不存在, 事后无法统计)
+        match_total = 0
+        if replace_type == ReplaceType.STR:
+            count_range = doc.Content
+            counter = count_range.Find
+            counter.ClearFormatting()
+            counter.Text = origin_word
+            counter.MatchCase = match_case
+            while counter.Execute():
+                match_total += 1
         if replace_method == ReplaceMethodType.FIRST:
             found = selection.Find
             found.ClearFormatting()
             found.Text = origin_word
-            match_case = not ignore_case
             found.MatchCase = match_case
-            found.Execute()
+            hit = found.Execute()
             if replace_type == ReplaceType.STR:
                 doc_range = doc.Content
                 doc_range.Find.Execute(
@@ -338,16 +351,17 @@ class WordDocumentCore(IDocumentCore):
                     new_word,
                     wdReplaceIndex,
                 )
+                replace_count = 1 if match_total > 0 else 0
             else:
-                selection.InlineShapes.AddPicture(img_path)
-                selection.TypeBackspace()
-            replace_count = 1
+                if hit:
+                    selection.InlineShapes.AddPicture(img_path)
+                    selection.TypeBackspace()
+                replace_count = 1 if hit else 0
         elif replace_method == ReplaceMethodType.ALL:
             selection.HomeKey(Unit=6)
             found = selection.Find
             found.ClearFormatting()
             found.Text = origin_word
-            match_case = not ignore_case
             found.MatchCase = match_case
             if replace_type == ReplaceType.STR:
                 doc_range = doc.Content
@@ -364,8 +378,7 @@ class WordDocumentCore(IDocumentCore):
                     new_word,
                     wdReplaceIndex,
                 )
-                while found.Execute():
-                    replace_count += 1
+                replace_count = match_total
             else:
                 while found.Execute():
                     range_obj = found.Parent
@@ -411,10 +424,33 @@ class WordDocumentCore(IDocumentCore):
         c_idx: int = 1,
         p_idx: int = 1,
         r_idx: int = 1,
+        bookmark: str = "",
     ):
         doc.Activate()
         s = doc.Application.Selection
-        if by == CursorPointerType.CONTENT:  # 按照文本定位
+        if by == CursorPointerType.BOOKMARK:  # 按照书签定位
+            if not bookmark:
+                raise BaseException(
+                    CONTENT_FORMAT_ERROR_FORMAT,
+                    "请填写要定位光标的书签名称!!!",
+                )
+            try:
+                bookmarks = doc.Bookmarks
+                if not bookmarks.Exists(bookmark):
+                    raise BaseException(
+                        CONTENT_FORMAT_ERROR_FORMAT,
+                        f"书签[{bookmark}]不存在，请检查书签名称是否正确!",
+                    )
+                bm_range = bookmarks(bookmark).Range
+                if pos == CursorPositionType.HEAD:  # 将光标定位到书签开头
+                    s.SetRange(Start=bm_range.Start, End=bm_range.Start)
+                else:  # 将光标定位到书签末尾
+                    s.SetRange(Start=bm_range.End, End=bm_range.End)
+            except BaseException:
+                raise
+            except Exception as e:
+                raise BaseException(CONTENT_FORMAT_ERROR_FORMAT, "书签定位失败！") from e
+        elif by == CursorPointerType.CONTENT:  # 按照文本定位
             if not content:
                 raise BaseException(
                     CONTENT_FORMAT_ERROR_FORMAT,
@@ -524,9 +560,11 @@ class WordDocumentCore(IDocumentCore):
             )
 
     @classmethod
-    def insert_hyperlink(cls, doc: object = None, url: str = "", display: str = ""):
+    def insert_hyperlink(cls, doc: object = None, url: str = "", display: str = "", newline: bool = False):
         doc.Activate()
         s = doc.Application.Selection
+        if newline:
+            s.TypeParagraph()
         start = s.Start
         s.TypeText(url)
         end = s.End

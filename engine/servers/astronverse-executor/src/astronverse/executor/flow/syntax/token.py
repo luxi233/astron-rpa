@@ -7,6 +7,7 @@ class TokenType(Enum):
     Break = "Code.Break"
     Continue = "Code.Continue"
     Return = "Code.Return"
+    Raise = "Code.Raise"
 
     If = "Code.If"
     IfMulti = "Code.IfMulti"
@@ -31,6 +32,7 @@ class TokenType(Enum):
 
     Group = "Code.Group"
     GroupEnd = "Code.GroupEnd"
+    Note = "Code.Note"
 
     @classmethod
     def to_dict(cls):

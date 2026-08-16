@@ -228,7 +228,7 @@ class Folder:
             else:
                 raise NotImplementedError()
         if not folder_name:
-            path = source_path.rstrip(os.sep)
+            path = source_path.rstrip("/\\")
             folder_name = os.path.basename(path)
 
         copy_folder_path = os.path.join(target_path, folder_name)
@@ -304,7 +304,7 @@ class Folder:
                 raise NotImplementedError()
 
         if not folder_name:
-            path = folder_path.rstrip(os.sep)
+            path = folder_path.rstrip("/\\")
             folder_name = os.path.basename(path)
         target_path = os.path.join(target_folder, folder_name)
 
@@ -360,7 +360,7 @@ class Folder:
                 "文件夹不存在，请检查路径信息",
             )
 
-        path = folder_path.rstrip(os.sep)
+        path = folder_path.rstrip("/\\")
         if new_name == os.path.basename(path):
             raise BaseException(
                 RENAME_ERROR_FORMAT.format(new_name),
@@ -564,3 +564,145 @@ class Folder:
             return folder_list
         else:
             raise NotImplementedError()
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Folder",
+        inputList=[
+            atomicMg.param("system_folder_type"),
+        ],
+        outputList=[atomicMg.param("system_folder_path", types="Str")],
+    )
+    def get_system_folder(system_folder_type: SystemFolderType = SystemFolderType.DESKTOP) -> str:
+        """
+        获取系统文件夹路径（桌面/文档/下载/图片/音乐/视频/收藏夹/开始菜单/临时目录）
+        :param system_folder_type: 系统文件夹类型
+        :return: 系统文件夹绝对路径
+        """
+        import platform
+
+        system = platform.system()
+        folder_key = system_folder_type.value
+
+        if system == "Windows":
+            path = _get_windows_known_folder(folder_key)
+        elif system == "Darwin":
+            path = _get_mac_known_folder(folder_key)
+        else:
+            path = _get_linux_known_folder(folder_key)
+
+        if path is None:
+            raise BaseException(
+                SYSTEM_FOLDER_NOT_SUPPORTED_FORMAT.format(folder_key),
+                f"当前操作系统({system})不支持获取该系统文件夹，请检查文件夹类型",
+            )
+        if not folder_is_exists(path):
+            try:
+                os.makedirs(path, exist_ok=True)
+            except Exception as e:
+                raise BaseException(SYSTEM_FOLDER_GET_ERROR_FORMAT.format(folder_key, str(e)), str(e))
+        return path
+
+
+def _get_windows_known_folder(folder_key: str):
+    """通过SHGetKnownFolderPath获取Windows已知文件夹路径，失败返回None"""
+    import ctypes
+    from ctypes import wintypes
+
+    if folder_key == "temp":
+        buf = ctypes.create_unicode_buffer(260)
+        if ctypes.windll.kernel32.GetTempPathW(260, buf):
+            return buf.value.rstrip("\\/")
+        return None
+
+    known_guids = {
+        "desktop": "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}",
+        "documents": "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}",
+        "downloads": "{374DE290-123F-4565-9164-39C4925E467B}",
+        "pictures": "{33E28130-4E1E-4676-835A-98395C3BC3BB}",
+        "music": "{4BD8D571-6D19-48D3-BE97-422220080E43}",
+        "videos": "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}",
+        "favorites": "{1777F761-68AD-4D8A-87BD-30B7590E2341}",
+        "start_menu": "{625B53C3-AB48-4EC1-BA1F-A1EF4146FC19}",
+    }
+    guid_str = known_guids.get(folder_key)
+    if not guid_str:
+        return None
+
+    class _GUID(ctypes.Structure):
+        _fields_ = [
+            ("Data1", wintypes.DWORD),
+            ("Data2", wintypes.WORD),
+            ("Data3", wintypes.WORD),
+            ("Data4", ctypes.c_ubyte * 8),
+        ]
+
+    guid = _GUID()
+    ctypes.windll.ole32.CLSIDFromString(guid_str, ctypes.byref(guid))
+    ppath = ctypes.c_wchar_p()
+    try:
+        hr = ctypes.windll.shell32.SHGetKnownFolderPath(ctypes.byref(guid), 0, None, ctypes.byref(ppath))
+        if hr != 0:
+            return None
+        return ppath.value
+    finally:
+        ctypes.windll.ole32.CoTaskMemFree(ppath)
+
+
+def _get_mac_known_folder(folder_key: str):
+    """macOS已知文件夹路径，不支持返回None"""
+    import tempfile
+
+    home = os.path.expanduser("~")
+    mapping = {
+        "desktop": os.path.join(home, "Desktop"),
+        "documents": os.path.join(home, "Documents"),
+        "downloads": os.path.join(home, "Downloads"),
+        "pictures": os.path.join(home, "Pictures"),
+        "music": os.path.join(home, "Music"),
+        "videos": os.path.join(home, "Movies"),
+        "favorites": os.path.join(home, "Library", "Favorites"),
+        "temp": tempfile.gettempdir(),
+    }
+    return mapping.get(folder_key)
+
+
+def _get_linux_known_folder(folder_key: str):
+    """Linux XDG用户目录，不支持返回None"""
+    import tempfile
+
+    if folder_key == "temp":
+        return tempfile.gettempdir()
+
+    home = os.path.expanduser("~")
+    xdg_names = {
+        "desktop": "XDG_DESKTOP_DIR",
+        "documents": "XDG_DOCUMENTS_DIR",
+        "downloads": "XDG_DOWNLOAD_DIR",
+        "pictures": "XDG_PICTURES_DIR",
+        "music": "XDG_MUSIC_DIR",
+        "videos": "XDG_VIDEOS_DIR",
+    }
+    xdg_name = xdg_names.get(folder_key)
+    if not xdg_name:
+        return None
+
+    user_dirs_file = os.path.join(home, ".config", "user-dirs.dirs")
+    if os.path.exists(user_dirs_file):
+        import re
+
+        with open(user_dirs_file, encoding="utf-8") as f:
+            for line in f:
+                match = re.match(rf'{xdg_name}="\$HOME/(.+)"', line.strip())
+                if match:
+                    return os.path.join(home, match.group(1))
+
+    fallback = {
+        "desktop": os.path.join(home, "Desktop"),
+        "documents": os.path.join(home, "Documents"),
+        "downloads": os.path.join(home, "Downloads"),
+        "pictures": os.path.join(home, "Pictures"),
+        "music": os.path.join(home, "Music"),
+        "videos": os.path.join(home, "Videos"),
+    }
+    return fallback.get(folder_key)

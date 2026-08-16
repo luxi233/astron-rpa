@@ -211,7 +211,7 @@ atomic:
         tip: 本软件前序原子能力（如打开、创建）返回的Word对象
       - key: by
         title: 光标定位方式
-        tip: 选择定位到全文、段落、行、文本
+        tip: 选择定位到全文、段落、行、文本、书签
       - key: pos
         title: 光标相对位置
         tip: 所选内容之前/所选内容之后
@@ -227,6 +227,9 @@ atomic:
       - key: r_idx
         title: 行号
         tip: 选择定位的行号
+      - key: bookmark
+        title: 书签名称
+        tip: 如果选择定位书签，输入书签名称
     outputList: []
   Docx.move_cursor:
     title: 移动Word光标
@@ -281,6 +284,9 @@ atomic:
       - key: display
         title: 显示文本
         tip: 输入要显示的文本
+      - key: newline
+        title: 是否换行
+        tip: 选择插入前是否换行
     outputList: []
   Docx.insert_img:
     title: Word插入图片
@@ -436,7 +442,10 @@ atomic:
       - key: ignore_case
         title: 大小写忽略
         tip: 选择是否大小写忽略
-    outputList: []
+    outputList:
+      - key: replace_count
+        title: 替换个数
+        tip: 保存实际替换的个数
   Docx.create_comment:
     title: Word创建批注
     comment: 在Word对象 @{doc} 中，创建批注
@@ -584,6 +593,8 @@ options:
       label: 行
     - value: content
       label: 文本内容
+    - value: bookmark
+      label: 书签
   CursorPositionType:
     - value: head
       label: 所选内容之前

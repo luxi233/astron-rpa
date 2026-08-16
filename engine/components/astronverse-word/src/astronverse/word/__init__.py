@@ -58,6 +58,7 @@ class CursorPointerType(Enum):
     PARAGRAPH = "paragraph"
     ROW = "row"
     CONTENT = "content"
+    BOOKMARK = "bookmark"
 
 
 class CursorPositionType(Enum):

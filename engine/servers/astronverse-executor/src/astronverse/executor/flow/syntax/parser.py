@@ -13,6 +13,7 @@ from astronverse.executor.flow.syntax.ast import (
     For,
     Node,
     Program,
+    Raise,
     Return,
     Try,
     While,
@@ -49,6 +50,7 @@ class Parser:
         self.break_and_continue_in_loop = 0
         self.register_prefix(TokenType.Break, self.__parse_break__)
         self.register_prefix(TokenType.Return, self.__parse_return__)
+        self.register_prefix(TokenType.Raise, self.__parse_raise__)
         self.register_prefix(TokenType.Continue, self.__parse_continue__)
         self.register_prefix(TokenType.While, self.__parse_while__)
         self.register_prefix(TokenType.Infinite, self.__parse_while__)
@@ -158,6 +160,11 @@ class Parser:
 
     def __parse_return__(self) -> Optional[Node]:
         stmt = Return()
+        stmt.token = self.cur_token
+        return stmt
+
+    def __parse_raise__(self) -> Optional[Node]:
+        stmt = Raise()
         stmt.token = self.cur_token
         return stmt
 

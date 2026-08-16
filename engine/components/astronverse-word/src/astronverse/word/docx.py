@@ -538,6 +538,15 @@ class Docx:
                     )
                 ],
             ),
+            atomicMg.param(
+                "bookmark",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.bookmark.show",
+                        expression=f"return $this.by.value == '{CursorPointerType.BOOKMARK.value}'",
+                    )
+                ],
+            ),
         ],
         outputList=[],
     )
@@ -549,6 +558,7 @@ class Docx:
         c_idx: int = 1,
         p_idx: int = 1,
         r_idx: int = 1,
+        bookmark: str = "",
     ):
         if not doc:
             raise BaseException(
@@ -558,7 +568,7 @@ class Docx:
         if not IDocumentCore.are_positive_integers(c_idx, p_idx, r_idx):
             raise BaseException(CONTENT_FORMAT_ERROR_FORMAT, "请输入正确的数值!")
         try:
-            WordDocumentCore.cursor_position(doc.document_object, by, pos, content, c_idx, p_idx, r_idx)
+            WordDocumentCore.cursor_position(doc.document_object, by, pos, content, c_idx, p_idx, r_idx, bookmark)
         except Exception as e:
             raise BaseException(
                 DOCUMENT_READ_ERROR_FORMAT.format(doc),
@@ -635,13 +645,13 @@ class Docx:
 
     @staticmethod
     @atomicMg.atomic("Docx", inputList=[], outputList=[])
-    def insert_hyperlink(doc: DocumentObject, url: str = "", display: str = ""):
+    def insert_hyperlink(doc: DocumentObject, url: str = "", display: str = "", newline: bool = False):
         if not doc:
             raise BaseException(
                 DOCUMENT_NOT_EXIST_ERROR_FORMAT,
                 "没有查找到Word对象，请检查输入的Word对象是否正确!",
             )
-        WordDocumentCore.insert_hyperlink(doc.document_object, url, display)
+        WordDocumentCore.insert_hyperlink(doc.document_object, url, display, newline)
 
     @staticmethod
     @atomicMg.atomic(
@@ -962,7 +972,7 @@ class Docx:
                 ],
             ),
         ],
-        outputList=[],
+        outputList=[atomicMg.param("replace_count", types="Int")],
     )
     def replace(
         doc: DocumentObject,
@@ -973,13 +983,24 @@ class Docx:
         replace_method: ReplaceMethodType = ReplaceMethodType.ALL,
         ignore_case: bool = True,
     ):
+        """
+        Word文档查找替换
+        :param doc: Word对象
+        :param origin_word: 查找内容
+        :param replace_type: 替换类型(str文本/img图片)
+        :param new_word: 替换为的新文本
+        :param img_path: 替换为的图片路径
+        :param replace_method: 替换模式(first仅替换首个/all替换全部)
+        :param ignore_case: 是否忽略大小写
+        :return: 实际替换的个数
+        """
         if not doc:
             raise BaseException(
                 DOCUMENT_NOT_EXIST_ERROR_FORMAT,
                 "没有查找到Word对象，请检查输入的Word对象是否正确!",
             )
         try:
-            _ = WordDocumentCore.replace(
+            return WordDocumentCore.replace(
                 doc.document_object,
                 replace_type,
                 origin_word,

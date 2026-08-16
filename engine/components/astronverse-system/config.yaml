@@ -621,6 +621,19 @@ atomic:
       - key: folder_list
         title: 文件夹列表
         tip: 保存获取的文件夹列表到输出变量，数据类型为列表
+  Folder.get_system_folder:
+    title: 获取系统文件夹路径
+    comment: 获取 @{system_folder_type} 系统文件夹路径，并保存至变量 @{system_folder_path}
+    icon: get-folder-list
+    helpManual: 获取当前设备的系统文件夹路径（桌面/文档/下载/图片/音乐/视频/收藏夹/开始菜单/临时目录），可提高涉及文件路径流程的通用性
+    inputList:
+      - key: system_folder_type
+        title: 系统文件夹名称
+        tip: 通过下拉框选择目标系统文件夹名称
+    outputList:
+      - key: system_folder_path
+        title: 系统文件夹路径
+        tip: 保存获取到的系统文件夹路径为变量
   System.run_command:
     title: 运行或打开
     comment: 运行或打开 @{command} ，并将执行结果保存到输出变量 @{process_out}
@@ -758,6 +771,178 @@ atomic:
       - key: screen_unlock_result
         title: 执行结果
         tip: 输出屏幕解锁的执行结果并保存至变量，数据类型为布尔值
+  System.get_selected_files:
+    title: 获取选中文件(夹)列表
+    comment: 获取资源管理器/桌面(Finder)中当前选中的文件(夹)列表，并保存至变量 @{selected_file_list}
+    icon: get-file-list
+    helpManual: 获取当前资源管理器窗口或桌面中选中的文件和文件夹路径列表，需先手动选中目标项后再执行该指令
+    inputList: []
+    outputList:
+      - key: selected_file_list
+        title: 选中文件(夹)列表
+        tip: 输出选中项的绝对路径列表并保存至变量，数据类型为列表
+  System.get_ime:
+    title: 获取输入法
+    comment: 获取当前激活窗口的输入法中英文输入状态，并保存至变量 @{ime_status}
+    icon: get-ime
+    helpManual: 获取当前激活窗口输入法的中英文输入状态，返回值包括unknow(未知)、english(英文输入状态)、chinese(中文输入状态)，仅支持Windows系统
+    inputList: []
+    outputList:
+      - key: ime_status
+        title: 输入法状态保存至
+        tip: 保存获取到的输入法中英文状态为变量，返回unknow/english/chinese
+  System.set_ime:
+    title: 设置输入法
+    comment: 设置当前激活窗口的输入法为 @{ime_type}
+    icon: set-ime
+    helpManual: 设置当前激活窗口的输入法为中英文输入状态，支持搜狗拼音/搜狗五笔/百度/QQ拼音/QQ五笔/Bing等主流输入法，仅支持Windows系统
+    inputList:
+      - key: ime_type
+        title: 切换到
+        tip: 选择切换到英文输入法或中文输入法
+  System.screensaver_start:
+    title: 唤起屏幕保护
+    comment: 唤起屏幕保护，如已设置屏保提示则全屏显示提示文字
+    icon: screensaver-start
+    helpManual: 唤起全屏置顶的屏幕保护窗口，如已通过【设置屏保提示】设置提示文字则同步显示，点击鼠标或按任意键可退出屏保
+    inputList: []
+  System.screensaver_stop:
+    title: 关闭屏幕保护
+    comment: 关闭已唤起的屏幕保护
+    icon: screensaver-stop
+    helpManual: 关闭通过【唤起屏幕保护】指令唤起的屏幕保护窗口，配合唤起屏幕保护指令使用
+    inputList: []
+  System.set_screensaver_tip:
+    title: 设置屏保提示
+    comment: 设置屏保提示文字 @{tip_text}，唤起屏幕保护时全屏显示
+    icon: screensaver-tip
+    helpManual: 设置屏幕保护运行时全屏显示的自定义提示文字，屏保运行中设置会自动刷新显示，需配合【唤起屏幕保护】指令使用
+    inputList:
+      - key: tip_text
+        title: 提示文字
+        tip: 输入屏保运行时显示的提示文字
+  System.clear_screensaver_tip:
+    title: 清空屏保提示
+    comment: 清空已设置的屏保提示文字
+    icon: screensaver-tip-clear
+    helpManual: 清空通过【设置屏保提示】设置的提示文字，屏保运行中清空会自动刷新显示
+    inputList: []
+  System.save_custom_data:
+    title: 保存自定义数据
+    comment: 保存自定义数据 Key @{data_key}，持久保存跨流程执行可用
+    icon: save-data
+    helpManual: 持久保存用户自定义数据(同一应用内同Key覆盖，单条最大20000字符)，保存后可在任意流程中通过【读取自定义数据】读取，重启应用后数据仍保留
+    inputList:
+      - key: data_key
+        title: 数据Key
+        tip: 自定义数据的唯一标识，同Key保存会覆盖旧数据
+      - key: content
+        title: 数据内容
+        tip: 要保存的数据内容，支持字符串，最大20000字符
+  System.read_custom_data:
+    title: 读取自定义数据
+    comment: 读取自定义数据 Key @{data_key}，并保存至变量 @{content}
+    icon: read-data
+    helpManual: 读取通过【保存自定义数据】持久保存的数据，未保存过该Key时返回None
+    inputList:
+      - key: data_key
+        title: 数据Key
+        tip: 要读取的自定义数据Key
+    outputList:
+      - key: content
+        title: 数据内容保存至
+        tip: 输出读取到的数据内容并保存至变量，未保存过返回None
+  System.terminate_app:
+    title: 终止应用
+    comment: 终止应用，停止整个应用的运行
+    icon: terminate-app
+    helpManual: 停止整个应用的运行，后续所有流程不再执行，应用以取消状态结束；适用于满足特定条件时提前结束应用的场景，常配合条件判断使用
+    inputList: []
+  System.get_app_param:
+    title: 获取应用参数
+    comment: 获取当前应用的 @{param_type}，并保存至变量 @{param_value}
+    icon: get-app-param
+    helpManual: 获取当前运行应用的参数信息，包括应用ID/应用名称/执行ID/资源文件目录，仅在应用执行环境中可用
+    inputList:
+      - key: param_type
+        title: 参数类型
+        tip: 选择要获取的应用参数类型
+    outputList:
+      - key: param_value
+        title: 参数值保存至
+        tip: 输出获取到的参数值并保存至变量
+  System.read_resource_file:
+    title: 读取资源文件内容
+    comment: 读取资源文件 @{file_name} 的内容，并保存至变量 @{content}
+    icon: read-resource
+    helpManual: 读取资源目录中指定文件的内容，支持文本和二进制两种读取方式，资源目录为应用启动时指定的资源文件夹
+    inputList:
+      - key: file_name
+        title: 资源文件名
+        tip: 相对资源目录的文件名，支持子目录，如 test.txt 或 data/test.txt
+      - key: read_type
+        title: 读取类型
+        tip: 选择文本或二进制方式读取
+      - key: encode
+        title: 文本编码
+        tip: 文本读取时使用的编码，如utf-8/gbk
+    outputList:
+      - key: content
+        title: 内容保存至
+        tip: 输出文件内容并保存至变量，文本为字符串，二进制为字节数组
+  System.get_resource_file_path:
+    title: 获取资源文件路径
+    comment: 获取资源文件 @{file_name} 的绝对路径，并保存至变量 @{file_path}
+    icon: get-resource-path
+    helpManual: 获取资源目录中指定文件的绝对路径，文件不存在时报错
+    inputList:
+      - key: file_name
+        title: 资源文件名
+        tip: 相对资源目录的文件名，支持子目录
+    outputList:
+      - key: file_path
+        title: 路径保存至
+        tip: 输出文件绝对路径并保存至变量
+  System.copy_resource_file:
+    title: 拷贝资源文件
+    comment: 拷贝资源文件 @{file_name} 到 @{target_path}
+    icon: copy-resource
+    helpManual: 将资源目录中的指定文件拷贝到目标位置，可选择目标文件已存在时覆盖或不拷贝
+    inputList:
+      - key: file_name
+        title: 资源文件名
+        tip: 相对资源目录的文件名，支持子目录
+      - key: target_path
+        title: 拷贝到
+        tip: 目标文件的完整路径
+      - key: exist_option
+        title: 目标文件已存在时
+        tip: 选择覆盖原文件或不拷贝
+  System.clipboard_resource_file:
+    title: 将资源文件添加到剪切板
+    comment: 将资源文件 @{file_name} 添加到剪切板
+    icon: clipboard-resource
+    helpManual: 将资源目录中的指定文件添加到剪切板，配合Ctrl+V可将文件粘贴到任意位置，适用于向无法直接指定路径的窗口传送文件
+    inputList:
+      - key: file_name
+        title: 资源文件名
+        tip: 相对资源目录的文件名，支持子目录
+  System.export_log:
+    title: 导出日志
+    comment: 将运行日志导出到(@{folder_path})(@{file_name})
+    icon: export-log
+    helpManual: 将当前应用执行的「运行日志」内容导出到本地txt文件，日志包含执行过程中的用户日志、流程与异常信息
+    inputList:
+      - key: folder_path
+        title: 文件夹路径
+        tip: 导出日志文件的目标文件夹路径
+      - key: file_name
+        title: 文件名称
+        tip: 导出的日志文件名称(.txt文件)
+    outputList:
+      - key: file_path
+        title: 导出文件路径保存至
+        tip: 输出导出文件的完整路径并保存至变量
   System.printer:
     title: 打印机打印
     comment: >-
@@ -1060,3 +1245,46 @@ options:
       label: 自定义
     - value: default
       label: 默认
+  SystemFolderType:
+    - value: desktop
+      label: 桌面
+    - value: documents
+      label: 文档
+    - value: downloads
+      label: 下载
+    - value: pictures
+      label: 图片
+    - value: music
+      label: 音乐
+    - value: videos
+      label: 视频
+    - value: favorites
+      label: 收藏夹
+    - value: start_menu
+      label: 开始菜单
+    - value: temp
+      label: 临时目录
+  IMEStatusType:
+    - value: english
+      label: 英文输入法
+    - value: chinese
+      label: 中文输入法
+  ResourceReadType:
+    - value: text
+      label: 文本
+    - value: byte
+      label: 二进制
+  ResourceCopyExistOption:
+    - value: overwrite
+      label: 覆盖
+    - value: skip
+      label: 不拷贝
+  AppParamType:
+    - value: project_id
+      label: 应用ID
+    - value: project_name
+      label: 应用名称
+    - value: exec_id
+      label: 执行ID
+    - value: resource_dir
+      label: 资源文件目录
