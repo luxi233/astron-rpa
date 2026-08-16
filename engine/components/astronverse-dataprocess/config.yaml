@@ -998,6 +998,9 @@ atomic:
       - key: separator
         title: 分隔符
         tip: 输入分隔符
+      - key: filter_empty
+        title: 过滤空白项
+        tip: 勾选后自动删除分割出的空白项
     outputList:
       - key: split_list_from_string
         title: 分割后的列表
@@ -1234,6 +1237,38 @@ atomic:
       - key: format_datetime
         title: 时间文本
         tip: ''
+  TimeProcess.parse_datetime:
+    title: 转换到日期时间
+    comment: 将文本 @{text} 按解析方式 @{parse_type} 转换为日期时间对象 @{parsed_time}
+    icon: output-formatted-time
+    helpManual: 支持自动识别常用格式（如2024-01-01、2024/1/1、2024年1月1日 00时00分00秒），或使用自定义格式串（如%Y-%m-%d %H:%M:%S）解析
+    inputList:
+      - key: text
+        title: 文本
+        tip: 输入待转换的日期时间文本
+      - key: parse_type
+        title: 解析方式
+        tip: 自动识别常用格式，或使用自定义格式串解析
+      - key: custom_format
+        title: 自定义格式
+        tip: Python格式串，如 %Y-%m-%d %H:%M:%S
+    outputList:
+      - key: parsed_time
+        title: 日期时间对象
+        tip: 返回转换后的日期时间对象
+  TimeProcess.get_datetime_info:
+    title: 获取时间详细信息
+    comment: 获取时间对象 @{time} 的详细信息字典 @{datetime_info}
+    icon: output-formatted-time
+    helpManual: 返回字典，包含年份/月份/天数/小时/分钟/秒数/星期/当月最后一天/当年第几周/当年第几天
+    inputList:
+      - key: time
+        title: 时间对象
+        tip: 不填则默认当前系统时间
+    outputList:
+      - key: datetime_info
+        title: 时间详细信息
+        tip: 返回包含年月日时分秒、星期、当月最后一天、当年第几周、当年第几天的字典
 options:
   VariableType:
     - value: str
@@ -1462,3 +1497,8 @@ options:
       label: 月
     - value: year
       label: 年
+  ParseTimeType:
+    - value: auto
+      label: 自动识别
+    - value: custom
+      label: 自定义格式

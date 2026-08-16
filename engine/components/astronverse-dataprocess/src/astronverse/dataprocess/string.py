@@ -156,13 +156,17 @@ class StringProcess:
         inputList=[],
         outputList=[atomicMg.param("split_list_from_string", types="List")],
     )
-    def split_string_to_list(string_data: str, separator: str = ""):
+    def split_string_to_list(string_data: str, separator: str = "", filter_empty: bool = False):
         """
         文本分割为列表
         """
         if separator == "":
-            return list(string_data)
-        return string_data.split(separator)
+            result = list(string_data)
+        else:
+            result = string_data.split(separator)
+        if filter_empty:
+            result = [item for item in result if str(item).strip() != ""]
+        return result
 
     @staticmethod
     @atomicMg.atomic(

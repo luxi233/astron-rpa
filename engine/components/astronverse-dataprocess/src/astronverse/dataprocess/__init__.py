@@ -204,6 +204,13 @@ class TimeUnitType(Enum):
     YEAR = "year"
 
 
+class ParseTimeType(Enum):
+    """时间文本解析方式枚举。"""
+
+    AUTO = "auto"
+    CUSTOM = "custom"
+
+
 class ExtremumType(Enum):
     """列表最值类型枚举。"""
 

@@ -1,12 +1,14 @@
 """时间处理工具集。"""
 
+import calendar
 import copy
 from datetime import UTC, datetime
 
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, DynamicsItem, TimeFormatType
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.types import Date
-from astronverse.dataprocess import TimeChangeType, TimestampUnitType, TimeUnitType, TimeZoneType
+from astronverse.dataprocess import ParseTimeType, TimeChangeType, TimestampUnitType, TimeUnitType, TimeZoneType
+from dateutil import parser
 from dateutil.relativedelta import relativedelta
 
 
@@ -208,3 +210,70 @@ class TimeProcess:
         """格式化时间为字符串。"""
         time.format = format_type
         return str(time)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "TimeProcess",
+        inputList=[
+            atomicMg.param("text", types="Str"),
+            atomicMg.param(
+                "custom_format",
+                types="Str",
+                required=False,
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.custom_format.show",
+                        expression=f"return $this.parse_type.value == '{ParseTimeType.CUSTOM.value}'",
+                    )
+                ],
+            ),
+        ],
+        outputList=[atomicMg.param("parsed_time", types="Date")],
+    )
+    def parse_datetime(text: str, parse_type: ParseTimeType = ParseTimeType.AUTO, custom_format: str = "%Y-%m-%d"):
+        """将文本转换为日期时间对象。"""
+        if not text or not str(text).strip():
+            raise ValueError("待转换文本不能为空")
+        text = str(text).strip()
+        if parse_type == ParseTimeType.CUSTOM and custom_format:
+            parsed = datetime.strptime(text, custom_format)
+        else:
+            normalized = text
+            for cn, en in (("年", "-"), ("月", "-"), ("日", " "), ("时", ":"), ("分", ":"), ("秒", "")):
+                normalized = normalized.replace(cn, en)
+            parsed = parser.parse(normalized)
+        res = Date()
+        res.time = parsed
+        return res
+
+    @staticmethod
+    @atomicMg.atomic(
+        "TimeProcess",
+        inputList=[
+            atomicMg.param(
+                "time",
+                types="Date",
+                required=False,
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON_DATETIME.value),
+            ),
+        ],
+        outputList=[atomicMg.param("datetime_info", types="Dict")],
+    )
+    def get_datetime_info(time: Date = None):
+        """获取日期时间的详细信息。"""
+        if time is None:
+            time = Date()
+        t = time.time
+        weekday_names = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
+        return {
+            "年份": t.year,
+            "月份": t.month,
+            "天数": t.day,
+            "小时": t.hour,
+            "分钟": t.minute,
+            "秒数": t.second,
+            "星期": weekday_names[t.weekday()],
+            "当月最后一天": calendar.monthrange(t.year, t.month)[1],
+            "当年第几周": t.isocalendar()[1],
+            "当年第几天": t.timetuple().tm_yday,
+        }
