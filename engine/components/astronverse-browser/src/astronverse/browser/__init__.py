@@ -350,3 +350,14 @@ class DialogButtonTypeFlag(Enum):
 
     OK = "ok"  # 确定
     Cancel = "cancel"  # 取消
+
+
+class WebRequestTypeFlag(Enum):
+    """通过网页发送HTTP请求方法枚举"""
+
+    GET = "get"  # GET
+    POST = "post"  # POST
+    PUT = "put"  # PUT
+    PATCH = "patch"  # PATCH
+    DELETE = "delete"  # DELETE
+    HEAD = "head"  # HEAD

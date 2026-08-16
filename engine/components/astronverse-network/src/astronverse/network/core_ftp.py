@@ -1,5 +1,6 @@
 import ftplib
 import os
+import posixpath
 
 
 class FtpCore:
@@ -157,10 +158,11 @@ class FtpCore:
         name_list = ftp_instance.nlst()
         for name in name_list:
             local_item_path = os.path.join(local_path, name)
+            # 远程路径必须用posixpath拼接，Windows下os.path.join会混入反斜杠导致下载失败
             if not FtpCore.is_dir(ftp_instance, name):
-                FtpCore.ftp_download_file(ftp_instance, os.path.join(remote_path, name), local_item_path)
+                FtpCore.ftp_download_file(ftp_instance, posixpath.join(remote_path, name), local_item_path)
             else:
-                FtpCore.ftp_download_dir(ftp_instance, os.path.join(remote_path, name), local_item_path)
+                FtpCore.ftp_download_dir(ftp_instance, posixpath.join(remote_path, name), local_item_path)
         ftp_instance.cwd("..")
         return local_path
 
@@ -170,7 +172,7 @@ class FtpCore:
         获取当前工作目录下的文件/文件夹路径
         """
         pwd = ftp_instance.pwd()
-        return os.path.join(pwd, name)
+        return posixpath.join(pwd, name)
 
     @staticmethod
     def generate_name(ftp_instance, rename: str):

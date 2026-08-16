@@ -1263,7 +1263,48 @@ atomic:
       - key: dialog_list
         title: 对话框内容列表
         tip: 每项包含type、message、promptText字段
+  BrowserSoftware.http_request:
+    title: 通过网页发送HTTP请求
+    comment: 在浏览器对象 @{browser_obj} 中向URL(@{url})发送(@{request_type})请求，输出至 @{response_data}
+    icon: http-request
+    helpManual: 借助指定网页的登录态(Cookie)发送HTTP请求，适用于需要网页登录认证的接口；请求在网页上下文中执行，自动携带该站点的登录Cookie
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择已打开并完成登录的浏览器对象
+      - key: url
+        title: URL
+        tip: 请求地址，建议与网页同域以携带登录Cookie
+      - key: request_type
+        title: 请求类型
+        tip: GET/POST/PUT/PATCH/DELETE/HEAD
+      - key: headers
+        title: 请求头
+        tip: JSON格式的请求头字符串
+      - key: body
+        title: 请求体
+        tip: POST/PUT/PATCH/DELETE时的请求体内容
+      - key: time_out
+        title: 超时时间
+        tip: 请求超时时间（秒）
+    outputList:
+      - key: response_data
+        title: 响应结果保存至
+        tip: 包含status(状态码)、headers(响应头)、body(响应体)的字典
 options:
+  WebRequestTypeFlag:
+    - value: get
+      label: GET
+    - value: post
+      label: POST
+    - value: put
+      label: PUT
+    - value: patch
+      label: PATCH
+    - value: delete
+      label: DELETE
+    - value: head
+      label: HEAD
   WaitElementForStatusFlag:
     - value: 'y'
       label: 等待元素出现

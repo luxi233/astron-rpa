@@ -1,11 +1,13 @@
 import ftplib
 import os.path
+import posixpath
 
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
-from astronverse.network import FileExistenceType, FileType, ListType, StateType
+from astronverse.network import FileExistenceType, FileType, FtpServerType, ListType, SftpLoginMode, StateType
 from astronverse.network.core_ftp import FtpCore
 from astronverse.network.error import *
+from astronverse.network.sftp_adapter import SftpAdapter
 from astronverse.network.utils import (
     file_is_exist,
     folder_is_exist,
@@ -24,10 +26,51 @@ class FTP:
             atomicMg.param("port", types="Int", required=True),
             atomicMg.param("name", types="Str", required=False),
             atomicMg.param("password", types="Str", required=False),
+            atomicMg.param("server_type", required=False),
+            atomicMg.param("login_mode", required=False),
+            atomicMg.param(
+                "key_path",
+                types="Str",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,
+                    params={"filters": [], "file_type": "file"},
+                ),
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.key_path.show",
+                        expression="return $this.server_type.value == '{}' && $this.login_mode.value == '{}'".format(
+                            FtpServerType.SFTP.value, SftpLoginMode.KEY.value
+                        ),
+                    )
+                ],
+                required=False,
+            ),
         ],
         outputList=[atomicMg.param("ftp_instance", types="Str")],
     )
-    def ftp_create(host: str, port: int, name: str, password: str):
+    def ftp_create(
+        host: str,
+        port: int,
+        name: str,
+        password: str,
+        server_type: FtpServerType = FtpServerType.FTP,
+        login_mode: SftpLoginMode = SftpLoginMode.PASSWORD,
+        key_path: str = "",
+    ):
+        """
+        建立FTP/SFTP服务器连接
+        :param host: 服务器地址
+        :param port: 端口号(FTP常用21, SFTP常用22)
+        :param name: 用户名
+        :param password: 密码(SFTP密钥连接时为密钥口令, 可为空)
+        :param server_type: 服务器类型: FTP/SFTP
+        :param login_mode: SFTP登录方式: 密码连接/密钥连接
+        :param key_path: SFTP私钥文件路径(密钥连接时必填)
+        :return: 连接对象
+        """
+        if server_type == FtpServerType.SFTP:
+            return FTP._create_sftp(host, port, name, password, login_mode, key_path)
+
         ftp_instance = FtpCore.create_ftp()
         try:
             FtpCore.ftp_connection(ftp_instance, host, port)
@@ -41,6 +84,28 @@ class FTP:
                 raise BaseException(FTP_LOGIN_FORMAT.format(name, password), "登录到FTP服务器失败")
 
         return ftp_instance
+
+    @staticmethod
+    def _create_sftp(host, port, name, password, login_mode, key_path):
+        if login_mode == SftpLoginMode.KEY and not key_path:
+            raise BaseException(
+                FTP_CONNECTION_FORMAT.format(host, port),
+                "SFTP密钥连接必须指定私钥文件路径",
+            )
+        try:
+            if port is None or port == "":
+                port = 22
+            adapter = SftpAdapter()
+            adapter.connect(host, int(port))
+            if login_mode == SftpLoginMode.KEY:
+                adapter.login(name or "", password or "", key_path=key_path)
+            else:
+                adapter.login(name or "", password or "")
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(FTP_CONNECTION_FORMAT.format(host, port), "连接到SFTP服务器失败: {}".format(e))
+        return adapter
 
     @staticmethod
     @atomicMg.atomic(
@@ -521,7 +586,7 @@ class FTP:
                 try:
                     download_file = FtpCore.ftp_download_file(
                         ftp_instance,
-                        os.path.join(work_dir, file),
+                        posixpath.join(work_dir, file),
                         os.path.join(dst_path, file_name),
                     )
                 except Exception as e:
@@ -552,7 +617,7 @@ class FTP:
                 try:
                     download_folder = FtpCore.ftp_download_dir(
                         ftp_instance,
-                        os.path.join(work_dir, folder),
+                        posixpath.join(work_dir, folder),
                         os.path.join(dst_path, folder_new),
                     )
                 except Exception as e:

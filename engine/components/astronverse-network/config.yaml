@@ -1,26 +1,35 @@
 atomic:
   Network.ftp_create:
     title: 创建FTP连接
-    comment: 建立与地址(@{host}),端口(@{port})的FTP连接，输出为(@{ftp_instance})
+    comment: 建立与地址(@{host}),端口(@{port})的(@{server_type})连接，输出为(@{ftp_instance})
     icon: ftp-create-connection
-    helpManual: 建立一个文件服务器的FTP连接，并返回连接对象
+    helpManual: 建立一个文件服务器的FTP/SFTP连接，并返回连接对象；SFTP支持密码连接与密钥连接两种方式
     inputList:
       - key: host
         title: 服务器地址
-        tip: FTP服务器地址
+        tip: FTP/SFTP服务器地址
       - key: port
         title: 服务器端口号
-        tip: FTP服务器端口号
+        tip: FTP常用21，SFTP常用22
       - key: name
         title: 用户名
         tip: 文件服务器提供的可登录账号
       - key: password
         title: 用户密码
-        tip: 文件服务器提供的可登录账号的密码
+        tip: 文件服务器提供的可登录账号的密码；SFTP密钥连接时为密钥口令，可为空
+      - key: server_type
+        title: 服务器类型
+        tip: 选择FTP或SFTP服务器
+      - key: login_mode
+        title: SFTP登录方式
+        tip: 密码连接或密钥连接（仅SFTP有效）
+      - key: key_path
+        title: 私钥文件路径
+        tip: SFTP密钥连接时必填的私钥文件路径
     outputList:
       - key: ftp_instance
         title: 保存FTP连接对象至
-        tip: 将创建的FTP连接对象保存至指定变量中
+        tip: 将创建的FTP/SFTP连接对象保存至指定变量中
   Network.ftp_close:
     title: 关闭FTP连接
     comment: 断开与(@{ftp_instance})的FTP连接，并将结果输出至变量(@{close_ftp})
@@ -229,6 +238,9 @@ atomic:
       - key: request_type
         title: 请求类型
         tip: ''
+      - key: curl_text
+        title: curl报文智能识别
+        tip: 粘贴浏览器「Copy as cURL」/Fiddler/Postman导出的curl命令，自动解析填充URL/请求类型/请求头/请求体，手动填写的项优先
       - key: headers
         title: 请求头
         tip: ''
@@ -287,6 +299,16 @@ options:
       label: 覆盖原有文件
     - value: cancel
       label: 跳过保存操作
+  FtpServerType:
+    - value: ftp
+      label: FTP服务器
+    - value: sftp
+      label: SFTP服务器
+  SftpLoginMode:
+    - value: password
+      label: 密码连接
+    - value: key
+      label: 密钥连接
   ListType:
     - value: all
       label: 全部

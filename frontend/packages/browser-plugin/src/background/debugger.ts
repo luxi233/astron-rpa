@@ -134,7 +134,8 @@ const Debugger = {
    * @returns Execution result
    */
   evaluate: async (tabId: number, code: string, frameId: number) => {
-    code = `(function() { ${code} })()`
+    // async IIFE + awaitPromise: 支持 async 代码等待结果后返回(对同步代码完全兼容)
+    code = `(async function() { ${code} })()`
 
     await Debugger.attachDebugger(tabId)
     await Debugger.enableRuntime(tabId)
@@ -144,7 +145,7 @@ const Debugger = {
     if (!currentFrameContextIds.length) {
       throw new Error(ErrorMessage.CONTEXT_NOT_FOUND)
     }
-    const allPromise = currentFrameContextIds.map(item => chrome.debugger.sendCommand(item.target, 'Runtime.evaluate', { expression: code, contextId: item.contextId, returnByValue: true }))
+    const allPromise = currentFrameContextIds.map(item => chrome.debugger.sendCommand(item.target, 'Runtime.evaluate', { expression: code, contextId: item.contextId, returnByValue: true, awaitPromise: true }))
     const allRes = await Promise.all(allPromise)
     const successRes = allRes.find(item => !item.exceptionDetails)
     const failRes = allRes.find(item => item.exceptionDetails)

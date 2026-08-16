@@ -1104,3 +1104,95 @@ class BrowserSoftware:
             timeout=30,
         )
         return data if isinstance(data, list) else []
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("url", required=True),
+            atomicMg.param("request_type", required=False),
+            atomicMg.param(
+                "headers",
+                types="Str",
+                required=False,
+            ),
+            atomicMg.param(
+                "body",
+                types="Str",
+                required=False,
+            ),
+            atomicMg.param("time_out", types="Int", required=False),
+        ],
+        outputList=[
+            atomicMg.param("response_data", types="Dict"),
+        ],
+    )
+    def http_request(
+        browser_obj: Browser,
+        url: URL,
+        request_type: WebRequestTypeFlag = WebRequestTypeFlag.GET,
+        headers: str = "",
+        body: str = "",
+        time_out: int = 60,
+    ):
+        """通过网页发送HTTP请求(借用网页登录态Cookie)"""
+        import json as json_module
+
+        if time_out is None or time_out == "":
+            time_out = 60
+
+        header_dict = {}
+        if headers and str(headers).strip():
+            try:
+                header_dict = json_module.loads(str(headers))
+                if not isinstance(header_dict, dict):
+                    header_dict = {}
+            except Exception:
+                raise BaseException(
+                    BROWSER_EXTENSION_ERROR_FORMAT.format("headers必须是JSON格式的字符串"),
+                    "协议头必须是JSON格式的字符串",
+                )
+
+        # 注入为JS字面量, 避免拼接注入
+        js_url = json_module.dumps(str(url))
+        js_headers = json_module.dumps(header_dict)
+        has_body = request_type not in (WebRequestTypeFlag.GET, WebRequestTypeFlag.HEAD) and body
+        js_body = json_module.dumps(str(body)) if has_body else "undefined"
+
+        js_code = (
+            "async function main() {\n"
+            "  const __resp = await fetch(__URL__, {\n"
+            "    method: __METHOD__,\n"
+            "    headers: __HEADERS__,\n"
+            "    body: __BODY__,\n"
+            "    credentials: 'include'\n"
+            "  });\n"
+            "  const __headers = {};\n"
+            "  __resp.headers.forEach((v, k) => { __headers[k] = v; });\n"
+            "  let __text = '';\n"
+            "  try { __text = await __resp.text(); } catch (e) {}\n"
+            "  return JSON.stringify({status: __resp.status, headers: __headers, body: __text});\n"
+            "}"
+        )
+        js_code = (
+            js_code.replace("__URL__", js_url)
+            .replace("__METHOD__", json_module.dumps(request_type.value.upper()))
+            .replace("__HEADERS__", js_headers)
+            .replace("__BODY__", js_body)
+        )
+
+        from astronverse.browser.browser_script import eval_js_code
+
+        js_op = js_code + eval_js_code(True)
+        data = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="runJS",
+            data={"code": js_op},
+            timeout=float(time_out),
+        )
+        if isinstance(data, str):
+            try:
+                return json_module.loads(data)
+            except Exception:
+                return {"status": -1, "headers": {}, "body": data}
+        return {"status": -1, "headers": {}, "body": str(data)}

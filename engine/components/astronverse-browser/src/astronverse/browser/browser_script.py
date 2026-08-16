@@ -82,7 +82,7 @@ class BrowserScript:
         if "function main" not in content:
             raise BaseException(CODE_NO_MAIN_FUNC, "代码中必须包含main函数")
         is_await = False
-        if "await function main" in content:
+        if "async function main" in content:
             is_await = True
         if params:
             for p in params:

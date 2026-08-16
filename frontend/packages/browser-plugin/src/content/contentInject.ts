@@ -1034,11 +1034,14 @@ const ContentHandler = {
     },
   },
   code: {
-    runJS: (data: { code: string }) => {
+    runJS: async (data: { code: string }) => {
       try {
         const { code } = data
+        // AsyncFunction 支持代码中的 await/异步返回值(对同步代码完全兼容)
         // eslint-disable-next-line no-new-func
-        const res = new Function(code)()
+        const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+        // eslint-disable-next-line no-new-func
+        const res = await new AsyncFunction(code)()
         return Utils.success(res)
       }
       catch (e) {

@@ -6,7 +6,8 @@ requires-python = ">=3.13"
 
 dependencies = [
     "astronverse-actionlib",
-    "requests"
+    "requests",
+    "paramiko"
 ]
 
 [tool.uv.sources]

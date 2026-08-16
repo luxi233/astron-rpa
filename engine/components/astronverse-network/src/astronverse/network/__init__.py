@@ -44,3 +44,13 @@ class FileExistenceType(Enum):
     RENAME = "rename"
     OVERWRITE = "overwrite"
     CANCEL = "cancel"
+
+
+class FtpServerType(Enum):
+    FTP = "ftp"  # FTP服务器
+    SFTP = "sftp"  # SFTP服务器
+
+
+class SftpLoginMode(Enum):
+    PASSWORD = "password"  # 密码连接
+    KEY = "key"  # 密钥连接

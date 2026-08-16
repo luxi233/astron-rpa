@@ -20,6 +20,12 @@ class Network:
         inputList=[
             atomicMg.param("url", types="Str", required=True),
             atomicMg.param("request_type"),
+            atomicMg.param(
+                "curl_text",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=False,
+            ),
             atomicMg.param("headers", types="Str", required=False),
             atomicMg.param(
                 "body",
@@ -82,6 +88,7 @@ class Network:
     def http_request(
         url: str = "",
         request_type: RequestType = RequestType.POST,
+        curl_text: str = "",
         headers="",
         body="",
         file_path: str = "",
@@ -92,6 +99,27 @@ class Network:
     ):
         if time_out == "" or time_out is None:
             time_out = 60
+
+        # curl报文智能识别: 粘贴curl命令自动解析填充(未手动指定的项以解析结果为准)
+        if curl_text and curl_text.strip():
+            import json as json_module
+
+            from astronverse.network.curl_parser import parse_curl
+
+            try:
+                parsed = parse_curl(curl_text)
+            except Exception as e:
+                raise BaseException(HTTP_REQUEST_FORMAT.format(e), "curl报文解析失败，请检查报文格式")
+            if not url:
+                url = parsed["url"]
+            try:
+                request_type = RequestType(parsed["method"].lower())
+            except (ValueError, AttributeError):
+                pass  # 方法解析失败时保留用户手选
+            if not headers:
+                headers = json_module.dumps(parsed["headers"], ensure_ascii=False)
+            if not body and parsed["body"]:
+                body = parsed["body"]
 
         if request_type == RequestType.POST:
             if file_path:
