@@ -112,6 +112,27 @@ class Ws:
         future = asyncio.run_coroutine_threadsafe(raw_send_reply(), Ws.loop)
         future.result(timeout)  # 阻塞直到协程完成或超时
 
+    @staticmethod
+    def send_notification(msg):
+        """发送子窗口通知消息（如消息通知toast），无需等待回复"""
+
+        raw_data = msg.get("data") or {}  # 防 None
+        raw_data["msg_str"] = MSG_SUB_WINDOW  # 任意增删改
+
+        msg = BaseMsg(
+            channel="flow",
+            key="sub_window",
+            uuid="$root$",
+            send_uuid="$executor$",
+            need_reply=False,
+            data=msg.get("data"),
+        ).init()
+
+        async def raw_send():
+            await wsmg.send(msg)
+
+        asyncio.run_coroutine_threadsafe(raw_send(), Ws.loop)
+
     async def send_report(self, q: queue.Queue):
         async def inner_send_report():
             i = 1

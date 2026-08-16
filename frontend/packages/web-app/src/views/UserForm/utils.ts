@@ -71,19 +71,24 @@ export function transformData(data: AnyObj): DialogOption {
   function getUserFormOption(data) {
     let rules = null
     switch (data.key) {
-      case 'Dialog.select_box':
+      case 'Dialog.select_box': {
+        const isMulti = data.select_type === 'multi'
+        const isList = data.select_kind === 'list'
         return {
-          dialogFormType: data.select_type === 'multi' ? 'MULTI_SELECT' : 'SINGLE_SELECT',
+          dialogFormType: isList
+            ? (isMulti ? 'CHECKBOX_GROUP' : 'RADIO_GROUP')
+            : (isMulti ? 'MULTI_SELECT' : 'SINGLE_SELECT'),
           label: data.options_title,
           options: data?.options?.map(op => ({ label: op.value, value: op.value })) || [],
-          defaultValue: data.select_type === 'multi' ? [] : '',
+          defaultValue: isMulti ? [] : '',
         }
+      }
       case 'Dialog.input_box':
-        if (data.input_type !== 'text') {
+        if (data.input_type === 'password') {
           rules = getPasswordRules(data.input_title)
         }
         return {
-          dialogFormType: data.input_type === 'text' ? 'INPUT' : 'PASSWORD',
+          dialogFormType: data.input_type === 'password' ? 'PASSWORD' : (data.input_type === 'textarea' ? 'TEXTAREA' : 'INPUT'),
           label: data.input_title,
           defaultValue: data.default_input,
           rules,
@@ -111,6 +116,12 @@ export function transformData(data: AnyObj): DialogOption {
           messageType: data.message_type,
           messageContent: data.message_content,
           defaultValue: data?.default_button || data?.default_button_c || data?.default_button_cn || data?.default_button_y || data?.default_button_yn,
+        }
+      case 'Dialog.data_table_box':
+        return {
+          dialogFormType: 'DATA_TABLE',
+          label: data.tip,
+          defaultValue: Array.isArray(data.default_data) ? data.default_data : [],
         }
       default:
         break

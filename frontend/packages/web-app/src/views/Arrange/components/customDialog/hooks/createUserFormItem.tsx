@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid'
 
 import { utilsManager } from '@/platform'
 
+import DataTableFormItem from '../components/dataTableFormItem.vue'
 import TagInputUser from '../components/tagInputUser.vue'
 import { fontFamilyMap, fontStyleMap } from '../config'
 
@@ -36,6 +37,21 @@ function renderPassword(item, modelObj = {}) {
     <Input.Password
       v-model:value={modelObj[item.bind]}
       autocomplete="off"
+      {...nodeProps}
+    />
+  )
+}
+
+/**
+ * 生成多行文本框
+ */
+function renderTextArea(item, modelObj = {}) {
+  const nodeProps = omit(item, ['dialogFormType', 'bind', 'label', 'required', 'defaultValue'])
+  return (
+    <Input.TextArea
+      v-model:value={modelObj[item.bind]}
+      autoSize={{ minRows: 4, maxRows: 8 }}
+      allowClear
       {...nodeProps}
     />
   )
@@ -265,9 +281,17 @@ function renderMessageContent(item) {
   )
 }
 
+/**
+ * 生成数据表格（可填写/导入Excel）
+ */
+function renderDataTable(item, modelObj = {}) {
+  return <DataTableFormItem item={item} modelObj={modelObj} />
+}
+
 export const createUserFormItem = {
   INPUT: renderInput,
   PASSWORD: renderPassword,
+  TEXTAREA: renderTextArea,
   DATEPICKER: renderDatePicker,
   RANGERPICKER: renderRangePicker,
   PATH_INPUT: renderPathInput,
@@ -277,4 +301,5 @@ export const createUserFormItem = {
   MULTI_SELECT: renderMultiSelect,
   TEXT_DESC: renderTextDesc,
   MESSAGE_CONTENT: renderMessageContent,
+  DATA_TABLE: renderDataTable,
 }

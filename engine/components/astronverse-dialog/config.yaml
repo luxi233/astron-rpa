@@ -70,6 +70,9 @@ atomic:
       - key: input_content
         title: 保存用户输入内容至
         tip: ''
+      - key: result_button
+        title: 保存点击的按钮名称至
+        tip: ''
   Dialog.select_box:
     title: 选择对话框
     comment: ''
@@ -82,6 +85,9 @@ atomic:
       - key: select_type
         title: 选择模式
         tip: ''
+      - key: select_kind
+        title: 选择框类型
+        tip: 下拉框为折叠下拉选择，列表为平铺展示选项
       - key: options
         title: 选项
         tip: ''
@@ -185,6 +191,53 @@ atomic:
       - key: dialog_result
         title: 自定义对话框结果
         tip: 存储所有表单控件的输出结果以及点击的按钮结果
+  Dialog.message_notification:
+    title: 消息通知
+    comment: ''
+    icon: message-dialog
+    helpManual: 打开或关闭消息提示框，非模态展示，不阻塞流程执行
+    inputList:
+      - key: operate
+        title: 操作
+        tip: 打开消息通知/关闭消息通知
+      - key: notify_id
+        title: 通知标识
+        tip: 关闭操作时指定要关闭的通知标识
+      - key: message_type
+        title: 消息类型
+        tip: 信息/警告/错误
+      - key: position
+        title: 消息位置
+        tip: 顶部/底部/右下角
+      - key: message_content
+        title: 消息内容
+        tip: 提示框要展示的内容信息，限制120个字符
+      - key: close_time
+        title: 关闭超时时间（秒）
+        tip: 消息通知的展示时长，默认3秒，0表示不自动关闭
+    outputList: []
+  Dialog.data_table_box:
+    title: 数据表格对话框
+    comment: ''
+    icon: custom-dialog
+    helpManual: 弹出数据表格对话框，可现场填写或导入Excel，确认后返回表格数据
+    inputList:
+      - key: box_title
+        title: 对话框标题
+        tip: 限制标题内容字符数量为50个字符，不输入则默认标题为"数据表格对话框"
+      - key: tip
+        title: 提示说明
+        tip: 为数据表格的使用方法进行说明，让使用者更容易理解如何使用弹出的数据表格
+      - key: default_data
+        title: 初始数据
+        tip: 弹出对话框时表格内预置的数据，二维列表，可为空
+    outputList:
+      - key: data_table
+        title: 保存表格数据至
+        tip: 用户确认后的表格内容，二维列表
+      - key: result_button
+        title: 保存点击的按钮名称至
+        tip: ''
 options:
   MessageType:
     - value: message
@@ -205,9 +258,9 @@ options:
     - value: yes_no_cancel
       label: 是-否-取消
   Bool:
-    - value: true
+    - value: 'true'
       label: 是
-    - value: false
+    - value: 'false'
       label: 否
   DefaultButtonC:
     - value: confirm
@@ -234,11 +287,37 @@ options:
       label: 文本框
     - value: password
       label: 密码框
+    - value: textarea
+      label: 多行文本框
   SelectType:
     - value: single
       label: 单选
     - value: multi
       label: 多选
+  SelectKind:
+    - value: dropdown
+      label: 下拉框
+    - value: list
+      label: 列表
+  NotifyOperate:
+    - value: open
+      label: 打开消息通知
+    - value: close
+      label: 关闭消息通知
+  NotifyType:
+    - value: message
+      label: 信息
+    - value: warning
+      label: 警告
+    - value: error
+      label: 错误
+  NotifyPosition:
+    - value: top
+      label: 顶部
+    - value: bottom
+      label: 底部
+    - value: bottom_right
+      label: 右下角
   TimeType:
     - value: time
       label: 时间

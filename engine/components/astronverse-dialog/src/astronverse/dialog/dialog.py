@@ -204,7 +204,7 @@ class Dialog:
                 dynamics=[
                     DynamicsItem(
                         key="$this.default_input_text.show",
-                        expression="return $this.input_type.value == '{}'".format(InputType.TEXT.value),
+                        expression="return $this.input_type.value != '{}'".format(InputType.PASSWORD.value),
                     )
                 ],
             ),
@@ -224,7 +224,7 @@ class Dialog:
                 "preview_button", formType=AtomicFormTypeMeta(AtomicFormType.MODALBUTTON.value), required=False
             ),
         ],
-        outputList=[atomicMg.param("input_content", types="Str")],
+        outputList=[atomicMg.param("input_content", types="Str"), atomicMg.param("result_button", types="Str")],
     )
     def input_box(
         box_title: str = "输入对话框",
@@ -246,7 +246,7 @@ class Dialog:
                 res_e = e
             done.set()
 
-        if input_type == InputType.TEXT:
+        if input_type in (InputType.TEXT, InputType.TEXTAREA):
             default_input = default_input_text
         elif input_type == InputType.PASSWORD:
             default_input = default_input_pwd
@@ -268,7 +268,7 @@ class Dialog:
         if res_e:
             raise Exception(res_e)
 
-        return res.get("input_content")
+        return res.get("input_content"), res.get("result_button")
 
     @staticmethod
     @atomicMg.atomic(
@@ -282,6 +282,7 @@ class Dialog:
                 limitLength=[-1, 50],
             ),
             atomicMg.param("select_type"),
+            atomicMg.param("select_kind", required=False),
             atomicMg.param("options", formType=AtomicFormTypeMeta(AtomicFormType.OPTIONSLIST.value), need_parse="str"),
             atomicMg.param(
                 "options_title",
@@ -298,6 +299,7 @@ class Dialog:
     def select_box(
         box_title: str = "选择对话框",
         select_type: SelectType = SelectType.SINGLE,
+        select_kind: SelectKind = SelectKind.DROPDOWN,
         options: list = [],
         options_title: str = "",
         preview_button=None,
@@ -318,6 +320,7 @@ class Dialog:
             "key": "Dialog.select_box",
             "box_title": box_title,
             "select_type": select_type.value,
+            "select_kind": select_kind.value,
             "options": options,
             "options_title": options_title,
             "outputkey": "select_result",
@@ -628,3 +631,157 @@ class Dialog:
             else:
                 res["result_button"] = DefaultButtonCN.CONFIRM.value
         return res
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Dialog",
+        inputList=[
+            atomicMg.param("operate"),
+            atomicMg.param(
+                "notify_id",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT.value),
+                types="Str",
+                required=False,
+                limitLength=[-1, 50],
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.notify_id.show",
+                        expression="return $this.operate.value == '{}'".format(NotifyOperate.CLOSE.value),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "message_type",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.message_type.show",
+                        expression="return $this.operate.value == '{}'".format(NotifyOperate.OPEN.value),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "position",
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.position.show",
+                        expression="return $this.operate.value == '{}'".format(NotifyOperate.OPEN.value),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "message_content",
+                types="Str",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                limitLength=[-1, 120],
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.message_content.show",
+                        expression="return $this.operate.value == '{}'".format(NotifyOperate.OPEN.value),
+                    )
+                ],
+            ),
+            atomicMg.param(
+                "close_time",
+                types="Int",
+                level=AtomicLevel.ADVANCED,
+                required=False,
+                dynamics=[
+                    DynamicsItem(
+                        key="$this.close_time.show",
+                        expression="return $this.operate.value == '{}'".format(NotifyOperate.OPEN.value),
+                    )
+                ],
+            ),
+        ],
+        outputList=[],
+    )
+    def message_notification(
+        operate: NotifyOperate = NotifyOperate.OPEN,
+        notify_id: str = "",
+        message_type: NotifyType = NotifyType.MESSAGE,
+        position: NotifyPosition = NotifyPosition.TOP,
+        message_content: str = "",
+        close_time: int = 3,
+    ):
+        """
+        打开或关闭消息通知（非模态提示框，不阻塞流程）
+        """
+        payload = {
+            "key": "Dialog.message_notification",
+            "operate": operate.value,
+            "notify_id": notify_id,
+            "message_type": message_type.value,
+            "position": position.value,
+            "message_content": message_content,
+            "close_time": close_time,
+        }
+        ws = atomicMg.cfg().get("WS", None)
+        if ws:
+            send_notification = getattr(ws, "send_notification", None)
+            if send_notification:
+                send_notification({"data": {"name": "notification", "option": payload}})
+        return None
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Dialog",
+        inputList=[
+            atomicMg.param(
+                "box_title",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT.value),
+                types="Str",
+                required=False,
+                limitLength=[-1, 50],
+            ),
+            atomicMg.param(
+                "tip",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT.value),
+                types="Str",
+                required=False,
+                limitLength=[-1, 200],
+            ),
+            atomicMg.param(
+                "default_data",
+                types="List",
+                required=False,
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+        ],
+        outputList=[atomicMg.param("data_table", types="Any"), atomicMg.param("result_button", types="Str")],
+    )
+    def data_table_box(
+        box_title: str = "数据表格对话框",
+        tip: str = "",
+        default_data: list = None,
+    ):
+        """
+        弹出数据表格对话框，用户可现场填写或导入Excel，确认后返回表格数据
+        """
+        done = threading.Event()
+        res = {}
+        res_e = None
+
+        def callback_func(watch_msg, e: Exception = None):
+            nonlocal done, res, res_e
+            if watch_msg:
+                res = watch_msg.data
+            if e:
+                res_e = e
+            done.set()
+
+        payload = {
+            "key": "Dialog.data_table_box",
+            "box_title": box_title,
+            "tip": tip,
+            "default_data": default_data or [],
+            "outputkey": "data_table",
+        }
+        ws = atomicMg.cfg().get("WS", None)
+        if ws:
+            ws.send_reply({"data": {"name": "userform", "option": payload}}, 3600, callback_func)
+
+        done.wait()
+        if res_e:
+            raise Exception(res_e)
+
+        return res.get("data_table"), res.get("result_button")

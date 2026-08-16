@@ -28,6 +28,7 @@ class InputType(Enum):
 
     TEXT = "text"
     PASSWORD = "password"
+    TEXTAREA = "textarea"
 
 
 class SelectType(Enum):
@@ -35,6 +36,36 @@ class SelectType(Enum):
 
     SINGLE = "single"
     MULTI = "multi"
+
+
+class SelectKind(Enum):
+    """选择框展示形式枚举。"""
+
+    DROPDOWN = "dropdown"
+    LIST = "list"
+
+
+class NotifyOperate(Enum):
+    """消息通知操作枚举。"""
+
+    OPEN = "open"
+    CLOSE = "close"
+
+
+class NotifyType(Enum):
+    """通知消息类型枚举。"""
+
+    MESSAGE = "message"
+    WARNING = "warning"
+    ERROR = "error"
+
+
+class NotifyPosition(Enum):
+    """通知展示位置枚举。"""
+
+    TOP = "top"
+    BOTTOM = "bottom"
+    BOTTOM_RIGHT = "bottom_right"
 
 
 class TimeType(Enum):

@@ -1840,7 +1840,8 @@
     "enterPhone": "Please enter a phone number",
     "email": "Email",
     "phone": "Phone",
-    "lengthRangeTip": "{{title}} must be {{min}}-{{max}} characters"
+    "lengthRangeTip": "{{title}} must be {{min}}-{{max}} characters",
+    "notificationTitle": "Notification"
   },
   "multiChat": {
     "knowledgeQaTitle": "Knowledge Q&A",

@@ -1,7 +1,7 @@
 /**
  * 全局运行状态的维护
  */
-import { message } from 'ant-design-vue'
+import { message, notification } from 'ant-design-vue'
 import { set } from 'lodash-es'
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
@@ -106,6 +106,40 @@ export const useRunningStore = defineStore('running', () => {
     return runProjectId
   }
 
+  // 消息通知（非模态toast）：打开/关闭指定通知
+  const NOTIFICATION_PLACEMENT: Record<string, 'top' | 'bottom' | 'bottomRight'> = {
+    top: 'top',
+    bottom: 'bottom',
+    bottom_right: 'bottomRight',
+  }
+  const handleNotification = (option: AnyObj) => {
+    if (!option) return
+    const {
+      operate = 'open',
+      notify_id = '',
+      message_type = 'message',
+      position = 'top',
+      message_content = '',
+      close_time = 3,
+    } = option
+
+    if (operate === 'close') {
+      if (notify_id) notification.close(notify_id)
+      return
+    }
+
+    const notifyFn = ({ message: 'info', warning: 'warning', error: 'error' } as Record<string, 'info' | 'warning' | 'error'>)[message_type] || 'info'
+    notification[notifyFn]({
+      message: i18next.t('userForm.notificationTitle'),
+      description: Array.isArray(message_content)
+        ? message_content.map((it: any) => it?.value ?? it).join('')
+        : (message_content || ''),
+      placement: NOTIFICATION_PLACEMENT[position] || 'top',
+      duration: close_time, // 秒，0表示不自动关闭
+      key: notify_id || `notify-${generateUUID()}`,
+    })
+  }
+
   // 创建ws连接
   const createSocket = (callback?: Fun) => {
     RpaExecutor = new Socket('', {
@@ -139,6 +173,9 @@ export const useRunningStore = defineStore('running', () => {
           send_uuid: result.uuid,
         }
 
+        // 数据表格对话框需要更大的窗口
+        const isDataTableBox = msg.option?.key === 'Dialog.data_table_box'
+
         // 构建 URL，如果有 params 则添加查询参数
         const options: CreateWindowOptions = {
           url: `${baseUrl}/${WINDOW_NAME.USERFORM}.html?option=${JSON.stringify(msg.option)}&reply=${JSON.stringify(replyEventData)}`,
@@ -146,15 +183,20 @@ export const useRunningStore = defineStore('running', () => {
           label: windowLabel,
           alwaysOnTop: true,
           position: 'center',
-          width: 500,
-          height: 400,
-          resizable: false,
+          width: isDataTableBox ? 940 : 500,
+          height: isDataTableBox ? 660 : 400,
+          resizable: isDataTableBox,
           skipTaskbar: true,
           transparent: false,
           show: false,
         }
 
         windowManager.createWindow(options)
+      }
+
+      // 消息通知（非模态toast，不阻塞流程）
+      if (result.key === 'sub_window' && msg.name === 'notification') {
+        handleNotification(msg.option)
       }
 
       // 打开多轮对话窗口

@@ -1840,7 +1840,8 @@
     "enterPhone": "请输入手机号",
     "email": "邮箱",
     "phone": "手机号",
-    "lengthRangeTip": "{{title}}请输入{{min}}-{{max}}位字符"
+    "lengthRangeTip": "{{title}}请输入{{min}}-{{max}}位字符",
+    "notificationTitle": "消息通知"
   },
   "multiChat": {
     "knowledgeQaTitle": "知识问答",
