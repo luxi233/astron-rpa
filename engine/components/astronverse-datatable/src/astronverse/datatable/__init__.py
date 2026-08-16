@@ -75,6 +75,18 @@ class ExportFileType(Enum):
     JSON = "json"  # JSON 文件 .json
 
 
+class FileEncodingType(Enum):
+    AUTO = "auto"  # 自动识别
+    ANSI = "ansi"  # ANSI(GBK)
+    UTF8 = "utf8"  # UTF-8
+    UTF8_BOM = "utf8_bom"  # 带有BOM的UTF-8
+
+
+class CsvWriteType(Enum):
+    OVERWRITE = "overwrite"  # 覆盖写入
+    APPEND = "append"  # 追加写入
+
+
 class FilterType(Enum):
     ROW = "row"  # 按行过滤
     COLUMN = "column"  # 按列过滤
@@ -108,3 +120,103 @@ class ConditionType(Enum):
 class FindType(Enum):
     COLUMN = "column"  # 按列查找
     TABLE = "table"  # 按表格查找
+
+
+class ColumnInfoGetType(Enum):
+    """获取列信息方式"""
+
+    BY_COL = "byCol"  # 根据列号获取列描述
+    BY_TITLE = "byTitle"  # 根据列描述获取列号
+
+
+class ValidateType(Enum):
+    """数据验证类型"""
+
+    WHOLE = "whole"  # 整数
+    DECIMAL = "decimal"  # 小数
+    LIST = "list"  # 列表
+    DATE = "date"  # 日期
+    TIME = "time"  # 时间
+    TEXT_LENGTH = "textLength"  # 文本长度
+    CUSTOM = "custom"  # 自定义公式
+
+
+class ValidateOperator(Enum):
+    """数据验证操作符"""
+
+    BETWEEN = "between"  # 介于
+    NOT_BETWEEN = "notBetween"  # 不介于
+    EQUAL = "equal"  # 等于
+    NOT_EQUAL = "notEqual"  # 不等于
+    GREATER_THAN = "greaterThan"  # 大于
+    LESS_THAN = "lessThan"  # 小于
+    GREATER_OR_EQUAL = "greaterThanOrEqual"  # 大于等于
+    LESS_OR_EQUAL = "lessThanOrEqual"  # 小于等于
+
+
+class HAlignType(Enum):
+    """水平对齐方式"""
+
+    NONE = "none"  # 不设置
+    LEFT = "left"  # 左对齐
+    CENTER = "center"  # 居中
+    RIGHT = "right"  # 右对齐
+
+
+class VAlignType(Enum):
+    """垂直对齐方式"""
+
+    NONE = "none"  # 不设置
+    TOP = "top"  # 顶部对齐
+    CENTER = "center"  # 垂直居中
+    BOTTOM = "bottom"  # 底部对齐
+
+
+class UnderlineType(Enum):
+    """下划线类型"""
+
+    NONE = "none"  # 无下划线
+    SINGLE = "single"  # 单下划线
+    DOUBLE = "double"  # 双下划线
+
+
+class BorderStyleType(Enum):
+    """边框样式"""
+
+    NONE = "none"  # 无边框
+    THIN = "thin"  # 细边框
+    MEDIUM = "medium"  # 中边框
+    DASHED = "dashed"  # 虚线边框
+    DOTTED = "dotted"  # 点线边框
+    DOUBLE = "double"  # 双线边框
+
+
+class HideTargetType(Enum):
+    """隐藏目标类型"""
+
+    ROW = "row"  # 行
+    COLUMN = "column"  # 列
+
+
+class ExcelOpenType(Enum):
+    """Excel打开方式"""
+
+    NEW = "new"  # 新建Excel
+    OPEN = "open"  # 打开已有Excel
+
+
+class PivotValueFunc(Enum):
+    """数据透视表值汇总方式"""
+
+    SUM = "sum"  # 求和
+    COUNT = "count"  # 计数
+    AVERAGE = "average"  # 平均值
+    MAX = "max"  # 最大值
+    MIN = "min"  # 最小值
+
+
+class PivotFilterType(Enum):
+    """数据透视表筛选方式"""
+
+    INCLUDE = "include"  # 仅显示该项
+    EXCLUDE = "exclude"  # 隐藏该项

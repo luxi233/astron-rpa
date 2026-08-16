@@ -86,6 +86,96 @@ def col_to_index(col="A") -> int:
         return index
 
 
+def resolve_negative_row(row) -> int:
+    """
+    行号标准化: 支持负数(-1表示最后一行, -2表示倒数第二行)
+    :return: 1-based正数行号
+    """
+    from astronverse.datatable.datatable import PyxlWrapper
+
+    row = int(row)
+    if row == 0:
+        raise DATAFRAME_EXPECTION(ROW_FORMAT_ERROR.format(row), "行格式错误")
+    if row < 0:
+        actual = PyxlWrapper.get_max_row() + 1 + row
+        if actual < 1:
+            raise DATAFRAME_EXPECTION(ROW_FORMAT_ERROR.format(row), "行格式错误")
+        return actual
+    return row
+
+
+def resolve_negative_col(col):
+    """
+    列号标准化: 支持'A'/1/-1(-1表示最后一列)
+    :return: 正数int列号或原字母列标
+    """
+    from astronverse.datatable.datatable import PyxlWrapper
+
+    try:
+        c = int(col)
+    except (ValueError, TypeError):
+        return col
+    if c == 0:
+        raise DATAFRAME_EXPECTION(COL_FORMAT_ERROR.format(col), "列格式错误")
+    if c < 0:
+        actual = PyxlWrapper.get_max_column() + 1 + c
+        if actual < 1:
+            raise DATAFRAME_EXPECTION(COL_FORMAT_ERROR.format(col), "列格式错误")
+        return actual
+    return c
+
+
+def is_batch_spec(value) -> bool:
+    """判断是否为批量语法('1,3,5:7' / 'A:C,E')"""
+    return isinstance(value, str) and ("," in value or ":" in value)
+
+
+def _parse_number_segments(spec: str, resolver) -> list:
+    """解析'1,3,5:7'格式为去重升序数字列表, 每段经resolver转换(支持负数)"""
+    result = []
+    for part in str(spec).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if ":" in part:
+            a, b = part.split(":", 1)
+            start, end = resolver(a.strip()), resolver(b.strip())
+            if start > end:
+                start, end = end, start
+            result.extend(range(start, end + 1))
+        else:
+            result.append(resolver(part))
+    if not result:
+        raise DATAFRAME_EXPECTION(ROW_FORMAT_ERROR.format(spec), "格式错误")
+    return sorted(set(result))
+
+
+def parse_row_numbers(row_spec) -> list:
+    """解析行号: '1,3,5:7'或int, 支持负数(-1=最后一行), 返回1-based去重升序列表"""
+
+    def resolver(v):
+        return resolve_negative_row(v)
+
+    if is_batch_spec(row_spec):
+        return _parse_number_segments(row_spec, resolver)
+    return [resolve_negative_row(row_spec)]
+
+
+def parse_col_numbers(col_spec) -> list:
+    """解析列号: 'A,C,E:G'或'1,3,5:7', 支持负数(-1=最后一列), 返回1-based索引去重升序列表"""
+
+    def resolver(v):
+        v = str(v).strip().upper()
+        try:
+            return resolve_negative_col(int(v))
+        except ValueError:
+            return col_to_index(v)
+
+    if is_batch_spec(col_spec):
+        return _parse_number_segments(col_spec, resolver)
+    return [resolver(col_spec)]
+
+
 def index_to_col(index=1) -> str:
     """将索引转换为列标"""
     col = ""
@@ -233,6 +323,9 @@ def value_check(
 def ensure_xlsx_file(file_path):
     # 如果文件不存在或不是合法xlsx，则新建一个
     if not os.path.exists(file_path) or not is_valid_xlsx(file_path):
+        parent_dir = os.path.dirname(file_path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
         wb = openpyxl.Workbook()
         wb.save(file_path)
 

@@ -294,25 +294,42 @@ class OpenpyxlWrapper:
                 self.sheet.cell(row=min_row + r_idx, column=min_col + c_idx, value=cell_value)
 
     def fill_data_table_by_import_file(
-        self, import_file_path: str, delimiter: str = ",", include_header: bool = True, sheet_name=None
+        self,
+        import_file_path: str,
+        delimiter: str = ",",
+        include_header: bool = True,
+        sheet_name=None,
+        encoding: str = None,
+        first_row_is_header: bool = False,
     ):
+        """从文件导入数据到数据表格。
+
+        :param encoding: 指定读取编码(None=自动识别, 先utf-8-sig后gbk回退)
+        :param first_row_is_header: 首行是否作为列头(返回列头行, 数据行从第二行开始)
+        :return: first_row_is_header 为 True 时返回首行内容, 否则返回 None
+        """
         ext = os.path.splitext(import_file_path)[1].lower()
         self.sheet.delete_rows(1, self.sheet.max_row)
+        header_row = None
         if ext == ".csv":
-            try:
-                with open(import_file_path, newline="", encoding="utf-8") as csvfile:
-                    reader = csv.reader(csvfile, delimiter=delimiter)
-                    start_row = 1
-                    for row_data in reader:
-                        self.write_row(row_index=start_row, data=row_data)
-                        start_row += 1
-            except UnicodeDecodeError:
-                with open(import_file_path, newline="", encoding="gbk") as csvfile:
-                    reader = csv.reader(csvfile, delimiter=delimiter)
-                    start_row = 1
-                    for row_data in reader:
-                        self.write_row(row_index=start_row, data=row_data)
-                        start_row += 1
+            rows = []
+            if encoding:
+                with open(import_file_path, newline="", encoding=encoding) as csvfile:
+                    rows = list(csv.reader(csvfile, delimiter=delimiter))
+            else:
+                try:
+                    with open(import_file_path, newline="", encoding="utf-8-sig") as csvfile:
+                        rows = list(csv.reader(csvfile, delimiter=delimiter))
+                except UnicodeDecodeError:
+                    with open(import_file_path, newline="", encoding="gbk") as csvfile:
+                        rows = list(csv.reader(csvfile, delimiter=delimiter))
+            if first_row_is_header and rows:
+                header_row = rows[0]
+                rows = rows[1:]
+            start_row = 1
+            for row_data in rows:
+                self.write_row(row_index=start_row, data=row_data)
+                start_row += 1
         if ext in [".xlsx", ".xls"]:
             wb = openpyxl.load_workbook(import_file_path)
             wb_sheet = wb[sheet_name] if sheet_name else wb.active
@@ -324,10 +341,14 @@ class OpenpyxlWrapper:
             start_row = 1
             if not include_header:
                 data = data[1:]
+            if first_row_is_header and data:
+                header_row = data[0]
+                data = data[1:]
             for r_idx, row_data in enumerate(data):
                 self.write_row(row_index=start_row, data=row_data)
                 start_row += 1
             wb.close()
+        return header_row
 
     def insert_cells(self, row: int, col: int, amount: int = 1):
         """

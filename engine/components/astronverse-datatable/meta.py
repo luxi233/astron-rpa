@@ -2,6 +2,7 @@ from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.config import config
 from astronverse.baseline.config.config import load_config
 from astronverse.datatable.datatable import DataTable
+from astronverse.datatable.excel_app import ExcelApp
 
 
 def get_version():
@@ -12,4 +13,5 @@ def get_version():
 if __name__ == "__main__":
     config.set_config_file("config.yaml")
     atomicMg.register(DataTable, version=get_version())
+    atomicMg.register(ExcelApp, version=get_version())
     atomicMg.meta()

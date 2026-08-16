@@ -180,10 +180,10 @@ atomic:
         tip: 选择删除数据的方式（单元格、行、列、区域）
       - key: row
         title: 行号
-        tip: 指定要删除的行号（例如1，2，3...）
+        tip: 指定要删除的行号，支持负数(-1表示最后一行)，删除多行用1,3,5:7
       - key: col
         title: 列号
-        tip: 指定要删除的列号（例如A，B，C，AB...）
+        tip: 指定要删除的列号（例如A，B，C，AB...），支持负数(-1表示最后一列)，删除多列用A,C,E:G
       - key: start_row
         title: 开始行号
         tip: 指定要删除的开始行号（例如1，2，3...）
@@ -297,17 +297,33 @@ atomic:
     outputList: []
   DataTable.get_column_title:
     title: 数据表格获取列信息
-    comment: 获取数据表格 @{col} 列的信息并输出到 @{column_title}
+    comment: '获取数据表格列信息(@{get_type})并输出到 @{column_title}'
     icon: get_column_title
     helpManual: ''
     inputList:
+      - key: get_type
+        title: 获取方式
+        tip: 根据列号获取列描述或根据列描述获取列号
       - key: col
         title: 列号
-        tip: 指定要获取的列号
+        tip: 指定要获取的列号（例如A，B，C，AB...），支持负数(-1表示最后一列)
+      - key: title
+        title: 列描述
+        tip: 根据列描述获取列号时填写列头信息
     outputList:
       - key: column_title
         title: 列信息
-        tip: 返回指定列的信息
+        tip: 返回列描述或列号
+  DataTable.clear_data_table:
+    title: 清空数据表格
+    comment: 清空数据表格中的所有数据，是否清空列头为 @{is_clear_head}
+    icon: delete_data_table
+    helpManual: ''
+    inputList:
+      - key: is_clear_head
+        title: 是否清空列头
+        tip: 勾选后同时清空列头信息，默认保留列头
+    outputList: []
   DataTable.find_and_replace:
     title: 数据表格查找和替换
     comment: 在数据表格中 @{find_type} 查找内容 @{find_value} @{is_replace:不}替换内容
@@ -385,6 +401,15 @@ atomic:
       - key: sheet_name
         title: 工作表名称
         tip: 要导入的工作表名称，不填则为默认为活动工作表
+      - key: password
+        title: 打开密码
+        tip: 用于打开加密的Excel文件
+      - key: file_encoding
+        title: 文件编码
+        tip: CSV文件的编码格式，仅对CSV文件生效
+      - key: first_row_is_header
+        title: 首行是列头
+        tip: 勾选后首行将写入数据表格列头，数据从第二行开始
     outputList: []
   DataTable.export_data_table_to_file:
     title: 导出数据表格到文件
@@ -404,10 +429,561 @@ atomic:
       - key: is_overwrite
         title: 是否覆盖同名文件
         tip: 如果存在同名文件，是否覆盖该文件，否则自动重命名
+      - key: csv_write_type
+        title: CSV写入方式
+        tip: 追加写入到文件末尾，或覆盖原数据，仅对CSV文件生效
+      - key: file_encoding
+        title: 文件编码
+        tip: CSV/JSON文件的编码格式
     outputList:
       - key: export_file_path
         title: 导出文件路径
         tip: 返回导出文件的完整路径
+  DataTable.get_first_available_row:
+    title: 获取第一个可用行号
+    comment: 在列 @{start_col} 至 @{end_col} 范围内从第 @{start_row} 行起查找第一个空白行，行号输出到 @{first_available_row}
+    icon: get_max_row
+    helpManual: ''
+    inputList:
+      - key: start_row
+        title: 起始行号
+        tip: 指定查找的起始行号（例如1，2，3...）
+      - key: start_col
+        title: 起始列号
+        tip: 指定查找的起始列号（例如A，B，C，AB...）
+      - key: end_col
+        title: 结束列号
+        tip: 结束列号需要大于等于起始列号，不填则到已用最大列
+    outputList:
+      - key: first_available_row
+        title: 第一个可用行号
+        tip: 返回范围内第一个整行空白的行号，无空行则返回已用最大行号加1，类型为整数
+  DataTable.get_first_available_col:
+    title: 获取第一个可用列号
+    comment: 在行 @{start_row} 至 @{end_row} 范围内从 @{start_col} 列起查找第一个空白列，列标输出到 @{first_available_col}
+    icon: get_max_column
+    helpManual: ''
+    inputList:
+      - key: start_col
+        title: 起始列号
+        tip: 指定查找的起始列号（例如A，B，C，AB...）
+      - key: start_row
+        title: 起始行号
+        tip: 指定查找的起始行号（例如1，2，3...）
+      - key: end_row
+        title: 结束行号
+        tip: 结束行号需要大于等于起始行号，0或者不填则到已用最大行
+    outputList:
+      - key: first_available_col
+        title: 第一个可用列号
+        tip: 返回范围内第一个整列空白的列标，无空列则返回已用最大列号加1对应字母，类型为字符串
+  DataTable.get_first_available_row_by_col:
+    title: 按列获取可用行号
+    comment: 获取列 @{col} 上从第 @{start_row} 行起第一个空白单元格的行号，输出到 @{available_row}
+    icon: get_max_row
+    helpManual: ''
+    inputList:
+      - key: col
+        title: 列号
+        tip: 指定要查找的列号（例如A，B，C，AB...）
+      - key: start_row
+        title: 起始行号
+        tip: 指定查找的起始行号（例如1，2，3...）
+    outputList:
+      - key: available_row
+        title: 可用行号
+        tip: 返回该列第一个空白单元格的行号，全满则返回已用最大行号加1，类型为整数
+  DataTable.get_first_available_col_by_row:
+    title: 按行获取可用列号
+    comment: 获取行 @{row} 上从 @{start_col} 列起第一个空白单元格的列标，输出到 @{available_col}
+    icon: get_max_column
+    helpManual: ''
+    inputList:
+      - key: row
+        title: 行号
+        tip: 指定要查找的行号（例如1，2，3...）
+      - key: start_col
+        title: 起始列号
+        tip: 指定查找的起始列号（例如A，B，C，AB...）
+    outputList:
+      - key: available_col
+        title: 可用列号
+        tip: 返回该行第一个空白单元格的列标，无空格则返回已用最大列号加1对应字母，类型为字符串
+  DataTable.remove_duplicate_rows:
+    title: 数据表格删除重复行
+    comment: 从第 @{start_row} 行起按比较列 @{cols} 删除重复行，删除数量输出到 @{removed_count}
+    icon: delete_data_table
+    helpManual: ''
+    inputList:
+      - key: start_row
+        title: 起始行号
+        tip: 指定去重的起始行号（例如1，2，3...）
+      - key: cols
+        title: 比较列
+        tip: 用于判断重复的列，多列用逗号分隔（如A,C），不填则比较整行
+      - key: keep_first
+        title: 保留首次出现
+        tip: 重复行是否保留第一次出现的行，勾选保留首次出现，否则保留最后一次出现
+    outputList:
+      - key: removed_count
+        title: 删除行数
+        tip: 返回删除的重复行数量，类型为整数
+  DataTable.sort_data_table:
+    title: 数据表格排序
+    comment: 按列 @{sort_cols} 以 @{sort_orders} 方式排序数据表格，@{has_header:含}表头行
+    icon: filter_data_table
+    helpManual: ''
+    inputList:
+      - key: sort_cols
+        title: 排序列
+        tip: 排序依据列，多列用逗号分隔（如A,C）
+      - key: sort_orders
+        title: 排序方式
+        tip: 排序方式（升序/降序），多列用逗号分隔与排序列一一对应
+      - key: start_row
+        title: 起始行号
+        tip: 指定排序区域的起始行号（例如1，2，3...）
+      - key: end_row
+        title: 结束行号
+        tip: 结束行号需要大于等于起始行号，0或者不填则到已用最大行
+      - key: has_header
+        title: 首行为表头
+        tip: 勾选后首行不参与排序
+    outputList: []
+  DataTable.add_data_validation:
+    title: 数据表格添加数据验证
+    comment: 在区域 @{validate_range} 添加 @{validate_type} 类型数据验证
+    icon: write_data_table
+    helpManual: ''
+    inputList:
+      - key: validate_range
+        title: 验证区域
+        tip: 要添加数据验证的区域（如A1:B10或A1）
+      - key: validate_type
+        title: 验证类型
+        tip: 选择数据验证类型（整数、小数、列表、日期、时间、文本长度、自定义公式）
+      - key: validate_operator
+        title: 验证操作符
+        tip: 选择验证操作符（介于、不介于、等于、不等于、大于、小于、大于等于、小于等于），列表和自定义公式类型不需要
+      - key: formula1
+        title: 条件1
+        tip: 验证条件1（如介于的最小值，或列表的取值），列表类型多个值用逗号分隔
+      - key: formula2
+        title: 条件2
+        tip: 验证条件2（如介于的最大值）
+      - key: allow_blank
+        title: 允许空值
+        tip: 勾选后允许输入空值
+      - key: error_msg
+        title: 错误提示
+        tip: 输入无效时的提示信息
+    outputList: []
+  DataTable.set_format:
+    title: 设置数据表格格式
+    comment: 设置数据表格 @{format_type} 的格式（字体、填充、对齐、边框），字体 @{font_name} 字号 @{font_size} 是否加粗 @{bold}
+    icon: write_data_table
+    helpManual: ''
+    inputList:
+      - key: format_type
+        title: 格式设置方式
+        tip: 选择格式设置的方式（单元格、行、列、区域）
+      - key: row
+        title: 行号
+        tip: 指定要设置的行号（例如1，2，3...），单元格/行方式时使用
+      - key: col
+        title: 列号
+        tip: 指定要设置的列号（例如A，B，C，AB...），单元格/列方式时使用
+      - key: start_row
+        title: 开始行号
+        tip: 指定要设置的开始行号（例如1，2，3...），区域方式时使用
+      - key: start_col
+        title: 开始列号
+        tip: 指定要设置的开始列号（例如A，B，C，AB...），区域方式时使用
+      - key: end_row
+        title: 结束行号
+        tip: 结束行号需要大于等于开始行号，0或者不填则到已用最大行
+      - key: end_col
+        title: 结束列号
+        tip: 结束列号需要大于等于开始列号，不填则到已用最大列
+      - key: font_name
+        title: 字体名称
+        tip: 字体名称（如宋体、微软雅黑），不填则不设置
+      - key: font_size
+        title: 字号
+        tip: 字体大小，0或者不填则不设置
+      - key: bold
+        title: 是否加粗
+        tip: 勾选后设置加粗
+      - key: italic
+        title: 是否斜体
+        tip: 勾选后设置斜体
+      - key: underline
+        title: 下划线类型
+        tip: 选择下划线类型（无、单下划线、双下划线）
+      - key: font_color
+        title: 字体颜色
+        tip: 字体颜色RGB值（如FF0000），不填则不设置
+      - key: bg_color
+        title: 背景颜色
+        tip: 背景颜色RGB值（如FFFF00），不填则不设置
+      - key: h_align
+        title: 水平对齐
+        tip: 选择水平对齐方式（左对齐、居中、右对齐），不选则不设置
+      - key: v_align
+        title: 垂直对齐
+        tip: 选择垂直对齐方式（顶部对齐、垂直居中、底部对齐），不选则不设置
+      - key: wrap_text
+        title: 自动换行
+        tip: 勾选后设置自动换行
+      - key: border_style
+        title: 边框样式
+        tip: 选择边框样式（无边框、细边框、中边框、虚线、点线、双线），选择无边框则不设置
+    outputList: []
+  DataTable.clear_format:
+    title: 清除数据表格格式
+    comment: 清除数据表格 @{format_type} 的格式，恢复常规样式
+    icon: delete_data_table
+    helpManual: ''
+    inputList:
+      - key: format_type
+        title: 格式清除方式
+        tip: 选择格式清除的方式（单元格、行、列、区域）
+      - key: row
+        title: 行号
+        tip: 指定要清除的行号（例如1，2，3...），单元格/行方式时使用
+      - key: col
+        title: 列号
+        tip: 指定要清除的列号（例如A，B，C，AB...），单元格/列方式时使用
+      - key: start_row
+        title: 开始行号
+        tip: 指定要清除的开始行号（例如1，2，3...），区域方式时使用
+      - key: start_col
+        title: 开始列号
+        tip: 指定要清除的开始列号（例如A，B，C，AB...），区域方式时使用
+      - key: end_row
+        title: 结束行号
+        tip: 结束行号需要大于等于开始行号，0或者不填则到已用最大行
+      - key: end_col
+        title: 结束列号
+        tip: 结束列号需要大于等于开始列号，不填则到已用最大列
+    outputList: []
+  DataTable.set_row_height:
+    title: 设置行高
+    comment: 设置行 @{row} 的行高为 @{height}
+    icon: write_data_table
+    helpManual: ''
+    inputList:
+      - key: row
+        title: 行号
+        tip: 指定要设置的行号，支持负数(-1表示最后一行)，设置多行用1,3,5:7
+      - key: height
+        title: 行高
+        tip: 要设置的行高
+    outputList: []
+  DataTable.set_column_width:
+    title: 设置列宽
+    comment: 设置列 @{col} 的列宽为 @{width}
+    icon: write_data_table
+    helpManual: ''
+    inputList:
+      - key: col
+        title: 列号
+        tip: 指定要设置的列号（例如A，B，C，AB...），支持负数(-1表示最后一列)，设置多列用A,C,E:G
+      - key: width
+        title: 列宽
+        tip: 要设置的列宽
+    outputList: []
+  DataTable.set_row_col_hidden:
+    title: 隐藏/显示行或列
+    comment: 隐藏或显示数据表格的 @{target_type}，目标为 @{target}，是否隐藏 @{is_hidden}
+    icon: write_data_table
+    helpManual: ''
+    inputList:
+      - key: target_type
+        title: 目标类型
+        tip: 选择隐藏或显示行还是列
+      - key: target
+        title: 目标
+        tip: 行号或列号，支持负数(-1表示最后一行/列)，多个用逗号分隔（如1,3,5:7或A,C,E:G）
+      - key: is_hidden
+        title: 是否隐藏
+        tip: 勾选后隐藏，取消勾选则显示
+    outputList: []
+  DataTable.add_sheet:
+    title: 新增工作表
+    comment: 在数据表格中新增工作表 @{sheet_name}，插入位置 @{position}
+    icon: insert_data_table
+    helpManual: ''
+    inputList:
+      - key: sheet_name
+        title: 工作表名称
+        tip: 新工作表的名称
+      - key: position
+        title: 插入位置
+        tip: 插入位置序号，0表示添加到最后，大于0表示插入到指定位置
+    outputList: []
+  DataTable.activate_sheet:
+    title: 激活工作表
+    comment: 激活工作表 @{sheet_name}，当前工作表名称输出到 @{current_sheet}
+    icon: read_data_table
+    helpManual: ''
+    inputList:
+      - key: sheet_name
+        title: 工作表名称
+        tip: 要激活的工作表名称
+    outputList:
+      - key: current_sheet
+        title: 当前工作表
+        tip: 返回激活后的当前工作表名称，类型为字符串
+  DataTable.copy_sheet:
+    title: 复制工作表
+    comment: 复制工作表 @{source_sheet_name} 为新工作表 @{new_sheet_name}
+    icon: copy_data_table
+    helpManual: ''
+    inputList:
+      - key: source_sheet_name
+        title: 源工作表名称
+        tip: 要复制的工作表名称
+      - key: new_sheet_name
+        title: 新工作表名称
+        tip: 复制生成的新工作表名称
+    outputList: []
+  DataTable.delete_sheet:
+    title: 删除工作表
+    comment: 删除数据表格中的工作表 @{sheet_name}，至少保留一个工作表
+    icon: delete_data_table
+    helpManual: ''
+    inputList:
+      - key: sheet_name
+        title: 工作表名称
+        tip: 要删除的工作表名称
+    outputList: []
+  DataTable.rename_sheet:
+    title: 重命名工作表
+    comment: 将工作表 @{old_sheet_name} 重命名为 @{new_sheet_name}
+    icon: set_column_title
+    helpManual: ''
+    inputList:
+      - key: old_sheet_name
+        title: 原工作表名称
+        tip: 要重命名的工作表名称
+      - key: new_sheet_name
+        title: 新工作表名称
+        tip: 重命名后的工作表名称
+    outputList: []
+  DataTable.get_sheet_names:
+    title: 获取工作表名称列表
+    comment: 获取数据表格全部工作表名称 @{sheet_names} 与当前工作表 @{current_sheet}
+    icon: get_column_title
+    helpManual: ''
+    inputList: []
+    outputList:
+      - key: sheet_names
+        title: 工作表名称列表
+        tip: 返回全部工作表名称，类型为数组
+      - key: current_sheet
+        title: 当前工作表
+        tip: 返回当前工作表名称，类型为字符串
+  DataTable.export_data_table_to_pdf:
+    title: 导出数据表格为PDF
+    comment: 将数据表格导出为PDF文件到 @{export_dest_path}，文件路径输出到 @{pdf_path}，是否覆盖 @{is_overwrite}
+    icon: export_data_table
+    helpManual: ''
+    inputList:
+      - key: export_dest_path
+        title: 导出目标路径
+        tip: 导出PDF文件的存放路径
+      - key: export_file_name
+        title: 导出文件名
+        tip: 导出的PDF文件名（不含扩展名）
+      - key: is_overwrite
+        title: 是否覆盖同名文件
+        tip: 如果存在同名文件，是否覆盖该文件，否则自动重命名
+    outputList:
+      - key: pdf_path
+        title: PDF文件路径
+        tip: 返回导出PDF文件的完整路径
+  ExcelApp.open_or_create_excel:
+    title: 打开/新建Excel
+    comment: 以 @{open_type} 方式启动Excel/WPS表格并打开文件 @{file_path}，Excel对象输出到 @{excel_obj}
+    icon: import_data_table
+    helpManual: ''
+    inputList:
+      - key: file_path
+        title: 文件路径
+        tip: 打开已有Excel时必填的文件路径；新建时填写则同时另存为该路径，不填则不保存
+      - key: open_type
+        title: 打开方式
+        tip: 选择新建Excel还是打开已有Excel文件
+      - key: password
+        title: 打开密码
+        tip: 用于打开加密的Excel文件或新建文件时设置密码
+      - key: is_visible
+        title: 是否可见
+        tip: 勾选后Excel/WPS表格窗口可见，否则在后台运行
+    outputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 返回Excel对象句柄，供后续Excel应用类指令使用，类型为字符串
+  ExcelApp.get_active_excel:
+    title: 获取当前激活的Excel
+    comment: 获取当前正在运行的Excel/WPS表格应用，Excel对象输出到 @{excel_obj}
+    icon: read_data_table
+    helpManual: ''
+    inputList: []
+    outputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 返回Excel对象句柄，供后续Excel应用类指令使用，类型为字符串
+  ExcelApp.close_excel:
+    title: 关闭Excel
+    comment: 关闭Excel对象 @{excel_obj}，关闭前是否保存为 @{is_save}
+    icon: export_data_table
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+      - key: is_save
+        title: 是否保存
+        tip: 勾选后关闭前保存当前工作簿
+    outputList: []
+  ExcelApp.select_range:
+    title: 选中单元格区域
+    comment: 选中Excel对象 @{excel_obj} 工作表 @{sheet_name} 中的区域 @{range_str}
+    icon: write_data_table
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+      - key: sheet_name
+        title: 工作表名称
+        tip: 要操作的工作表名称，不填则为当前活动工作表
+      - key: range_str
+        title: 单元格区域
+        tip: 要选中的区域，例如A1或A1:C10
+    outputList: []
+  ExcelApp.get_selected_range:
+    title: 获取选中的区域
+    comment: 获取Excel对象 @{excel_obj} 当前选中的区域 @{selected_range} 和所在工作表 @{selected_sheet}
+    icon: read_data_table
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+    outputList:
+      - key: selected_range
+        title: 选中区域
+        tip: 返回当前选中区域，形如$A$1:$C$10，类型为字符串
+      - key: selected_sheet
+        title: 所在工作表
+        tip: 返回选中区域所在的工作表名称，类型为字符串
+  ExcelApp.run_excel_macro:
+    title: 运行Excel宏
+    comment: 在Excel对象 @{excel_obj} 中运行宏 @{macro_name}，宏参数为 @{macro_args}
+    icon: insert_formula
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+      - key: macro_name
+        title: 宏名称
+        tip: 要运行的宏名称，例如模块1.宏1或宏1
+      - key: macro_args
+        title: 宏参数
+        tip: 宏的参数，多个参数用逗号分隔，数值自动转换类型，不填则无参调用
+    outputList: []
+  ExcelApp.refresh_excel_data:
+    title: 刷新Excel数据
+    comment: 刷新Excel对象 @{excel_obj} 当前工作簿的全部数据连接
+    icon: read_data_table
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+    outputList: []
+  ExcelApp.create_pivot_table:
+    title: 创建数据透视表
+    comment: 以 @{source_range} 为源数据在 @{dest_sheet_name} 表的 @{dest_cell} 处创建数据透视表，行字段 @{row_fields}，列字段 @{col_fields}，值字段 @{value_fields} 按 @{value_func} 汇总，透视表名输出到 @{pivot_name}
+    icon: insert_data_table
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+      - key: source_range
+        title: 源数据区域
+        tip: 源数据区域，例如A1:C10，也可带工作表前缀如Sheet1!A1:C10，首行需为列标题
+      - key: sheet_name
+        title: 源工作表名称
+        tip: 源数据所在的工作表名称，源区域不带工作表前缀且不填则为当前活动工作表
+      - key: dest_sheet_name
+        title: 目标工作表名称
+        tip: 数据透视表存放的工作表名称，不存在则新建，存在则复用
+      - key: dest_cell
+        title: 目标单元格
+        tip: 数据透视表左上角存放的单元格，例如A3
+      - key: row_fields
+        title: 行字段
+        tip: 拖入行区域的字段名（源区域首行的列标题），多个用逗号分隔，可不填
+      - key: col_fields
+        title: 列字段
+        tip: 拖入列区域的字段名（源区域首行的列标题），多个用逗号分隔，可不填
+      - key: value_fields
+        title: 值字段
+        tip: 拖入值区域进行汇总的字段名（源区域首行的列标题），多个用逗号分隔
+      - key: value_func
+        title: 汇总方式
+        tip: 选择值字段的汇总方式（求和、计数、平均值、最大值、最小值）
+    outputList:
+      - key: pivot_name
+        title: 透视表名称
+        tip: 返回创建的数据透视表名称，类型为字符串
+  ExcelApp.refresh_pivot_table:
+    title: 刷新数据透视表
+    comment: 刷新Excel对象 @{excel_obj} 工作表 @{sheet_name} 中的数据透视表 @{pivot_name}
+    icon: filter_data_table
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+      - key: sheet_name
+        title: 工作表名称
+        tip: 数据透视表所在的工作表名称，不填则遍历所有工作表
+      - key: pivot_name
+        title: 透视表名称
+        tip: 要刷新的数据透视表名称，不填则刷新匹配到的全部数据透视表
+    outputList: []
+  ExcelApp.filter_pivot_table:
+    title: 筛选数据透视表
+    comment: 筛选Excel对象 @{excel_obj} 数据透视表 @{pivot_name} 的字段 @{field_name}，@{filter_type}筛选值 @{filter_value}
+    icon: filter_data_table
+    helpManual: ''
+    inputList:
+      - key: excel_obj
+        title: Excel对象
+        tip: 来自打开Excel或获取当前激活的Excel指令输出的变量
+      - key: sheet_name
+        title: 工作表名称
+        tip: 数据透视表所在的工作表名称，不填则遍历所有工作表
+      - key: pivot_name
+        title: 透视表名称
+        tip: 要筛选的数据透视表名称，不填则匹配第一个数据透视表
+      - key: field_name
+        title: 筛选字段
+        tip: 要筛选的字段名，筛选页字段直接设置筛选值，行/列字段按项显示或隐藏
+      - key: filter_value
+        title: 筛选值
+        tip: 要显示或隐藏的字段项名称
+      - key: filter_type
+        title: 筛选方式
+        tip: 选择仅显示匹配项还是隐藏匹配项，至少保留一个可见项
+    outputList: []
 options:
   BaseOperateType:
     - value: cell
@@ -479,6 +1055,11 @@ options:
       label: 单列查找
     - value: table
       label: 全表查找
+  ColumnInfoGetType:
+    - value: byCol
+      label: 根据列号获取列描述
+    - value: byTitle
+      label: 根据列描述获取列号
   FilterType:
     - value: row
       label: 行筛选
@@ -526,3 +1107,113 @@ options:
       label: .csv文件
     - value: json
       label: .json文件
+  FileEncodingType:
+    - value: auto
+      label: 自动识别
+    - value: ansi
+      label: ANSI
+    - value: utf8
+      label: UTF-8
+    - value: utf8_bom
+      label: 带有BOM的UTF-8
+  CsvWriteType:
+    - value: overwrite
+      label: 覆盖写入
+    - value: append
+      label: 追加写入
+  ValidateType:
+    - value: whole
+      label: 整数
+    - value: decimal
+      label: 小数
+    - value: list
+      label: 列表
+    - value: date
+      label: 日期
+    - value: time
+      label: 时间
+    - value: textLength
+      label: 文本长度
+    - value: custom
+      label: 自定义公式
+  ValidateOperator:
+    - value: between
+      label: 介于
+    - value: notBetween
+      label: 不介于
+    - value: equal
+      label: 等于
+    - value: notEqual
+      label: 不等于
+    - value: greaterThan
+      label: 大于
+    - value: lessThan
+      label: 小于
+    - value: greaterThanOrEqual
+      label: 大于等于
+    - value: lessThanOrEqual
+      label: 小于等于
+  HAlignType:
+    - value: none
+      label: 不设置
+    - value: left
+      label: 左对齐
+    - value: center
+      label: 居中
+    - value: right
+      label: 右对齐
+  VAlignType:
+    - value: none
+      label: 不设置
+    - value: top
+      label: 顶部对齐
+    - value: center
+      label: 垂直居中
+    - value: bottom
+      label: 底部对齐
+  UnderlineType:
+    - value: none
+      label: 无下划线
+    - value: single
+      label: 单下划线
+    - value: double
+      label: 双下划线
+  BorderStyleType:
+    - value: none
+      label: 无边框
+    - value: thin
+      label: 细边框
+    - value: medium
+      label: 中边框
+    - value: dashed
+      label: 虚线边框
+    - value: dotted
+      label: 点线边框
+    - value: double
+      label: 双线边框
+  HideTargetType:
+    - value: row
+      label: 行
+    - value: column
+      label: 列
+  ExcelOpenType:
+    - value: new
+      label: 新建Excel
+    - value: open
+      label: 打开已有Excel
+  PivotValueFunc:
+    - value: sum
+      label: 求和
+    - value: count
+      label: 计数
+    - value: average
+      label: 平均值
+    - value: max
+      label: 最大值
+    - value: min
+      label: 最小值
+  PivotFilterType:
+    - value: include
+      label: 仅显示该项
+    - value: exclude
+      label: 隐藏该项
