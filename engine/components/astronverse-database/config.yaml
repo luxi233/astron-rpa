@@ -1,0 +1,68 @@
+atomic:
+  Database.connect:
+    title: 连接数据库
+    comment: 使用连接字符串(@{conn_str})连接数据库，输出为(@{conn})
+    icon: database-connect
+    helpManual: '使用ODBC连接字符串连接到数据库并返回连接对象；连接字符串示例 MySQL: Driver={MySQL ODBC 8.0 Unicode Driver};Server=127.0.0.1;Database=test;UID=root;PWD=123456，SQLServer: Driver={SQL Server};Server=127.0.0.1;Database=test;UID=sa;PWD=123456'
+    inputList:
+      - key: conn_str
+        title: 连接字符串
+        tip: ODBC数据库连接字符串
+    outputList:
+      - key: conn
+        title: 保存数据库连接对象至
+        tip: 将连接到的数据库连接对象保存至指定变量中
+  Database.execute_sql:
+    title: 执行SQL语句
+    comment: 在数据库执行(@{sql})语句，结果保存至(@{result})
+    icon: database-execute
+    helpManual: 在指定的数据库中执行Insert/Update/Delete/Select等SQL语句；SELECT时返回结果集且第一行为列名，无结果集语句返回受影响记录条数(存放在第0行第0列)
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接数据库】创建的连接对象
+      - key: conn_str
+        title: 数据库连接字符串
+        tip: 未选择连接对象时，直接填写连接字符串执行(执行后自动关闭)
+      - key: sql
+        title: 数据库查询语句
+        tip: 输入待执行的SQL语句
+      - key: time_out
+        title: 超时秒数
+        tip: 设置数据库操作超时时间
+    outputList:
+      - key: result
+        title: 保存查询结果至
+        tip: '结果为字符串的列表的列表(list<list>)'
+  Database.batch_insert:
+    title: 数据库批量插入数据
+    comment: 批量插入(@{data})到数据库表，结果为全部正确或全部失败
+    icon: database-batch-insert
+    helpManual: 将多组数据一次性插入到一张表中，使用事务保证全部正确或全部失败；SQL语句中参数用?占位，如 INSERT INTO users(name,age) VALUES(?,?)
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接数据库】创建的连接对象
+      - key: conn_str
+        title: 数据库连接字符串
+        tip: 未选择连接对象时，直接填写连接字符串执行(执行后自动关闭)
+      - key: sql
+        title: 数据库插入语句
+        tip: 参数用?占位的INSERT语句
+      - key: data
+        title: 待插入数据
+        tip: 仅支持二维列表，如 [['影刀',1],['RPA',2]]
+    outputList:
+      - key: affected_rows
+        title: 受影响行数保存至
+        tip: 输出批量插入受影响的行数
+  Database.close:
+    title: 关闭数据库
+    comment: 关闭数据库连接对象(@{conn})
+    icon: database-close
+    helpManual: 关闭通过【连接数据库】创建的数据库连接对象，释放连接资源
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择要关闭的数据库连接对象
+options: {}
