@@ -161,6 +161,12 @@ script|自定义脚本          （BrowserScript.js_run / Script.module / Script
 77. **模块级 create_async_engine 导入即需环境变量**：database.py 顶层建 engine（虽惰性连接），conftest `from app.main import app` 链路上 config 必填字段（DATABASE_URL 等）缺失即 ValidationError——跑测试须预置环境变量（值可指向不可达地址，测试中 get_db 已被 override）；LOG_DIR 默认 /var/log 同理要覆盖。
 78. **service 返回值与直觉不符时以签名/实现为准**：`ApiKeyService.create_api_key` 返回明文 key 字符串（flush 后仅前缀入库），不返回 ORM 对象——conftest 辅助函数要拿 id 只能按 prefix 反查；同理模型字段名是 `api_key` 不是 `key`。
 
+## 十六、发版流水线（v1.2.0 全量批次）
+
+79. **本地 pnpm 版本必须与 CI 对齐（pnpm 9）**：CI 全线 `pnpm/action-setup@v4 version: 9`，本地 pnpm 10 会往 pnpm-lock.yaml 写入 `packageExtensionsChecksum`（pnpm 10 专属），CI 9 的 frozen install 直接 `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` 失败且报错不直观（先跑 ruff 的还以为是 Python 问题）——lockfile 变更后用 `npx pnpm@9.15.9 install --no-frozen-lockfile` 重生成并以 `--frozen-lockfile` 复验；本地默认 pnpm 10.33 装新依赖前先想 CI。
+80. **发版 tag 移动的安全窗口**：release 流水线挂在 tag 上、release 未发布前，发现 QA gate 问题可以 `git push origin :refs/tags/vX.Y.Z` 删远程 tag → 修复 commit → 重打 tag → 重新 dispatch 流水线（v1.2.0 实际迭代了 3 轮：ruff format 29 个测试文件 → pnpm lockfile → 全绿）；一旦 GitHub Release 已创建就绝不能移 tag，只能走 vX.Y.Z-1 修订版。
+81. **QA gate 是全量检查不是增量**：本地开发只 format 改动过的文件，但 CI `ruff format ./engine --check` 是仓库全量——批量收编冒烟脚本/新组件后必须在仓库根跑一遍 CI 同款命令（含 browser-plugin `pnpm exec tsc --noEmit`），别等 push tag 后才发现 29 个文件要重排。
+
 ## 三条元经验
 
 - **断点文件是命**：MISSING_FEATURES.md 的"每完成一项立即标记 + 坑位记录 + 下一个可用 id"让多次上下文丢失后都能无损续接。
