@@ -33,6 +33,7 @@ class ExecutorProject(BaseModel):
     open_virtual_desk: bool = False  # 虚拟桌面
     version: Union[int, str] = ""  # 机器人版本
     is_custom_component: bool = False  # 是否是自定义组件
+    log_level: str = ""  # 运行日志级别 off/standard/debug, 空则用全局设置
 
 
 class StopTask(BaseModel):
@@ -259,6 +260,7 @@ def executor_run_sync(param: ExecutorProject, svc: Svc = Depends(get_svc)):
         is_send_log_event=False,
         version=param.version,
         is_custom_component=param.is_custom_component,
+        log_level=param.log_level,
     )
     # 检查是否运行结束
     while svc.executor_mg.status():
@@ -313,6 +315,7 @@ def executor_run(param: ExecutorProject, svc: Svc = Depends(get_svc)):
         is_send_log_event=True,
         version=param.version,
         is_custom_component=param.is_custom_component,
+        log_level=param.log_level,
     )
     if executor is not None:
         return res_msg(msg="启动成功", data={"addr": "ws://127.0.0.1:{}/".format(executor.exec_port)})

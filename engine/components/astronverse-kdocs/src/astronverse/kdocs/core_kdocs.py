@@ -12,6 +12,7 @@ import mimetypes
 import os
 
 import requests
+from astronverse.actionlib.error import PARAM_TYPE_ERROR_FORMAT, ParamException
 
 ACTION_READ = "read"
 ACTION_WRITE = "write"
@@ -131,10 +132,18 @@ class WpsHookClient:
 
     @classmethod
     def __validate__(cls, name: str, value):
-        """验证WPS连接对象（注册为引擎强类型，供前端变量绑定配对）。"""
+        """验证WPS连接对象（注册为引擎强类型，供前端变量绑定配对）。
+
+        对齐 actionlib.types 约定：失配时抛 ParamException 而非返回 None，
+        避免绑定降级成字符串后以 wps_client=None 穿透到业务层报出模糊错误。
+        """
         if isinstance(value, WpsHookClient):
             return value
-        return None
+        raise ParamException(
+            PARAM_TYPE_ERROR_FORMAT.format(name, type(value).__name__),
+            "参数 {} 不是WPS连接对象（收到 {} 类型）：请在『WPS连接对象』参数中，"
+            "通过变量选择器绑定「创建WPS在线表格连接」指令的输出变量".format(name, type(value).__name__),
+        )
 
     def __init__(self, hook_url: str, token: str, timeout: int = 30):
         if not hook_url:

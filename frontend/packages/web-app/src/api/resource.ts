@@ -23,6 +23,7 @@ export interface StartExecutorParams {
   line?: string | number
   end_line?: string | number
   is_custom_component?: boolean
+  log_level?: string
 }
 export async function startExecutor(data: StartExecutorParams) {
   const res = await http.post<{ addr: string }>('/scheduler/executor/run', data, { timeout: 0 })

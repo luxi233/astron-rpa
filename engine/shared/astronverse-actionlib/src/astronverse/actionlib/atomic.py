@@ -29,12 +29,36 @@ from astronverse.actionlib.utils import InspectType
 class AtomicManager:
     """原子能力，运行"""
 
-    _cfg = {"GATEWAY_PORT": "", "WS": None}
+    _cfg = {"GATEWAY_PORT": "", "WS": None, "LOG_LEVEL": "standard"}
+
+    # 敏感参数名关键词（小写匹配子串），摘要时掩码防止泄漏
+    SENSITIVE_KEYS = ("token", "password", "passwd", "secret", "credential", "apikey", "api_key", "access_key")
+    # 摘要值的最大长度
+    SUMMARY_MAX_LEN = 200
 
     def __init__(self):
         self.atomic_dict = {}
         self.model_cache = {}
         self.model_cache_max_size = 1000
+
+    @classmethod
+    def _fmt_value(cls, name: str, value) -> str:
+        """格式化参数值用于日志摘要：敏感值掩码，其余截断。"""
+        if any(s in str(name).lower() for s in cls.SENSITIVE_KEYS):
+            return "***"
+        try:
+            text = str(value)
+        except Exception:
+            text = "<unprintable>"
+        text = text.replace("\n", "\\n")
+        if len(text) > cls.SUMMARY_MAX_LEN:
+            text = text[: cls.SUMMARY_MAX_LEN] + "...(共{}字符)".format(len(text))
+        return text
+
+    @classmethod
+    def _fmt_params(cls, params: dict) -> str:
+        """格式化参数字典用于DEBUG级日志。"""
+        return ", ".join("{}={}".format(k, cls._fmt_value(k, v)) for k, v in sorted(params.items()))
 
     @staticmethod
     def cfg() -> dict:
@@ -128,16 +152,22 @@ class AtomicManager:
         delay_before = float(kwargs.get("__delay_before__", 0))
         delay_after = float(kwargs.get("__delay_after__", 0))
 
-        report.info(
-            ReportCode(
-                log_type=ReportType.Code,
-                process_id=process_id,
-                key=key,
-                line=line,
-                status=ReportCodeStatus.START,
-                msg_str=ReportStartMsgFormat.format("{process}", line, "{atomic}"),
+        # 日志级别: off(无步骤日志) / standard(开始+失败+耗时) / debug(standard+参数摘要+返回值摘要)
+        log_level = str(self.cfg().get("LOG_LEVEL", "standard")).lower()
+        if log_level not in ("off", "standard", "debug"):
+            log_level = "standard"
+
+        if log_level != "off":
+            report.info(
+                ReportCode(
+                    log_type=ReportType.Code,
+                    process_id=process_id,
+                    key=key,
+                    line=line,
+                    status=ReportCodeStatus.START,
+                    msg_str=ReportStartMsgFormat.format("{process}", line, "{atomic}"),
+                )
             )
-        )
 
         # Meta数据收集: 基础参数验证+转换
         if not self.atomic_dict[key].__end__:
@@ -170,15 +200,49 @@ class AtomicManager:
             sig = inspect.signature(func)
             base_kwargs = {k: v for k, v in base_kwargs.items() if k in set(sig.parameters.keys())}
 
-        res = func(*args, **base_kwargs, **advance_kwargs)
-        if res_print and has_result:
+        # DEBUG级: 执行前记录参数摘要(敏感值掩码)
+        if log_level == "debug" and base_kwargs:
+            report.info(
+                ReportCode(
+                    log_type=ReportType.Code,
+                    process_id=process_id,
+                    key=key,
+                    line=line,
+                    status=ReportCodeStatus.RES,
+                    msg_str="参数: {}".format(self._fmt_params(base_kwargs)),
+                )
+            )
+
+        start_time = time.time()
+        try:
+            res = func(*args, **base_kwargs, **advance_kwargs)
+        except Exception as e:
+            # 失败日志: 消息+耗时+完整堆栈(此前缺失, 机器人模式静默失败排查困难)
+            if log_level != "off":
+                report.error(
+                    ReportCode(
+                        log_type=ReportType.Code,
+                        process_id=process_id,
+                        key=key,
+                        line=line,
+                        status=ReportCodeStatus.ERROR,
+                        msg_str="{}: {}".format(type(e).__name__, e),
+                        error_traceback=traceback.format_exc(),
+                        cost_ms=int((time.time() - start_time) * 1000),
+                    )
+                )
+            raise
+        cost_ms = int((time.time() - start_time) * 1000)
+
+        if (res_print or log_level == "debug") and has_result:
             report.info(
                 ReportCode(
                     log_type=ReportType.Code,
                     process_id=process_id,
                     line=line,
                     status=ReportCodeStatus.RES,
-                    msg_str=str(res),
+                    msg_str=self._fmt_value("result", res),
+                    cost_ms=cost_ms,
                 )
             )
 

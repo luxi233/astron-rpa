@@ -13,6 +13,7 @@ declare namespace RPA {
     shortcutConfig: Record<string, any> // 快捷键设置
     videoForm: VideoFormMap // 录屏设置
     msgNotifyForm: MessageFormMap // 消息通知设置
+    logSetting: LogSettingMap // 运行日志设置
   }
 
   interface EmailFormMap {
@@ -46,5 +47,10 @@ declare namespace RPA {
     fileClearTime: number | string
     filePath: string
     scene: string
+  }
+
+  interface LogSettingMap {
+    level: 'off' | 'standard' | 'debug' // 步骤日志级别: 关闭/标准/详细
+    retentionDays: number // 运行日志文件保留时限(天), 0=永久
   }
 }

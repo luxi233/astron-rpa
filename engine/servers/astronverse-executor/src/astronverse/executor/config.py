@@ -43,6 +43,12 @@ class Config:
     # 开启ws日志通信
     open_log_ws: bool = True
 
+    # 运行日志级别: off(无步骤日志) / standard(开始+失败+耗时) / debug(standard+参数摘要+返回值摘要)
+    log_level: str = "standard"
+
+    # 运行日志保留时限(天), 0表示永久保留
+    log_retention_days: int = 30
+
     # 是否等待前端ws连接
     wait_web_ws: bool = True
 

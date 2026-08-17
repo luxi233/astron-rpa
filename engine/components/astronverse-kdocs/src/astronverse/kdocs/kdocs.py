@@ -2,6 +2,7 @@ from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.kdocs import ClearType, FitType, FormulaMode, FuncName, MergeType, OpType, TargetType
 from astronverse.kdocs.core_kdocs import WpsHookClient, WpsHookError
+from astronverse.kdocs.error import *
 
 
 def _client(wps_client) -> WpsHookClient:
@@ -37,7 +38,7 @@ class Kdocs:
         try:
             return WpsHookClient(hook_url, token, time_out)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -76,7 +77,7 @@ class Kdocs:
         try:
             return _client(wps_client).read(sheet_name, range_address or "", read_display)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -101,7 +102,7 @@ class Kdocs:
         try:
             return _client(wps_client).write(sheet_name, range_address, write_value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -128,7 +129,7 @@ class Kdocs:
         try:
             return _client(wps_client).count(sheet_name, target_type.value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -155,7 +156,7 @@ class Kdocs:
         try:
             return _client(wps_client).first_empty(sheet_name, target_type.value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -174,7 +175,7 @@ class Kdocs:
         try:
             return _client(wps_client).get_image(sheet_name, range_address)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -199,7 +200,7 @@ class Kdocs:
         try:
             return _client(wps_client).insert_image(sheet_name, range_address, image_source)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -218,7 +219,7 @@ class Kdocs:
         try:
             return _client(wps_client).get_hyperlink(sheet_name, range_address)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -235,7 +236,7 @@ class Kdocs:
         try:
             return _client(wps_client).list_sheets()
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -253,7 +254,7 @@ class Kdocs:
         try:
             return _client(wps_client).create_sheets(new_sheet_names)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -271,7 +272,7 @@ class Kdocs:
         try:
             return _client(wps_client).delete_sheet(sheet_name)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -297,7 +298,7 @@ class Kdocs:
         try:
             return _client(wps_client).replace(sheet_name, find_text, replace_text, range_address or "")
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -326,7 +327,7 @@ class Kdocs:
                 source_sheet, source_range, target_sheet or source_sheet, target_range
             )
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -358,7 +359,7 @@ class Kdocs:
         try:
             return _client(wps_client).insert_cells(sheet_name, range_address, op_type.value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -390,7 +391,7 @@ class Kdocs:
         try:
             return _client(wps_client).delete_cells(sheet_name, range_address, op_type.value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -422,7 +423,7 @@ class Kdocs:
         try:
             return _client(wps_client).clear_range(sheet_name, range_address or "", clear_type.value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -451,7 +452,7 @@ class Kdocs:
         try:
             return _client(wps_client).merge_cells(sheet_name, range_address, merge_type.value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -475,7 +476,7 @@ class Kdocs:
         try:
             return _client(wps_client).set_format(sheet_name, range_address, format_options)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -497,7 +498,7 @@ class Kdocs:
         try:
             return _client(wps_client).get_color(sheet_name, range_address)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -536,7 +537,7 @@ class Kdocs:
                 formula_mode == FormulaMode.SET,
             )
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -553,7 +554,7 @@ class Kdocs:
         try:
             return _client(wps_client).save_workbook()
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -572,7 +573,7 @@ class Kdocs:
         try:
             return _client(wps_client).rename_sheet(sheet_name, new_sheet_name)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -591,7 +592,7 @@ class Kdocs:
         try:
             return _client(wps_client).move_sheet(sheet_name, position)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -623,7 +624,7 @@ class Kdocs:
         try:
             return _client(wps_client).auto_fit(sheet_name, range_address or "", fit_type.value)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -643,7 +644,7 @@ class Kdocs:
         try:
             return _client(wps_client).get_file_info()
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)
 
     @staticmethod
     @atomicMg.atomic(
@@ -677,4 +678,4 @@ class Kdocs:
         try:
             return _client(wps_client).calc_function(sheet_name, range_address or "", func_name.value, k)
         except WpsHookError as e:
-            raise BaseException(str(e), e.detail)
+            raise BaseException(wps_hook_error(str(e)), e.detail)

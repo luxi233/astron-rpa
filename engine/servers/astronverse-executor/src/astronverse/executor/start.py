@@ -7,6 +7,7 @@ import traceback
 from urllib.parse import unquote
 from astronverse.executor.error import *
 from astronverse.actionlib import ReportFlow, ReportFlowStatus, ReportType
+from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.error import TerminateAppSignal
 from astronverse.executor import ExecuteStatus
 from astronverse.executor.config import Config
@@ -149,6 +150,9 @@ def start():
     parser.add_argument("--wait_web_ws", default="n", help="[ws通信]等待前端ws连接 y/n", required=False)
     parser.add_argument("--wait_tip_ws", default="n", help="[ws通信]开启并等待右下角ws连接 y/n", required=False)
 
+    parser.add_argument("--log_level", default="standard", help="[日志]步骤日志级别 off/standard/debug", required=False)
+    parser.add_argument("--log_retention_days", default="30", help="[日志]运行日志保留时限(天), 0永久", required=False)
+
     parser.add_argument("--resource_dir", default="", help="资源目录", required=False)
     parser.add_argument("--recording_config", default="", help="录屏", required=False)
     parser.add_argument("--is_custom_component", default="n", help="是否是自定义组件 y/n", required=False)
@@ -172,6 +176,15 @@ def start():
     Config.wait_tip_ws = args.wait_tip_ws == "y"
     Config.debug_mode = args.debug == "y"
     Config.is_custom_component = args.is_custom_component == "y"
+
+    # 运行日志级别(注入原子执行器) + 保留时限
+    log_level = str(args.log_level).lower()
+    Config.log_level = log_level if log_level in ("off", "standard", "debug") else "standard"
+    atomicMg.cfg()["LOG_LEVEL"] = Config.log_level
+    try:
+        Config.log_retention_days = max(0, int(args.log_retention_days))
+    except (TypeError, ValueError):
+        Config.log_retention_days = 30
 
     if args.run_param:
         try:

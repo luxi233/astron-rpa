@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 COMP = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(COMP / "src"))
 
+from astronverse.actionlib.error import ParamException
 from astronverse.kdocs.core_kdocs import WpsHookClient, WpsHookError
 from astronverse.kdocs.kdocs import Kdocs, _client
 
@@ -77,16 +78,22 @@ ok("_client 兜底: str/None/int 抛带修复指引的明确错误")
 try:
     Kdocs.list_sheets("连接A")
     raise AssertionError("原子层应抛错")
-except BaseException as e:  # kdocs.py 统一转 BaseException(msg, detail)
-    assert len(e.args) >= 2
-    assert "变量选择器" in str(e.args[1])
-ok("原子层: 字符串 wps_client 显式报错(不再静默)")
+except Exception as e:  # kdocs.py 统一转引擎 BaseException(code, message)
+    # 关键回归: 必须是 Exception 子类(可被执行器捕获上报), 且带 code/message
+    assert isinstance(e, Exception), "引擎错误必须是 Exception 子类, 否则执行器静默退出"
+    assert e.code.message.startswith("WPS在线表格操作失败"), e.code.message
+    assert "变量选择器" in e.message, f"错误指引缺失: {e.message}"
+ok("原子层: 字符串 wps_client 显式报错且可被 except Exception 捕获(不再静默退出)")
 
 c = WpsHookClient("http://w", "t")
 assert _client(c) is c
 assert isinstance(WpsHookClient.__validate__("wps_client", c), WpsHookClient)
-assert WpsHookClient.__validate__("wps_client", "x") is None
-ok("__validate__: 对象通过/字符串拒绝(强类型注册生效)")
+try:
+    WpsHookClient.__validate__("wps_client", "x")
+    raise AssertionError("__validate__ 失配应抛错")
+except ParamException:
+    pass
+ok("__validate__: 对象通过/字符串抛 ParamException(对齐 actionlib 约定)")
 
 # ---- 4. meta.json 一致性 ----
 meta = json.load(open(COMP / "meta.json", encoding="utf-8"))

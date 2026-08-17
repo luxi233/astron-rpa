@@ -75,7 +75,8 @@ try:
     PyxlWrapper = OpenpyxlWrapper(file_path=_xlsx_file_path, sheet_name=None)
     PyxlHeadWrapper = OpenpyxlWrapper(file_path=_head_file_path, sheet_name=None)
 except Exception as e:
-    pass
+    # 初始化失败必须留痕, 否则后续所有数据表格操作都会莫名失败且无线索
+    logger.exception(f"DataTable 初始化失败, 后续数据表格操作将不可用: {e}")
 
 
 def auto_save(func):

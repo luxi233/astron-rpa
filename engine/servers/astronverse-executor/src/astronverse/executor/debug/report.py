@@ -30,7 +30,31 @@ class Report(IReport):
         self.log_local_file = open(
             os.path.join(str(local_file_path), "{}.txt".format(self.svc.conf.exec_id)), "w", encoding="utf-8"
         )
+        # 按保留时限清理过期的运行日志
+        self.clean_expired_logs(self.svc.conf.log_path, self.svc.conf.log_retention_days)
+        self._init_process()
 
+    @staticmethod
+    def clean_expired_logs(log_path: str, retention_days: int):
+        """删除 report/ 下超过保留时限的运行日志文件（按文件修改时间）。"""
+        if not log_path or not retention_days or retention_days <= 0:
+            return
+        report_dir = os.path.join(log_path, "report")
+        if not os.path.isdir(report_dir):
+            return
+        deadline = time.time() - retention_days * 86400
+        for root, _, files in os.walk(report_dir):
+            for f in files:
+                if not f.endswith(".txt"):
+                    continue
+                p = os.path.join(root, f)
+                try:
+                    if os.path.getmtime(p) < deadline:
+                        os.remove(p)
+                except OSError:
+                    pass
+
+    def _init_process(self):
         self.process = {}
         for i, v in self.svc.ast_globals.process_info.items():
             process_meta = {}

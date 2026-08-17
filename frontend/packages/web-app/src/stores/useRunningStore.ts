@@ -345,6 +345,7 @@ export const useRunningStore = defineStore('running', () => {
         jwt: getCookie('jwt'),
         hide_log_window: !userSettingStore.openLogModalAfterRun,
         project_name: params.project_name || processStore.project.name,
+        log_level: userSettingStore.userSetting.logSetting?.level || 'standard',
       })
       // 连接 ws
       createSocket()

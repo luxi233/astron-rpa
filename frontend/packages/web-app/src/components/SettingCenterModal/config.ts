@@ -3,6 +3,7 @@ import type { Component } from 'vue'
 import About from './components/about.vue'
 import ApiKeyManage from './components/apiKeyManage/index.vue'
 import CommonSetting from './components/commonSetting/index.vue'
+import LogSetting from './components/logSetting.vue'
 // import MsgNotify from './components/msgNotify.vue'
 import PluginInstall from './components/pluginInstall/index.vue'
 import ShortCut from './components/shortCut/index.vue'
@@ -35,6 +36,12 @@ export const menuConfig: MenuItem[] = [
     icon: 'video',
     name: 'runRecording',
     component: VideoSetting,
+  },
+  {
+    key: 'logSetting',
+    icon: 'log',
+    name: 'runLogManage',
+    component: LogSetting,
   },
   // {
   //   key: 'msgNotify',

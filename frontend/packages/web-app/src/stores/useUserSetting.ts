@@ -31,6 +31,7 @@ const useUserSettingStore = defineStore('useUserSetting', () => {
     shortcutConfig: {}, // 快捷键设置
     videoForm: DEFAULT_FORM, // 录屏设置
     msgNotifyForm: {}, // 消息通知设置
+    logSetting: { level: 'standard', retentionDays: 30 }, // 运行日志设置
   })
 
   // 获取常规设置
@@ -78,6 +79,16 @@ const useUserSettingStore = defineStore('useUserSetting', () => {
   // 运行结束后是否打开日志弹窗
   const openLogModalAfterRun = computed(() => !userSetting.value.commonSetting.hideDetailLogWindow)
 
+  // 修改运行日志设置(级别/保留时限)
+  const changeLogSetting = (params: Partial<RPA.LogSettingMap>) => {
+    saveUserSetting({
+      logSetting: {
+        ...userSetting.value.logSetting,
+        ...params,
+      },
+    })
+  }
+
   getSetting()
 
   return {
@@ -85,6 +96,7 @@ const useUserSettingStore = defineStore('useUserSetting', () => {
     openLogModalAfterRun,
     saveUserSetting,
     changeCommonConfig,
+    changeLogSetting,
   }
 })
 

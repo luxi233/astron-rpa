@@ -4,6 +4,7 @@ import { fileRead, fileWrite } from '@/api/resource'
 import type { ITableResponse } from '@/types/normalTable'
 
 import http from './http'
+import { getBaseURL } from './http/env'
 
 const useSettingPath = './.setting.json'
 
@@ -62,6 +63,30 @@ export function toolsInterfacePost(data) {
 export async function getApis(params) {
   const res = await http.get<ITableResponse>('/api/rpa-openapi/api-keys/get', params)
   return res.data || { records: [], total: 0 }
+}
+
+/**
+ * @description: 运行日志管理(scheduler)
+ */
+export interface RunLogItem {
+  path: string
+  project_id: string
+  exec_id: string
+  size: number
+  mtime: number
+}
+
+export async function getRunLogList(projectId?: string) {
+  const res = await http.get<{ total: number, list: RunLogItem[] }>('/scheduler/runlog/list', { project_id: projectId || '' })
+  return res.data || { total: 0, list: [] }
+}
+
+export function clearRunLog(data: { project_id?: string, before_days?: number }) {
+  return http.post<{ removed: number }>('/scheduler/runlog/clear', data)
+}
+
+export function getRunLogDownloadUrl(path: string) {
+  return `${getBaseURL()}/scheduler/runlog/download?path=${encodeURIComponent(path)}`
 }
 
 /**

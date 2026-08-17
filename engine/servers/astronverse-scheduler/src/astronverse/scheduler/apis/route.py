@@ -1,4 +1,4 @@
-from astronverse.scheduler.apis.connector import credential, datatable, executor, picker, terminal, tools, ws
+from astronverse.scheduler.apis.connector import credential, datatable, executor, picker, runlog, terminal, tools, ws
 from astronverse.scheduler.apis.access_control import local_access_guard
 from astronverse.scheduler.core.lsp.routes import router as lsp_router
 from astronverse.scheduler.core.svc import get_svc
@@ -65,4 +65,11 @@ def handler(app: FastAPI):
         prefix="/credential",
         tags=["credential"],
         dependencies=[Depends(get_svc)],
+    )
+
+    # 绑定运行日志管理路由
+    app.include_router(
+        runlog.router,
+        prefix="/runlog",
+        tags=["runlog"],
     )

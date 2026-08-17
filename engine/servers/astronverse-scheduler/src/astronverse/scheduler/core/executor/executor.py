@@ -27,6 +27,7 @@ from astronverse.scheduler.utils.utils import (
     EmitType,
     check_port,
     emit_to_front,
+    get_settings,
     read_last_n_lines,
 )
 
@@ -257,6 +258,7 @@ class ExecutorManager:
         version: str = "",  # 版本号
         is_send_log_event: bool = True,  # 是否需要发送日志事件
         is_custom_component: bool = False,  # 是否是自定义组件
+        log_level: str = "",  # 运行日志级别 off/standard/debug, 空则用全局设置
     ):
         """启动一个实例"""
         executor = Executor()
@@ -371,6 +373,22 @@ class ExecutorManager:
             wait_web_ws = "n"
         ins.set_param("wait_web_ws", wait_web_ws)
         ins.set_param("wait_tip_ws", wait_tip_ws)
+
+        # 运行日志: 级别(请求参数优先, 其次全局设置) + 保留时限(全局设置, 0=永久)
+        try:
+            log_setting = get_settings().get("logSetting", {}) or {}
+        except Exception:
+            log_setting = {}
+        if log_level not in ("off", "standard", "debug"):
+            log_level = str(log_setting.get("level", "standard") or "standard")
+            if log_level not in ("off", "standard", "debug"):
+                log_level = "standard"
+        ins.set_param("log_level", log_level)
+        try:
+            retention_days = int(log_setting.get("retentionDays", 30))
+        except (TypeError, ValueError):
+            retention_days = 30
+        ins.set_param("log_retention_days", max(0, retention_days))
 
         executor.recording_path = ""
         if recording_config and exec_position in [

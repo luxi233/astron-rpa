@@ -412,3 +412,4 @@ class ReportCode:
     error_traceback: Any = None
     msg_str: str = None
     debug_data: Any = None
+    cost_ms: int = None  # 原子执行耗时(毫秒)
