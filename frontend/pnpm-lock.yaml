@@ -34,8 +34,6 @@ catalogs:
       specifier: ^4.5.1
       version: 4.6.4
 
-packageExtensionsChecksum: sha256-9kB00ZzQz9tWsoqSNxzIYPYQJ3hsmGsu0ajsLlZ0Zxs=
-
 importers:
 
   .:
