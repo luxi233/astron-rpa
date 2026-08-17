@@ -117,6 +117,8 @@ script|自定义脚本          （BrowserScript.js_run / Script.module / Script
 
 49. **`ErrorCode.format()` 原地污染模板**：error.py 的 `XXX_FORMAT.format(args)` 返回 self 且 `message` 被 format 结果覆写（占位符消失）——同一 FORMAT 对象第二次 format **静默返回首次插值文本**（M8 实证：两个错误分支报同一句"密钥连接未指定私钥文件路径"）。运行时抛错即终止流程无碍（全组件既有模式），但冒烟测试同一 FORMAT 连续触发多个错误分支时，只有第一个分支能断言完整文本，后续分支只能断言固定前缀/抛出类型；排错时若"错误信息张冠李戴"先想到这里。
 50. **`atomic_run` 过滤 None 值 kwarg**（`base_kwargs = {k: v for ... if v is not None}`）：direct call 传 `x=None` 到不了函数体（报 missing argument）→ 业务里的 `if x is None` 友好提示分支不可达，冒烟要测该分支只能传"非 None 无效对象"（如字符串）走 except Exception 包装路径。
+87. **组件未 `from xxx.error import *` 时 `raise BaseException` 用的是内建类 → 流程静默退出零报错**（WPS 双连接 bug 根因, v1.2.2 后仍复现）：引擎自定义 BaseException(Exception 子类, 含 .code/.message) 靠 import 星号导入遮蔽内建；组件若没建 error.py 没 import，`raise BaseException(str, str)` 抛的是**内建 BaseException**——不被 bdb 调试器的 `except Exception` 捕获、不被 start.py 的 `except BaseException`(已被遮蔽为自定义类)捕获 → 异常直达进程顶层, 前端零报错直接结束。actionlib/error.py TerminateAppSignal 注释早已记录遮蔽机制但只防了正向(想穿透), 没防反向(误穿透)。**新组件 checklist: 必须建 error.py + import * + ErrorCode 双参构造**；冒烟断言必须验证 `isinstance(e, Exception)` 且 `e.code.message` 可访问, 而非锁定 `len(e.args)>=2`（后者恰是内建类的 bug 行为）。
+88. **`__validate__` 失配返回 None 会让坏绑定穿透到业务层**：强类型 `__validate__` 应对齐 actionlib.types 约定**抛 ParamException**；返回 None 时 atomic_run 不报错、业务函数收到 None（或经 None 过滤直接缺参）, 错误位置漂移且信息模糊。WpsHookClient 修复后, 绑定降级成字符串会在参数层报"参数 wps_client 的值转换成 WpsHookClient 失败，原始值: wps_client"（ParamModel 统一包装, 指引文案会被替换, 断言用参数名+类型名）。
 
 ## 十一、Web 增强 / runJS 冒烟（M9 astronverse-browser）
 
