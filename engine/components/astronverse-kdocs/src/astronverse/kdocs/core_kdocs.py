@@ -49,6 +49,16 @@ class WpsHookError(Exception):
         self.detail = detail
 
 
+def _sanitize_url(url) -> str:
+    """清洗 URL 常见粘贴污染: 首尾空白、包裹的反引号/引号、尾部逗号分号(含全角)。"""
+    text = str(url).strip()
+    # 反复剥离成对的包裹符号与尾部标点, 应对 ``url,`` / 'url'; 等组合
+    for _ in range(3):
+        text = text.strip().strip("`'\"").strip()
+        text = text.rstrip(",;，；").strip()
+    return text
+
+
 def build_payload(
     action,
     sheet_name="",
@@ -151,8 +161,16 @@ class WpsHookClient:
         if not token:
             raise WpsHookError("token is required", "AirScript-Token 不能为空")
 
-        self.hook_url = hook_url
-        self.token = token
+        # 清洗常见粘贴污染: 首尾空白、包裹的反引号/引号、尾部逗号分号(含中文全角)
+        self.hook_url = _sanitize_url(hook_url)
+        if not self.hook_url.lower().startswith(("http://", "https://")):
+            raise WpsHookError(
+                f"invalid hook_url: {self.hook_url!r}",
+                "Webhook 地址不合法：请从 WPS AirScript 复制完整的 https:// 地址，不要带入反引号、引号或逗号等多余字符",
+            )
+        self.token = str(token).strip().strip("`'\"").strip()
+        if not self.token:
+            raise WpsHookError("token is required", "AirScript-Token 不能为空")
         self.timeout = timeout if timeout and int(timeout) > 0 else 30
 
     def send_request(self, action, **kwargs):
@@ -173,9 +191,17 @@ class WpsHookClient:
             raise WpsHookError(f"Request failed: {e}", "WPS Hook 请求失败，请检查网络与 Webhook 地址")
 
         if response.status_code != 200:
+            detail = "WPS Hook 返回异常状态码"
+            if response.status_code == 403 or "ApiTokenNotExists" in response.text:
+                detail = (
+                    "WPS 拒绝访问(ApiTokenNotExists)：请依次检查 "
+                    "1) Webhook 地址是否从 WPS AirScript 完整复制(无反引号/逗号等多余字符) "
+                    "2) AirScript 脚本是否已发布且 Webhook 开启 "
+                    "3) Token 与地址是否属于同一个脚本"
+                )
             raise WpsHookError(
                 f"HTTP {response.status_code}: {response.text[:200]}",
-                "WPS Hook 返回异常状态码",
+                detail,
             )
 
         try:

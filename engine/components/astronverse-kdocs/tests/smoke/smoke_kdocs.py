@@ -38,6 +38,29 @@ for bad_args in [(None, "t"), ("http://w", "")]:
         pass
 ok("构造校验: hook_url/token 为空抛 WpsHookError")
 
+# ---- 1b. hook_url 粘贴污染清洗 (403 ApiTokenNotExists 根因防御) ----
+POLLUTED = {
+    "尾部逗号": ("https://w/sync_task,", "https://w/sync_task"),
+    "反引号+逗号": ("`https://w/sync_task,`", "https://w/sync_task"),
+    "首尾空白": ("  https://w/sync_task ", "https://w/sync_task"),
+    "单引号包裹": ("'https://w/sync_task'", "https://w/sync_task"),
+    "全角逗号": ("https://w/sync_task，", "https://w/sync_task"),
+    "组合污染": (" `https://w/sync_task,` ", "https://w/sync_task"),
+}
+for name, (raw, clean) in POLLUTED.items():
+    c = WpsHookClient(raw, " t ")
+    assert c.hook_url == clean, f"{name}: {c.hook_url!r}"
+    assert c.token == "t", f"{name}: token 未清洗 {c.token!r}"
+ok("URL清洗: 反引号/引号/逗号/分号/空白(含全角) 6 种粘贴污染自动剥离")
+
+for bad in ("`not-a-url,`", "ftp://w/sync_task"):
+    try:
+        WpsHookClient(bad, "t")
+        raise AssertionError(f"{bad!r} 应抛错")
+    except WpsHookError as e:
+        assert "https://" in e.detail, f"指引缺失: {e.detail}"
+ok("URL校验: 清洗后非 http(s) 开头报带指引错误")
+
 # ---- 2. webhook 响应解析 ----
 client = WpsHookClient("http://fake/w", "tok", timeout=5)
 CASES = {
