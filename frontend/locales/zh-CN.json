@@ -249,6 +249,8 @@
     "selectTriggerType": "请选择触发方式",
     "allStatus": "全部状态",
     "allTriggerType": "全部触发方式",
+    "manualRun": "手动执行",
+    "taskRun": "计划任务",
     "version": "版本"
   },
   "publish": {
@@ -302,6 +304,7 @@
   "contentCopied": "内容已复制！",
   "exportLog": "导出日志",
   "noLogToExport": "暂无日志可导出",
+  "exportLogFailed": "导出日志失败",
   "errorType": "类型",
   "timestamp": "时间",
   "rows": "行数",

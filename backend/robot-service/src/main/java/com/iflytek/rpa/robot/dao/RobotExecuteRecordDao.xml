@@ -56,6 +56,13 @@
         <if test="entity.result != null and entity.result != ''">
             and rer.result = #{entity.result}
         </if>
+        <!-- 触发方式筛选: manual-手动执行 task-计划任务/触发器 -->
+        <if test="entity.triggerType != null and entity.triggerType == 'manual'">
+            and (rer.task_execute_id is null or rer.task_execute_id = '')
+        </if>
+        <if test="entity.triggerType != null and entity.triggerType == 'task'">
+            and rer.task_execute_id is not null and rer.task_execute_id != ''
+        </if>
         <!-- 时间区间查询（整体一对） -->
         <if test="entity.startTime != null and entity.endTime != null">
             and rer.start_time >= #{entity.startTime}

@@ -77,4 +77,9 @@ public class ExecuteRecordDto extends RobotExecuteRecord {
      * 数据抓取上报路径
      */
     private String dataTablePath;
+
+    /**
+     * 触发方式筛选: manual-手动执行 task-计划任务/触发器
+     */
+    private String triggerType;
 }

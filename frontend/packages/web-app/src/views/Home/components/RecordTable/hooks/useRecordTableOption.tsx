@@ -57,6 +57,26 @@ export default function useRecordTableOption(props?: { robotId: string }) {
             ],
             isTrim: true,
           },
+          {
+            componentType: 'select',
+            bind: 'triggerType',
+            placeholder: t('record.selectTriggerType'),
+            options: [
+              {
+                label: t('record.allTriggerType'),
+                value: '',
+              },
+              {
+                label: t('record.manualRun'),
+                value: 'manual',
+              },
+              {
+                label: t('record.taskRun'),
+                value: 'task',
+              },
+            ],
+            isTrim: true,
+          },
         ],
     buttonList: [
       {

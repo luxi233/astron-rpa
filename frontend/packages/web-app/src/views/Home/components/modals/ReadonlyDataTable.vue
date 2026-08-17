@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Sheet, useTheme } from '@rpa/components'
+import { Sheet, sheetUtils, useTheme } from '@rpa/components'
 import type { ISheetWorkbookData, SheetLocaleType } from '@rpa/components'
 import { useAsyncState } from '@vueuse/core'
 import { useTranslation } from 'i18next-vue'
-import { computed, useTemplateRef } from 'vue'
+import { computed } from 'vue'
 
 import { blob2File } from '@/utils/common'
 
@@ -13,12 +13,11 @@ const props = defineProps<{ dataTablePath: string, class?: string }>()
 
 const { isDark } = useTheme()
 const { i18next } = useTranslation()
-const sheetRef = useTemplateRef('sheetRef')
 
 const { state: workbookData } = useAsyncState<ISheetWorkbookData>(async () => {
   const { data } = await fileRead({ path: props.dataTablePath })
   const file = blob2File(data, 'data-table.xlsx')
-  return sheetRef.value.utils.transformExcelToUniver(file)
+  return sheetUtils.transformExcelToUniver(file)
 }, null)
 
 const locale = computed<SheetLocaleType>(() => {
@@ -29,11 +28,11 @@ const locale = computed<SheetLocaleType>(() => {
 <template>
   <Sheet
     v-if="workbookData"
-    ref="sheetRef"
     readonly
     :class="props.class"
     :default-value="workbookData"
     :dark-mode="isDark"
     :locale="locale"
   />
+  <a-empty v-else :description="$t('common.loading')" />
 </template>

@@ -1,9 +1,12 @@
 import { Icon } from '@rpa/components'
+import { message } from 'ant-design-vue'
+import dayjs from 'dayjs'
 import { useTranslation } from 'i18next-vue'
 import { h } from 'vue'
 
 import { getDurationText } from '@/utils/dayjsUtils'
 
+import { getlogs } from '@/api/record'
 import { utilsManager } from '@/platform'
 import OperMenu from '@/views/Home/components/OperMenu.vue'
 import StatusCircle from '@/views/Home/components/StatusCircle.vue'
@@ -11,10 +14,45 @@ import { useCommonOperate } from '@/views/Home/pages/hooks/useCommonOperate.tsx'
 
 import useRecordOperation from './useRecordOperation.tsx'
 
+const LOG_LEVEL_MAP: Record<string, string> = {
+  error: '错误',
+  info: '信息',
+  warning: '警告',
+  debug: '调试',
+}
+
 export default function useRecordTableColumns(props?: { robotId?: string, taskId?: string }, refreshWithDelete?: (count: number) => void) {
   const translate = useTranslation()
   const { batchDelete } = useRecordOperation(refreshWithDelete)
   const { handleCheck, handleOpenDataTable } = useCommonOperate()
+
+  // 导出执行日志为文本文件
+  async function handleExportLog(record: any) {
+    try {
+      const res = await getlogs({ executeId: record.executeId })
+      const rawLogs = JSON.parse(res.data || '[]') as Array<{ event_time: number, data: Record<string, any> }>
+      if (!rawLogs.length) {
+        message.warning(translate.t('noLogToExport'))
+        return
+      }
+      const content = rawLogs
+        .map(({ event_time, data }) => {
+          const ts = dayjs(event_time * 1000).format('YYYY-MM-DD HH:mm:ss')
+          const level = LOG_LEVEL_MAP[data.log_level] || data.log_level || ''
+          const pos = data.process ? `[${data.process}:${data.line ?? '--'}] ` : ''
+          const line = `[${ts}] [${level}] ${pos}${data.msg_str ?? ''}`
+          return data.error_traceback ? `${line}\n${data.error_traceback}` : line
+        })
+        .join('\n')
+      const fileName = `runlog-${record.robotName || record.executeId}-${dayjs(record.startTime).format('YYYYMMDD-HHmmss')}.txt`
+      await utilsManager.saveFile(fileName, content)
+      message.success(translate.t('common.operationSuccess'))
+    }
+    catch (e) {
+      console.error('export log failed:', e)
+      message.error(translate.t('exportLogFailed'))
+    }
+  }
 
   const projectMoreOpts = [
     {
@@ -22,6 +60,12 @@ export default function useRecordTableColumns(props?: { robotId?: string, taskId
       text: translate.t('record.logDetail'),
       icon: h(<Icon name="log" size="16px" />),
       clickFn: record => handleCheck({ type: !props.robotId ? 'drawer' : 'modal', record }),
+    },
+    {
+      key: 'exportLog',
+      text: translate.t('exportLog'),
+      icon: h(<Icon name="download" size="16px" />),
+      clickFn: record => handleExportLog(record),
     },
     {
       key: 'runningDataTable',

@@ -432,6 +432,7 @@
   "contentCopied": "Content has been copied!",
   "exportLog": "Export logs",
   "noLogToExport": "No logs to export",
+  "exportLogFailed": "Failed to export logs",
   "copy": "Copy",
   "copySuccess": "Copy Success",
   "createCopy": "Create a copy",
@@ -1151,6 +1152,8 @@
     "selectTriggerType": "Select Trigger Type",
     "allStatus": "All Status",
     "allTriggerType": "All Trigger Types",
+    "manualRun": "Manual",
+    "taskRun": "Scheduled Task",
     "version": "Version"
   },
   "refresh": "Refresh",

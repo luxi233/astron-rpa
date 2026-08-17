@@ -6,4 +6,6 @@ import type { ICellValue } from './Sheet.vue'
 
 export const Sheet = defineAsyncComponent(() => import('./Sheet.vue'))
 
+export { sheetUtils } from './utils'
+
 export type { ICellValue, ISheetWorkbookData, IWorksheetData, SheetLocaleType }
