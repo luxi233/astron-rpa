@@ -168,3 +168,7 @@ engine/servers/astronverse-executor/astron_extension/*
 engine/components/*/astron/
 # runtime db backups (docker/scripts/hot-update-atom-meta.sh)
 docker/volumes/backup/
+
+# smoke-test leftovers (pdf watermark outputs, ensure_xlsx_file)
+engine/components/astron/
+engine/components/*/test.xlsx
