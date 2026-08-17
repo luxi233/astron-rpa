@@ -1,158 +1,69 @@
-import time
+import random
 
 import pytest
 from httpx import AsyncClient
 
-
-@pytest.mark.asyncio
-async def test_execution_workflow_and_status(client: AsyncClient, api_key):
-    """Test the full flow: execute a workflow and check its status."""
-    headers = {"Authorization": f"Bearer {api_key['key']}"}
-    
-    # First, get all workflows to pick one
-    list_response = await client.get("/workflows", headers=headers)
-    assert list_response.status_code == 200
-    
-    all_workflows = list_response.json()["data"]
-    if not all_workflows:
-        pytest.skip("No workflows available for testing")
-    
-    # Find an active workflow
-    active_workflow = next((w for w in all_workflows if w["status"] == 1), None)
-    if not active_workflow:
-        pytest.skip("No active workflows available for testing")
-    
-    # Execute the workflow asynchronously
-    project_id = active_workflow["project_id"]
-    execution_data = {
-        "parameters": {
-            "test_param_1": "test_value_1",
-            "test_param_2": 42
-        }
-    }
-    
-    execute_response = await client.post(f"/workflows/{project_id}/execute-async", json=execution_data, headers=headers)
-    assert execute_response.status_code == 202
-    
-    execution_id = execute_response.json()["executionId"]
-    
-    # Check status a few times with delay to see if it completes
-    max_attempts = 5
-    completed = False
-    
-    for _ in range(max_attempts):
-        status_response = await client.get(f"/executions/{execution_id}", headers=headers)
-        assert status_response.status_code == 200
-        
-        execution = status_response.json()
-        assert execution["id"] == execution_id
-        
-        # If execution completed or failed, we can break
-        if execution["status"] in ["COMPLETED", "FAILED"]:
-            completed = True
-            break
-        
-        # Wait a bit before checking again
-        time.sleep(1)
-    
-    # Even if it didn't complete in our test window, we've verified we can retrieve status
-    # Check that all expected fields are present
-    execution = status_response.json()
-    assert "project_id" in execution
-    assert "start_time" in execution
-    assert "status" in execution
-    
-    # If it completed, check for result or error
-    if completed and execution["status"] == "COMPLETED":
-        assert "result" in execution
-        assert "end_time" in execution
-    elif completed and execution["status"] == "FAILED":
-        assert "error" in execution
-        assert "end_time" in execution
+# 实际路由: GET /executions/get (列表) | GET /executions/{execution_id} (详情)
 
 
 @pytest.mark.asyncio
-async def test_execution_status_enum_values(client: AsyncClient, api_key):
-    """Test that the execution status follows the defined enum values."""
+async def test_get_executions_empty(client: AsyncClient, api_key):
+    """Test listing executions for a fresh user returns empty page."""
     headers = {"Authorization": f"Bearer {api_key['key']}"}
-    
-    # First, get all workflows to pick one
-    list_response = await client.get("/workflows", headers=headers)
-    assert list_response.status_code == 200
-    
-    all_workflows = list_response.json()["data"]
-    if not all_workflows:
-        pytest.skip("No workflows available for testing")
-    
-    # Find an active workflow
-    active_workflow = next((w for w in all_workflows if w["status"] == 1), None)
-    if not active_workflow:
-        pytest.skip("No active workflows available for testing")
-    
-    # Execute the workflow asynchronously
-    project_id = active_workflow["project_id"]
-    execution_data = {
-        "parameters": {
-            "test_param": "test_value"
-        }
-    }
-    
-    execute_response = await client.post(f"/workflows/{project_id}/execute-async", json=execution_data, headers=headers)
-    assert execute_response.status_code == 202
-    
-    execution_id = execute_response.json()["executionId"]
-    
-    # Check the status
-    status_response = await client.get(f"/executions/{execution_id}", headers=headers)
-    assert status_response.status_code == 200
-    
-    # Verify the status is one of the expected enum values
-    valid_statuses = ["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"]
-    assert status_response.json()["status"] in valid_statuses
+    response = await client.get("/executions/get", headers=headers)
+    assert response.status_code == 200
+
+    data = response.json()["data"]
+    assert data["total"] == 0
+    assert data["executions"] == []
+    assert data["pageNo"] == 1
 
 
 @pytest.mark.asyncio
-async def test_execution_with_different_parameters(client: AsyncClient, api_key):
-    """Test workflow execution with different parameter types."""
+async def test_get_execution_not_found(client: AsyncClient, api_key):
+    """Test getting a non-existent execution returns ERR code (200 by design)."""
     headers = {"Authorization": f"Bearer {api_key['key']}"}
-    
-    # First, get an active workflow
-    list_response = await client.get("/workflows", headers=headers)
+    non_existent_id = f"non-existent-{random.randint(10000, 99999)}"
+    response = await client.get(f"/executions/{non_existent_id}", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["code"] != "0000"
+    assert non_existent_id in body["msg"]
+
+
+@pytest.mark.asyncio
+async def test_execution_record_lifecycle(client: AsyncClient, api_key, test_get_db):
+    """Test execution record via service layer then read back through the API.
+
+    真实执行链路依赖 WebSocket 执行器（L3 集成范畴），单测只验证
+    记录创建/状态更新与查询路由的契约。
+    """
+    from app.schemas.workflow import ExecutionCreate
+    from app.services.execution import ExecutionService
+
+    user_id = "1234"
+    service = ExecutionService(test_get_db)
+    created = await service.create_execution(
+        ExecutionCreate(project_id=f"proj-{random.randint(1000, 9999)}", params={"k": "v"}), user_id
+    )
+    assert created.status == "PENDING"
+
+    headers = {"Authorization": f"Bearer {api_key['key']}"}
+    detail_response = await client.get(f"/executions/{created.id}", headers=headers)
+    assert detail_response.status_code == 200
+    execution = detail_response.json()["data"]["execution"]
+    assert execution["id"] == created.id
+    assert execution["status"] == "PENDING"
+
+    list_response = await client.get("/executions/get", headers=headers)
     assert list_response.status_code == 200
-    
-    all_workflows = list_response.json()["data"]
-    if not all_workflows:
-        pytest.skip("No workflows available for testing")
-    
-    project_id = all_workflows[0]["project_id"]
-    
-    # Test with various parameter types
-    test_cases = [
-        {"string_param": "test value"},
-        {"number_param": 42},
-        {"boolean_param": True},
-        {"array_param": [1, 2, 3]},
-        {"object_param": {"key": "value"}},
-        {"mixed_params": {"string": "value", "number": 42, "boolean": True}}
-    ]
-    
-    for params in test_cases:
-        execution_data = {"parameters": params}
-        
-        response = await client.post(f"/workflows/{project_id}/execute-async", json=execution_data, headers=headers)
-        assert response.status_code == 202
-        
-        execution_id = response.json()["executionId"]
-        assert execution_id is not None
-        
-        # Verify the parameters were stored with the execution
-        status_response = await client.get(f"/executions/{execution_id}", headers=headers)
-        assert status_response.status_code == 200
-        
-        # Check that parameters match what we sent
-        # Note: Some APIs may not return the full parameters in the status response
-        if "parameters" in status_response.json():
-            stored_params = status_response.json()["parameters"]
-            for key, value in params.items():
-                assert key in stored_params
-                assert stored_params[key] == value 
+    data = list_response.json()["data"]
+    assert data["total"] >= 1
+    assert any(e["id"] == created.id for e in data["executions"])
+
+
+@pytest.mark.asyncio
+async def test_execution_requires_api_key(client: AsyncClient):
+    """Test that executions endpoints reject requests without API key."""
+    response = await client.get("/executions/get")
+    assert response.status_code in (401, 403)

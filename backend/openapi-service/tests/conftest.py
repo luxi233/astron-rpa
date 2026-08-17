@@ -90,8 +90,10 @@ async def test_get_db(test_db_engine):
 
         yield session
 
-        # 回滚事务确保测试隔离
-        await transaction.rollback()
+        # 回滚事务确保测试隔离（service 层 commit 后事务已关闭，此时跳过；
+        # function 级 drop_all/create_all 亦保证数据不跨用例泄漏）
+        if transaction.is_active:
+            await transaction.rollback()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -136,9 +138,16 @@ async def client(test_app: FastAPI, test_get_db, test_get_redis):
 
 
 async def create_api_key(user_id: str, test_get_db, test_get_redis=None):
-    """为测试创建临时的 API Key"""
+    """为测试创建临时的 API Key
+
+    service.create_api_key 仅返回明文 key 字符串（不回传数据库记录），
+    此处通过 prefix 反查数据库记录获取 id。
+    """
     import random
 
+    from sqlalchemy import select
+
+    from app.models.api_key import OpenAPIDB
     from app.schemas.api_key import ApiKeyCreate
     from app.services.api_key import ApiKeyService
 
@@ -147,9 +156,15 @@ async def create_api_key(user_id: str, test_get_db, test_get_redis=None):
 
     # 创建 API Key
     api_key_data = ApiKeyCreate(name=f"Test API Key {random.randint(1000, 9999)}")
-    api_key = await service.create_api_key(api_key_data, user_id)
+    plain_key = await service.create_api_key(api_key_data, user_id)
 
-    return {"id": api_key.id, "key": api_key.key}
+    # 通过 prefix 查回记录获取自增 id
+    result = await test_get_db.execute(
+        select(OpenAPIDB).where(OpenAPIDB.prefix == plain_key[:8], OpenAPIDB.is_active == 1)
+    )
+    record = result.scalars().first()
+
+    return {"id": record.id, "key": plain_key}
 
 
 async def destroy_api_key(user_id: str, key_data: dict, test_get_db, test_get_redis=None):

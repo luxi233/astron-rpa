@@ -20,7 +20,7 @@ router = APIRouter(
 )
 async def get_api_keys(
     pageNo: int = Query(1, ge=1, description="获取哪一页"),
-    pageSize: int = Query(100, ge=1, le=50, description="一页有多少条记录"),
+    pageSize: int = Query(50, ge=1, le=50, description="一页有多少条记录"),
     user_id: str = Depends(get_user_id_from_header),
     service: ApiKeyService = Depends(get_api_key_service),
 ):

@@ -1,150 +1,95 @@
-import time
+import random
 
 import pytest
 from httpx import AsyncClient
 
+# E2E 数据流（不含依赖 WebSocket 执行器的真实运行，那属于 L3 集成测试）:
+# upsert 工作流 → 列表 → 详情 → execute 校验 → executions 列表
+USER_ID_HEADER = {"X-User-Id": "1234"}
+
 
 @pytest.mark.asyncio
-async def test_workflow_e2e(client: AsyncClient, api_key):
-    """End-to-end test for the workflow execution process."""
-    headers = {"Authorization": f"Bearer {api_key['key']}"}
-    
-    # 1. Get a list of workflows
-    list_response = await client.get("/workflows", headers=headers)
-    assert list_response.status_code == 200
-    
-    all_workflows = list_response.json()["data"]
-    if not all_workflows:
-        pytest.skip("No workflows available for testing")
-    
-    # 2. Find an active workflow
-    active_workflow = next((w for w in all_workflows if w["status"] == 1), None)
-    if not active_workflow:
-        pytest.skip("No active workflows available for testing")
-    
-    project_id = active_workflow["project_id"]
-    
-    # 3. Check that we can get the specific workflow
-    get_workflow_response = await client.get(f"/workflows/{project_id}", headers=headers)
-    assert get_workflow_response.status_code == 200
-    assert get_workflow_response.json()["project_id"] == project_id
-    
-    # 4. Execute the workflow synchronously 
-    # (may timeout and recommend async approach)
-    parameters = {
-        "parameters": {
-            "input_data": "test input",
-            "run_id": f"test-{int(time.time())}"
-        }
+async def test_workflow_dataflow_e2e(client: AsyncClient, api_key):
+    """Workflow CRUD + execution precheck dataflow across routers."""
+    auth_headers = {"Authorization": f"Bearer {api_key['key']}"}
+    project_id = f"e2e-{random.randint(10000, 99999)}"
+
+    # 1. upsert 创建工作流
+    payload = {
+        "project_id": project_id,
+        "name": "E2E Workflow",
+        "version": 1,
+        "status": 1,
+        "parameters": "[]",
     }
-    
-    sync_response = await client.post(f"/workflows/{project_id}/execute", json=parameters, headers=headers)
-    
-    # If it completes synchronously, check the result
-    if sync_response.status_code == 200:
-        sync_result = sync_response.json()
-        assert sync_result["project_id"] == project_id
-        assert sync_result["status"] in ["COMPLETED", "FAILED"]
-        
-    # 5. Execute the workflow asynchronously
-    async_response = await client.post(f"/workflows/{project_id}/execute-async", json=parameters, headers=headers)
-    assert async_response.status_code == 202
-    
-    execution_id = async_response.json()["executionId"]
-    assert execution_id is not None
-    
-    # 6. Poll for execution status
-    max_attempts = 5
-    for i in range(max_attempts):
-        status_response = await client.get(f"/executions/{execution_id}", headers=headers)
-        assert status_response.status_code == 200
-        
-        status_data = status_response.json()
-        assert status_data["id"] == execution_id
-        assert status_data["project_id"] == project_id
-        
-        # If completed or failed, we're done
-        if status_data["status"] in ["COMPLETED", "FAILED"]:
-            if status_data["status"] == "COMPLETED":
-                # Verify result exists
-                assert "result" in status_data
-            elif status_data["status"] == "FAILED":
-                # Verify error exists
-                assert "error" in status_data
-            break
-            
-        # If we've reached the max attempts and it's not done, that's ok
-        # The execution is likely still running
-        if i == max_attempts - 1:
-            assert status_data["status"] in ["PENDING", "RUNNING"]
-            
-        # Wait before polling again
-        time.sleep(1)
+    upsert_response = await client.post("/workflows/upsert", json=payload, headers=USER_ID_HEADER)
+    assert upsert_response.status_code == 200
+    assert upsert_response.json()["code"] == "0000"
+
+    # 2. 列表可见
+    list_response = await client.get("/workflows/get", headers=USER_ID_HEADER)
+    assert list_response.status_code == 200
+    records = list_response.json()["data"]["records"]
+    assert any(r["project_id"] == project_id for r in records)
+
+    # 3. 详情正确
+    detail_response = await client.get(f"/workflows/get/{project_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["data"]["workflow"]["project_id"] == project_id
+
+    # 4. API Key 鉴权预检：对不存在的工作流执行应返回 ERR（真实执行依赖 WebSocket 执行器，属 L3 集成）
+    execution_data = {"project_id": f"non-existent-{random.randint(10000, 99999)}", "params": {"e2e": True}}
+    execute_response = await client.post("/workflows/execute-async", json=execution_data, headers=auth_headers)
+    assert execute_response.status_code == 202
+    assert execute_response.json()["code"] != "0000"
+
+    # 5. executions 路由可达
+    exec_list_response = await client.get("/executions/get", headers=auth_headers)
+    assert exec_list_response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_api_key_workflow(client: AsyncClient, api_key_factory):
-    """Test using API keys to access workflow functionality."""
-    # Create a new API key using the factory
-    api_key_data = await api_key_factory("1234")
-    
-    # Use the API key to access workflows
-    headers = {"Authorization": f"Bearer {api_key_data['key']}"}
-    
-    list_response = await client.get("/workflows", headers=headers)
+async def test_api_key_roundtrip_e2e(client: AsyncClient):
+    """API Key create → list → remove roundtrip via public routes."""
+    create_response = await client.post(
+        "/api-keys/create", json={"name": f"e2e-key-{random.randint(1000, 9999)}"}, headers=USER_ID_HEADER
+    )
+    assert create_response.status_code == 201
+    plain_key = create_response.json()["data"]["api_key"]
+
+    list_response = await client.get("/api-keys/get", headers=USER_ID_HEADER)
     assert list_response.status_code == 200
-    assert "data" in list_response.json()
+    records = list_response.json()["data"]["records"]
+    assert any(r["api_key"].startswith(plain_key[:8]) for r in records)
+
+    # 明文 key 可用于 Bearer 鉴权访问受保护接口
+    auth_response = await client.get("/executions/get", headers={"Authorization": f"Bearer {plain_key}"})
+    assert auth_response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_workflow_with_complex_parameters(client: AsyncClient, api_key):
-    """Test executing a workflow with complex nested parameters."""
-    headers = {"Authorization": f"Bearer {api_key['key']}"}
-    
-    # Get a workflow to test
-    list_response = await client.get("/workflows", headers=headers)
-    assert list_response.status_code == 200
-    
-    all_workflows = list_response.json()["data"]
-    if not all_workflows:
-        pytest.skip("No workflows available for testing")
-    
-    project_id = all_workflows[0]["project_id"]
-    
-    # Create a complex nested parameter object
-    complex_params = {
-        "parameters": {
-            "simple_string": "value",
-            "simple_number": 42,
-            "simple_boolean": True,
-            "nested_object": {
-                "name": "nested value",
-                "attributes": {
-                    "color": "blue",
-                    "size": "large"
-                }
-            },
-            "array_of_objects": [
-                {"id": 1, "name": "item1"},
-                {"id": 2, "name": "item2"},
-                {"id": 3, "name": "item3"}
-            ],
-            "mixed_array": [1, "string", True, {"key": "value"}]
-        }
+async def test_complex_parameters_roundtrip(client: AsyncClient):
+    """Upsert workflow with complex parameter types and read back."""
+    complex_params = [
+        {"varName": "string_param", "varValue": "text"},
+        {"varName": "number_param", "varValue": 42},
+        {"varName": "bool_param", "varValue": True},
+        {"varName": "array_param", "varValue": [1, 2, 3]},
+    ]
+    import json as _json
+
+    payload = {
+        "project_id": f"complex-{random.randint(10000, 99999)}",
+        "name": "Complex Params Workflow",
+        "version": 1,
+        "status": 1,
+        "parameters": _json.dumps(complex_params, ensure_ascii=False),
     }
-    
-    # Execute with complex parameters
-    response = await client.post(f"/workflows/{project_id}/execute-async", 
-                               json=complex_params, headers=headers)
-    assert response.status_code == 202
-    
-    execution_id = response.json()["executionId"]
-    
-    # Get execution details to verify parameters were stored correctly
-    status_response = await client.get(f"/executions/{execution_id}", headers=headers)
-    assert status_response.status_code == 200
-    
-    # Verify the execution was created with the correct project_id
-    execution_data = status_response.json()
-    assert execution_data["project_id"] == project_id
-    assert execution_data["id"] == execution_id
+    response = await client.post("/workflows/upsert", json=payload, headers=USER_ID_HEADER)
+    assert response.status_code == 200
+
+    detail = await client.get(f"/workflows/get/{payload['project_id']}")
+    assert detail.status_code == 200
+    stored = detail.json()["data"]["workflow"]["parameters"]
+    parsed = _json.loads(stored) if isinstance(stored, str) else stored
+    assert {p["varName"] for p in parsed} == {"string_param", "number_param", "bool_param", "array_param"}

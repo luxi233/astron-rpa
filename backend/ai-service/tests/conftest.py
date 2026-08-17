@@ -11,8 +11,8 @@ from app.main import app
 from app.database import get_db, Base
 from app.redis_op import get_redis
 
-# 测试环境配置
-TEST_MYSQL_URL = "mysql+asyncmy://test_user:test_password@localhost:3307/test_db"
+# 测试环境配置 (驱动用 aiomysql, 与 pyproject 声明一致)
+TEST_MYSQL_URL = "mysql+aiomysql://test_user:test_password@localhost:3307/test_db"
 TEST_REDIS_URL = "redis://localhost:6380/0"
 
 
@@ -91,8 +91,9 @@ async def test_get_db(test_db_engine):
 
         yield session
 
-        # 回滚事务确保测试隔离
-        await transaction.rollback()
+        # 回滚事务确保测试隔离（service 层 commit 后事务已关闭，此时跳过）
+        if transaction.is_active:
+            await transaction.rollback()
 
 
 @pytest_asyncio.fixture(scope="function")
