@@ -97,7 +97,7 @@ export function generateValTree(treeArr: Array<FlowVariable & GlobalVariable & {
 
   return treeArr.map((item, index) => {
     const { value, types, globalId, varName, varType, atomId } = item
-    const { desc, funcList, key } = processStore.globalVarTypeList[types || varType]
+    const { desc, funcList, key } = processStore.globalVarTypeList[types || varType] ?? { desc: types || varType, funcList: [], key: types || varType }
 
     const titelName = Array.isArray(value) ? value.map(it => it.value).join('') : varName
     const finalFuncList = types === 'DialogResult' ? getDialogResultFuncList(item) : funcList // 针对DialogResult类型动态生成funcList

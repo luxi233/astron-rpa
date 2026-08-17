@@ -75,7 +75,7 @@ getTableData(useProjectDocStore().userFlowNode().length)
           </span>
         </template>
         <template v-if="column.dataIndex === 'types'">
-          <span>{{ processStore.globalVarTypeList[record.types].desc }}</span>
+          <span>{{ processStore.globalVarTypeList[record.types]?.desc ?? record.types }}</span>
         </template>
       </template>
     </Table>

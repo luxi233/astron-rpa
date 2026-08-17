@@ -1,0 +1,3 @@
+types:
+  WpsHookClient:
+    desc: WPS连接对象
