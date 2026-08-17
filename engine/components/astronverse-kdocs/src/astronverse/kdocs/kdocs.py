@@ -1,7 +1,22 @@
-from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, DynamicsItem
+from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.kdocs import ClearType, FitType, FormulaMode, FuncName, MergeType, OpType, TargetType
 from astronverse.kdocs.core_kdocs import WpsHookClient, WpsHookError
+
+
+def _client(wps_client) -> WpsHookClient:
+    """校验并返回WPS连接对象。
+
+    防止前端把变量绑定存成字符串导致 AttributeError 被跳过模式静默吞掉:
+    wps_client 不是连接对象时立即抛出带修复指引的明确错误。
+    """
+    if not isinstance(wps_client, WpsHookClient):
+        raise WpsHookError(
+            "invalid wps_client: {}".format(type(wps_client).__name__),
+            "WPS连接对象参数无效（收到 {} 类型）：请在「获取工作表列表」等指令的『WPS连接对象』参数中，"
+            "通过变量选择器绑定「创建WPS在线表格连接」指令的输出变量，不要手输文本".format(type(wps_client).__name__),
+        )
+    return wps_client
 
 
 class Kdocs:
@@ -14,7 +29,7 @@ class Kdocs:
             atomicMg.param("time_out", types="Int", required=False),
         ],
         outputList=[
-            atomicMg.param("wps_client", types="Any"),
+            atomicMg.param("wps_client", types="WpsHookClient"),
         ],
     )
     def create_client(hook_url: str, token: str, time_out: int = 30):
@@ -28,7 +43,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=False),
             atomicMg.param(
@@ -59,7 +74,7 @@ class Kdocs:
         默认读取原始值（日期列自动转换为 "YYYY-MM-DD HH:mm:ss" 字符串）。
         """
         try:
-            return wps_client.read(sheet_name, range_address or "", read_display)
+            return _client(wps_client).read(sheet_name, range_address or "", read_display)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -67,7 +82,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
             atomicMg.param("write_value", types="Any", required=True),
@@ -84,7 +99,7 @@ class Kdocs:
     ):
         """写入数据（标量或二维列表，如 [["a","b"],["c","d"]]）"""
         try:
-            return wps_client.write(sheet_name, range_address, write_value)
+            return _client(wps_client).write(sheet_name, range_address, write_value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -92,7 +107,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param(
                 "target_type",
@@ -111,7 +126,7 @@ class Kdocs:
     ):
         """获取总行数/列数"""
         try:
-            return wps_client.count(sheet_name, target_type.value)
+            return _client(wps_client).count(sheet_name, target_type.value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -119,7 +134,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param(
                 "target_type",
@@ -138,7 +153,7 @@ class Kdocs:
     ):
         """获取首个空行号/空列字母"""
         try:
-            return wps_client.first_empty(sheet_name, target_type.value)
+            return _client(wps_client).first_empty(sheet_name, target_type.value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -146,7 +161,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
         ],
@@ -157,7 +172,7 @@ class Kdocs:
     def get_image(wps_client: WpsHookClient, sheet_name: str, range_address: str):
         """获取单元格图片"""
         try:
-            return wps_client.get_image(sheet_name, range_address)
+            return _client(wps_client).get_image(sheet_name, range_address)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -165,7 +180,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
             atomicMg.param("image_source", types="Str", required=True),
@@ -182,7 +197,7 @@ class Kdocs:
     ):
         """插入图片（本地文件路径或 http/https 图片 URL）"""
         try:
-            return wps_client.insert_image(sheet_name, range_address, image_source)
+            return _client(wps_client).insert_image(sheet_name, range_address, image_source)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -190,7 +205,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
         ],
@@ -201,7 +216,7 @@ class Kdocs:
     def get_hyperlink(wps_client: WpsHookClient, sheet_name: str, range_address: str):
         """获取单元格超链接"""
         try:
-            return wps_client.get_hyperlink(sheet_name, range_address)
+            return _client(wps_client).get_hyperlink(sheet_name, range_address)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -209,7 +224,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
         ],
         outputList=[
             atomicMg.param("sheet_names", types="List"),
@@ -218,7 +233,7 @@ class Kdocs:
     def list_sheets(wps_client: WpsHookClient):
         """获取工作表列表"""
         try:
-            return wps_client.list_sheets()
+            return _client(wps_client).list_sheets()
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -226,7 +241,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("new_sheet_names", types="List", required=True),
         ],
         outputList=[
@@ -236,7 +251,7 @@ class Kdocs:
     def create_sheet(wps_client: WpsHookClient, new_sheet_names: list):
         """创建工作表（传入名称列表，如 ["Sheet2","Sheet3"]）"""
         try:
-            return wps_client.create_sheets(new_sheet_names)
+            return _client(wps_client).create_sheets(new_sheet_names)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -244,7 +259,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
         ],
         outputList=[
@@ -254,7 +269,7 @@ class Kdocs:
     def delete_sheet(wps_client: WpsHookClient, sheet_name: str):
         """删除工作表"""
         try:
-            return wps_client.delete_sheet(sheet_name)
+            return _client(wps_client).delete_sheet(sheet_name)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -262,7 +277,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=False),
             atomicMg.param("find_text", types="Str", required=True),
@@ -280,7 +295,7 @@ class Kdocs:
         range_address 为空时在整个已使用区域内查找替换
         """
         try:
-            return wps_client.replace(sheet_name, find_text, replace_text, range_address or "")
+            return _client(wps_client).replace(sheet_name, find_text, replace_text, range_address or "")
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -288,7 +303,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("source_sheet", types="Str", required=True),
             atomicMg.param("source_range", types="Str", required=True),
             atomicMg.param("target_sheet", types="Str", required=False),
@@ -307,7 +322,9 @@ class Kdocs:
     ):
         """复制粘贴区域（支持跨工作表）"""
         try:
-            return wps_client.copy_paste(source_sheet, source_range, target_sheet or source_sheet, target_range)
+            return _client(wps_client).copy_paste(
+                source_sheet, source_range, target_sheet or source_sheet, target_range
+            )
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -315,7 +332,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
             atomicMg.param(
@@ -339,7 +356,7 @@ class Kdocs:
         op_type: row 在目标位置插入行；column 插入列；cell 插入单元格
         """
         try:
-            return wps_client.insert_cells(sheet_name, range_address, op_type.value)
+            return _client(wps_client).insert_cells(sheet_name, range_address, op_type.value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -347,7 +364,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
             atomicMg.param(
@@ -371,7 +388,7 @@ class Kdocs:
         op_type: row 删除目标位置所在行；column 删除列；cell 删除单元格
         """
         try:
-            return wps_client.delete_cells(sheet_name, range_address, op_type.value)
+            return _client(wps_client).delete_cells(sheet_name, range_address, op_type.value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -379,7 +396,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=False),
             atomicMg.param(
@@ -403,7 +420,7 @@ class Kdocs:
         clear_type: contents 仅清除内容；formats 仅清除格式；all 清除内容和格式
         """
         try:
-            return wps_client.clear_range(sheet_name, range_address or "", clear_type.value)
+            return _client(wps_client).clear_range(sheet_name, range_address or "", clear_type.value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -411,7 +428,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
             atomicMg.param(
@@ -432,7 +449,7 @@ class Kdocs:
     ):
         """合并/拆分单元格"""
         try:
-            return wps_client.merge_cells(sheet_name, range_address, merge_type.value)
+            return _client(wps_client).merge_cells(sheet_name, range_address, merge_type.value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -440,7 +457,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
             atomicMg.param("format_options", types="Any", required=True),
@@ -456,7 +473,7 @@ class Kdocs:
         如 {"bg_color":"#FFFF00","font_bold":true,"h_align":"center"}
         """
         try:
-            return wps_client.set_format(sheet_name, range_address, format_options)
+            return _client(wps_client).set_format(sheet_name, range_address, format_options)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -464,7 +481,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
         ],
@@ -478,7 +495,7 @@ class Kdocs:
         返回字典，如 {"bg_color":"#FFFFFF","font_color":"#000000"}
         """
         try:
-            return wps_client.get_color(sheet_name, range_address)
+            return _client(wps_client).get_color(sheet_name, range_address)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -486,7 +503,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=True),
             atomicMg.param(
@@ -512,7 +529,7 @@ class Kdocs:
         formula_mode: get 读取区域左上角单元格公式；set 写入公式（需同时填写公式内容）
         """
         try:
-            return wps_client.formula(
+            return _client(wps_client).formula(
                 sheet_name,
                 range_address,
                 formula_text,
@@ -525,7 +542,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
         ],
         outputList=[
             atomicMg.param("save_workbook_result", types="Bool"),
@@ -534,7 +551,7 @@ class Kdocs:
     def save_workbook(wps_client: WpsHookClient):
         """保存文档（保存当前工作簿的全部改动）"""
         try:
-            return wps_client.save_workbook()
+            return _client(wps_client).save_workbook()
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -542,7 +559,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("new_sheet_name", types="Str", required=True),
         ],
@@ -553,7 +570,7 @@ class Kdocs:
     def rename_sheet(wps_client: WpsHookClient, sheet_name: str, new_sheet_name: str):
         """重命名工作表"""
         try:
-            return wps_client.rename_sheet(sheet_name, new_sheet_name)
+            return _client(wps_client).rename_sheet(sheet_name, new_sheet_name)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -561,7 +578,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("position", types="Int", required=True),
         ],
@@ -572,7 +589,7 @@ class Kdocs:
     def move_sheet(wps_client: WpsHookClient, sheet_name: str, position: int):
         """移动工作表（position 为目标位置，从 1 开始）"""
         try:
-            return wps_client.move_sheet(sheet_name, position)
+            return _client(wps_client).move_sheet(sheet_name, position)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -580,7 +597,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=False),
             atomicMg.param(
@@ -604,7 +621,7 @@ class Kdocs:
         fit_type: row 调整行高；column 调整列宽；both 两者都调整。区域为空时对整个已使用区域生效
         """
         try:
-            return wps_client.auto_fit(sheet_name, range_address or "", fit_type.value)
+            return _client(wps_client).auto_fit(sheet_name, range_address or "", fit_type.value)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -612,7 +629,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
         ],
         outputList=[
             atomicMg.param("file_info_result", types="Any"),
@@ -624,7 +641,7 @@ class Kdocs:
         返回字典，包含 file（文档信息）与 user（当前用户信息）
         """
         try:
-            return wps_client.get_file_info()
+            return _client(wps_client).get_file_info()
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)
 
@@ -632,7 +649,7 @@ class Kdocs:
     @atomicMg.atomic(
         "WPS",
         inputList=[
-            atomicMg.param("wps_client", types="Any", required=True),
+            atomicMg.param("wps_client", types="WpsHookClient", required=True),
             atomicMg.param("sheet_name", types="Str", required=True),
             atomicMg.param("range_address", types="Str", required=False),
             atomicMg.param(
@@ -658,6 +675,6 @@ class Kdocs:
         func_name: sum 求和 / average 平均 / min 最小 / max 最大 / large 第k大 / small 第k小（large、small 需填写 k）
         """
         try:
-            return wps_client.calc_function(sheet_name, range_address or "", func_name.value, k)
+            return _client(wps_client).calc_function(sheet_name, range_address or "", func_name.value, k)
         except WpsHookError as e:
             raise BaseException(str(e), e.detail)

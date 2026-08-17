@@ -10,6 +10,7 @@
 转义规范(默认 sql_mode): ensure_ascii=False 裸中文 + 反斜杠双写 + 单引号双写。
 历史版本: P0=/tmp/sync_p0_sql.py P1=本模板 P2=/tmp/sync_p2_sql.py（/tmp 易失，以本文件为准）。
 """
+
 import json
 import re
 from datetime import datetime
@@ -23,6 +24,7 @@ COMPONENTS = {
     "dialog": f"{COMP}/astronverse-dialog/meta.json",
     "encrypt": f"{COMP}/astronverse-encrypt/meta.json",
     "image": f"{COMP}/astronverse-image/meta.json",
+    "kdocs": f"{COMP}/astronverse-kdocs/meta.json",
     "network": f"{COMP}/astronverse-network/meta.json",
     "pdf": f"{COMP}/astronverse-pdf/meta.json",
     "phone": f"{COMP}/astronverse-phone/meta.json",
@@ -31,15 +33,38 @@ COMPONENTS = {
 }
 metas = {name: json.load(open(p, encoding="utf-8")) for name, p in COMPONENTS.items()}
 
-# id -> (组件, atom_key)  M11 P5-7 进度条×3（ids 1097-1099，dialog 组件）
-NEW_ROWS = {
-    1097: ("dialog", "Dialog.init_progress_bar"),
-    1098: ("dialog", "Dialog.update_progress"),
-    1099: ("dialog", "Dialog.set_progress_description"),
-}
+# 本批次无新行
+NEW_ROWS = {}
 
-# 本批次无改行
-UPDATE_ROWS = {}
+# WPS wps_client 强类型修复: 26 行 inputList/outputList types Any -> WpsHookClient (ids 743-768)
+UPDATE_ROWS = {
+    743: ("kdocs", "WPS.create_client"),
+    744: ("kdocs", "WPS.read_range"),
+    745: ("kdocs", "WPS.write_range"),
+    746: ("kdocs", "WPS.get_count"),
+    747: ("kdocs", "WPS.get_first_available"),
+    748: ("kdocs", "WPS.get_image"),
+    749: ("kdocs", "WPS.insert_image"),
+    750: ("kdocs", "WPS.get_hyperlink"),
+    751: ("kdocs", "WPS.list_sheets"),
+    752: ("kdocs", "WPS.create_sheet"),
+    753: ("kdocs", "WPS.delete_sheet"),
+    754: ("kdocs", "WPS.replace"),
+    755: ("kdocs", "WPS.copy_paste"),
+    756: ("kdocs", "WPS.insert_cells"),
+    757: ("kdocs", "WPS.delete_cells"),
+    758: ("kdocs", "WPS.clear_range"),
+    759: ("kdocs", "WPS.merge_cells"),
+    760: ("kdocs", "WPS.set_format"),
+    761: ("kdocs", "WPS.get_color"),
+    762: ("kdocs", "WPS.formula"),
+    763: ("kdocs", "WPS.save_workbook"),
+    764: ("kdocs", "WPS.rename_sheet"),
+    765: ("kdocs", "WPS.move_sheet"),
+    766: ("kdocs", "WPS.auto_fit"),
+    767: ("kdocs", "WPS.get_file_info"),
+    768: ("kdocs", "WPS.calc_function"),
+}
 
 missing = []
 for id_, (comp, key) in {**NEW_ROWS, **UPDATE_ROWS}.items():

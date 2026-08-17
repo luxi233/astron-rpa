@@ -129,6 +129,13 @@ def normalize_sheet_names(new_sheet_names):
 class WpsHookClient:
     """WPS AirScript Hook 连接对象，可复用执行多个操作。"""
 
+    @classmethod
+    def __validate__(cls, name: str, value):
+        """验证WPS连接对象（注册为引擎强类型，供前端变量绑定配对）。"""
+        if isinstance(value, WpsHookClient):
+            return value
+        return None
+
     def __init__(self, hook_url: str, token: str, timeout: int = 30):
         if not hook_url:
             raise WpsHookError("hook_url is required", "Webhook 地址不能为空")

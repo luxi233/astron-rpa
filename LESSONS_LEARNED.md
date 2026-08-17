@@ -167,6 +167,12 @@ script|自定义脚本          （BrowserScript.js_run / Script.module / Script
 80. **发版 tag 移动的安全窗口**：release 流水线挂在 tag 上、release 未发布前，发现 QA gate 问题可以 `git push origin :refs/tags/vX.Y.Z` 删远程 tag → 修复 commit → 重打 tag → 重新 dispatch 流水线（v1.2.0 实际迭代了 3 轮：ruff format 29 个测试文件 → pnpm lockfile → 全绿）；一旦 GitHub Release 已创建就绝不能移 tag，只能走 vX.Y.Z-1 修订版。
 81. **QA gate 是全量检查不是增量**：本地开发只 format 改动过的文件，但 CI `ruff format ./engine --check` 是仓库全量——批量收编冒烟脚本/新组件后必须在仓库根跑一遍 CI 同款命令（含 browser-plugin `pnpm exec tsc --noEmit`），别等 push tag 后才发现 29 个文件要重排。
 
+## 十七、WPS 静默失败与对象参数强类型（v1.2.1 修复批次）
+
+82. **types="Any" 的对象参数是静默失败温床（WPS 白屏级 bug 根因）**：连接类原子的输出/下游参数若声明 `types="Any"`（或签名是普通类被 gen_type 归为 Any），前端变量绑定可能存成 `{"type":"str"/"other"}`，executor `_param_to_eval` 对 str/other 一律 `repr()` 成**字符串字面量**——生成 `wps_client='连接A'` 而非变量引用；运行时 `str.send_request` → AttributeError；若指令开了"错误时跳过"，异常被 except 吃掉只报 SKIP 警告，**输出变量从未赋值，后续引用连环 NameError 也被吞，流程"无报错直接结束"**。修复三件套：①对象类加 `@classmethod __validate__`（对齐 browser.py 的 Browser，gen_type 走 RPABASE 分支保留类名）；②meta param 显式 `types="WpsHookClient"`（输出+全部输入）；③原子入口 `_client(wps_client)` isinstance 兜底，str/None 抛**带修复指引的 WpsHookError**（指引用户用变量选择器绑定而非手输）。复现脚本模式：mock webhook 6 种响应结构 + skip 包装生成代码 exec 实跑（`/tmp/wps_skip_sim.py` 思路，已收编 kdocs 冒烟）。
+83. **新组件发布前必查"对象流"原子的 types 链**：create/connect 类原子输出对象 → 下游 N 个原子引用——检查 meta.json 里这条链两端 types 是否一致且非 Any（`jq '.["X.create"].outputList[0].types'` 对照下游 inputList）；Browser/BrowserObj 是正确范本。WPS 26 原子无任何测试（收编冒烟时是空白），对象链 bug 正是从这个盲区溜进 v1.2.0 的——新组件交付清单必须含"对象链 types 一致性 + 冒烟"两项。
+84. **executor 的 skip 模式会吞 NameError**：`_display_with_skip` 生成的 `try/except Exception` 结构里，输出变量赋值失败后**该变量在后续指令中不存在**，而后续指令若也开 skip，其 NameError 同样只报 SKIP——两层叠加后用户看到的是"流程正常跑完但什么都没发生"。排查此类"静默结束"先看流程日志里有无黄色 SKIP 条目（report.warning），而不是只盯红色 ERROR。
+
 ## 三条元经验
 
 - **断点文件是命**：MISSING_FEATURES.md 的"每完成一项立即标记 + 坑位记录 + 下一个可用 id"让多次上下文丢失后都能无损续接。
