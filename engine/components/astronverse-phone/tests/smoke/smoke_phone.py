@@ -233,33 +233,34 @@ def T_get_element_selector():
 
 
 def T_click_element_single():
-    Phone.click_element(
-        conn=results["conn"], element=results["element"], click_type=ClickType.SINGLE, after_delay=0
-    )
+    Phone.click_element(conn=results["conn"], element=results["element"], click_type=ClickType.SINGLE, after_delay=0)
     assert results["element"].element.clicked
 
 
 def T_click_element_double():
-    Phone.click_element(
-        conn=results["conn"], element=results["element"], click_type=ClickType.DOUBLE, after_delay=0
-    )
+    Phone.click_element(conn=results["conn"], element=results["element"], click_type=ClickType.DOUBLE, after_delay=0)
     assert any(c[0] == "double_click" for c in results["conn"].device.calls), "双击走device.double_click"
 
 
 def T_click_element_long():
-    Phone.click_element(
-        conn=results["conn"], element=results["element"], click_type=ClickType.LONG, after_delay=0
-    )
+    Phone.click_element(conn=results["conn"], element=results["element"], click_type=ClickType.LONG, after_delay=0)
     assert any(c[0] == "long_click" for c in results["conn"].device.calls)
 
 
 def T_click_element_locate():
-    Phone.click_element(conn=results["conn"], by=LocatorType.TEXT, value="设置", click_type=ClickType.SINGLE, after_delay=0)
+    Phone.click_element(
+        conn=results["conn"], by=LocatorType.TEXT, value="设置", click_type=ClickType.SINGLE, after_delay=0
+    )
 
 
 def T_click_screen_coord():
     Phone.click_screen(
-        conn=results["conn"], position_type=PositionType.COORD, x=500, y=1000, click_type=ClickType.SINGLE, after_delay=0
+        conn=results["conn"],
+        position_type=PositionType.COORD,
+        x=500,
+        y=1000,
+        click_type=ClickType.SINGLE,
+        after_delay=0,
     )
     assert any(c[0] == "click" and c[1] == 500 for c in results["conn"].device.calls)
 
@@ -303,7 +304,9 @@ def T_get_image_coords():
 
 def T_wait_image():
     # mock设备截图是纯色 → 用不存在的模板等待消失, timeout=1
-    ok = Phone.wait_image(conn=results["conn"], img_paths=["/tmp/not_exist_tpl.png"], wait_type=WaitType.DISAPPEAR, timeout=1)
+    ok = Phone.wait_image(
+        conn=results["conn"], img_paths=["/tmp/not_exist_tpl.png"], wait_type=WaitType.DISAPPEAR, timeout=1
+    )
     # 模板读取失败被吞掉 → 视为未找到 → 消失成功
     assert ok is True
 
@@ -330,7 +333,11 @@ def T_input_text_element():
 
 def T_swipe_direction():
     Phone.swipe_screen(
-        conn=results["conn"], mode=SwipeMode.DIRECTION, direction=SwipeDirection.UP, area=SwipeAreaType.SCREEN, after_delay=0
+        conn=results["conn"],
+        mode=SwipeMode.DIRECTION,
+        direction=SwipeDirection.UP,
+        area=SwipeAreaType.SCREEN,
+        after_delay=0,
     )
     assert any(c[0] == "swipe" for c in results["conn"].device.calls)
 
@@ -347,7 +354,9 @@ def T_swipe_element_area():
 
 
 def T_swipe_coord():
-    Phone.swipe_screen(conn=results["conn"], mode=SwipeMode.COORD, sx=100, sy=2000, ex=100, ey=500, duration=200, after_delay=0)
+    Phone.swipe_screen(
+        conn=results["conn"], mode=SwipeMode.COORD, sx=100, sy=2000, ex=100, ey=500, duration=200, after_delay=0
+    )
 
 
 def T_press_key():
@@ -365,14 +374,18 @@ def T_screenshot():
 def T_element_screenshot():
     import os
 
-    path = Phone.element_screenshot(conn=results["conn"], element=results["element"], folder_path="/tmp/phone_shots", filename="el.png")
+    path = Phone.element_screenshot(
+        conn=results["conn"], element=results["element"], folder_path="/tmp/phone_shots", filename="el.png"
+    )
     assert os.path.exists(path)
 
 
 def T_get_element_info():
     text = Phone.get_element_info(element=results["element"], info_type=ElementInfoType.TEXT)
     assert text == "设置"
-    rid = Phone.get_element_info(element=results["element"], info_type=ElementInfoType.ATTRIBUTE, attr_name="resourceId")
+    rid = Phone.get_element_info(
+        element=results["element"], info_type=ElementInfoType.ATTRIBUTE, attr_name="resourceId"
+    )
     assert rid == "com.x:id/m"
 
 
@@ -632,7 +645,12 @@ def T_appium_click_element():
 
 def T_appium_click_screen():
     Phone.click_screen(
-        conn=results["a_conn"], position_type=PositionType.COORD, x=500, y=1200, click_type=ClickType.SINGLE, after_delay=0
+        conn=results["a_conn"],
+        position_type=PositionType.COORD,
+        x=500,
+        y=1200,
+        click_type=ClickType.SINGLE,
+        after_delay=0,
     )
     clk = [g for g in MOCK_APPIUM.gestures if g[0] == "mobile: clickGesture"]
     assert clk and clk[-1][1] == {"x": 500, "y": 1200}
@@ -640,13 +658,19 @@ def T_appium_click_screen():
 
 def T_appium_swipe_direction():
     Phone.swipe_screen(
-        conn=results["a_conn"], mode=SwipeMode.DIRECTION, direction=SwipeDirection.UP, area=SwipeAreaType.SCREEN, after_delay=0
+        conn=results["a_conn"],
+        mode=SwipeMode.DIRECTION,
+        direction=SwipeDirection.UP,
+        area=SwipeAreaType.SCREEN,
+        after_delay=0,
     )
     assert any(c[0] == "w3c" for c in MOCK_APPIUM.calls), "方向滑动走W3C actions"
 
 
 def T_appium_swipe_coord():
-    Phone.swipe_screen(conn=results["a_conn"], mode=SwipeMode.COORD, sx=100, sy=2000, ex=100, ey=500, duration=200, after_delay=0)
+    Phone.swipe_screen(
+        conn=results["a_conn"], mode=SwipeMode.COORD, sx=100, sy=2000, ex=100, ey=500, duration=200, after_delay=0
+    )
 
 
 def T_appium_press_key():
@@ -656,8 +680,13 @@ def T_appium_press_key():
 
 def T_appium_input_text():
     Phone.input_text(
-        conn=results["a_conn"], text="Appium输入", input_target=InputTargetType.ELEMENT, element=results["a_el"],
-        append=False, press_enter=True, after_delay=0,
+        conn=results["a_conn"],
+        text="Appium输入",
+        input_target=InputTargetType.ELEMENT,
+        element=results["a_el"],
+        append=False,
+        press_enter=True,
+        after_delay=0,
     )
     sent = results["a_el"].element.sent
     assert any(s == ("clear",) for s in sent) and any(s[0] == "send_keys" and s[1] == "Appium输入" for s in sent)
@@ -675,7 +704,9 @@ def T_appium_screenshots():
     import os
 
     p1 = Phone.screenshot(conn=results["a_conn"], folder_path="/tmp/phone_shots", filename="ap_screen.png")
-    p2 = Phone.element_screenshot(conn=results["a_conn"], element=results["a_el"], folder_path="/tmp/phone_shots", filename="ap_el.png")
+    p2 = Phone.element_screenshot(
+        conn=results["a_conn"], element=results["a_el"], folder_path="/tmp/phone_shots", filename="ap_el.png"
+    )
     assert os.path.exists(p1) and os.path.exists(p2)
 
 
@@ -688,10 +719,14 @@ def T_appium_get_element_info():
 def T_appium_app_and_clipboard():
     Phone.open_close_app(conn=results["a_conn"], action=AppActionType.OPEN, package="com.tencent.mm")
     Phone.open_close_app(conn=results["a_conn"], action=AppActionType.CLOSE, package="com.tencent.mm")
-    assert any(c[0] == "activate_app" for c in MOCK_APPIUM.calls) and any(c[0] == "terminate_app" for c in MOCK_APPIUM.calls)
+    assert any(c[0] == "activate_app" for c in MOCK_APPIUM.calls) and any(
+        c[0] == "terminate_app" for c in MOCK_APPIUM.calls
+    )
     got = Phone.get_clipboard(conn=results["a_conn"])
     Phone.set_clipboard(conn=results["a_conn"], text="写入Appium剪贴板")
-    assert got == "appium剪贴板" and any(c[0] == "set_clipboard" and c[1] == "写入Appium剪贴板" for c in MOCK_APPIUM.calls)
+    assert got == "appium剪贴板" and any(
+        c[0] == "set_clipboard" and c[1] == "写入Appium剪贴板" for c in MOCK_APPIUM.calls
+    )
 
 
 def T_appium_rotate_lock():

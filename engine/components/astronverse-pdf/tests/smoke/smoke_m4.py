@@ -97,14 +97,22 @@ expect_raise("parse abc抛错", parse_page_ranges, "abc", 3)
 # ---------- 2. 表格提取 ----------
 t = call(PDFExt.extract_table_lines, T1)
 flat = [cell for tbl in t for row in tbl for cell in row if cell]
-check("extract_table_lines 含表头/数据", any("姓名" in str(x) for x in flat) and any("上海" in str(x) for x in flat), f"表数={len(t)}")
+check(
+    "extract_table_lines 含表头/数据",
+    any("姓名" in str(x) for x in flat) and any("上海" in str(x) for x in flat),
+    f"表数={len(t)}",
+)
 
 t2 = call(PDFExt.extract_table_spacing, T2)
 flat2 = [cell for tbl in t2 for row in tbl for cell in row if cell]
 check("extract_table_spacing 无线表格", len(flat2) >= 5 and any("王五" in str(x) for x in flat2), f"表数={len(t2)}")
 
 t3 = call(PDFExt.get_pdf_table, T1)
-check("get_pdf_table 自动策略", any(any("张三" in str(c) for row in tbl for c in row if c) for tbl in t3), f"表数={len(t3)}")
+check(
+    "get_pdf_table 自动策略",
+    any(any("张三" in str(c) for row in tbl for c in row if c) for tbl in t3),
+    f"表数={len(t3)}",
+)
 check("get_pdf_table 页码过滤", call(PDFExt.get_pdf_table, T1, "", "1") == call(PDFExt.get_pdf_table, T1, "", "1"))
 
 # ---------- 3. 区域提取 ----------
@@ -114,7 +122,11 @@ rt_empty = call(PDFExt.extract_region_text, T1, 0, 0, 50, 50, 2)
 check("extract_region_text 空区域=空串", rt_empty == "")
 
 regions = call(PDFExt.get_typed_regions, T1, RegionType.TEXT_BLOCK)
-check("get_typed_regions text_block", any(r["page"] == 2 and "RegionTest" in r.get("text", "") for r in regions), f"n={len(regions)}")
+check(
+    "get_typed_regions text_block",
+    any(r["page"] == 2 and "RegionTest" in r.get("text", "") for r in regions),
+    f"n={len(regions)}",
+)
 regions_t = call(PDFExt.get_typed_regions, T1, RegionType.TABLE, "", "1")
 check("get_typed_regions table 第1页", len(regions_t) >= 1 and regions_t[0]["cells"] >= 9, f"n={len(regions_t)}")
 regions_i = call(PDFExt.get_typed_regions, T1, RegionType.IMAGE)

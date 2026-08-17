@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """M2-C批次冒烟: P5-5 系统×8 屏幕分辨率/缩放/IP/计算机信息/显示桌面/声音/回收站
 macOS 上: 跨平台原子(IP/计算机信息)真实执行, Win专有原子验证平台守卫+参数校验"""
+
 import sys
 
 sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-system/src")

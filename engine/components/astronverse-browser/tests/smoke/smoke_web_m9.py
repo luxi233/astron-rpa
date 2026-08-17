@@ -1,4 +1,5 @@
 """M9 P3-1 Web增强18原子冒烟：FakeBrowser + node执行runJS代码(fake DOM) + 参数/错误分支"""
+
 import base64
 import io
 import json
@@ -25,7 +26,17 @@ class _Stub:
 
 
 class _StubFinder:
-    PREFIXES = ("win32", "pythoncom", "_winapi", "pywintypes", "uiautomation", "pyautogui", "mouseinfo", "tkinter", "clipboard")
+    PREFIXES = (
+        "win32",
+        "pythoncom",
+        "_winapi",
+        "pywintypes",
+        "uiautomation",
+        "pyautogui",
+        "mouseinfo",
+        "tkinter",
+        "clipboard",
+    )
     EXACT = ("astronverse.locator", "astronverse.locator.locator")
 
     def _should_stub(self, name):
@@ -209,7 +220,17 @@ def expect_raise(name, fn, **kwargs):
         fn(**kwargs)
         check(name, False, "未抛出异常")
     except BaseException as e:
-        keywords = ("XPath不能为空", "URL不能为空", "脚本内容不能为空", "浏览器对象为空", "未找到可用浏览器", "选项文本不能为空", "不支持的JS库", "触发元素XPath不能为空", "参数异常")
+        keywords = (
+            "XPath不能为空",
+            "URL不能为空",
+            "脚本内容不能为空",
+            "浏览器对象为空",
+            "未找到可用浏览器",
+            "选项文本不能为空",
+            "不支持的JS库",
+            "触发元素XPath不能为空",
+            "参数异常",
+        )
         all_text = str(e) + " " + " ".join(str(a) for a in getattr(e, "args", []))
         check(name, any(w in all_text for w in keywords), repr(e))
 
@@ -231,9 +252,16 @@ r = BrowserSoftware.cancel_html_zoom(browser_obj=b)
 check("cancel_html_zoom", r is True, repr(r))
 
 # 4. close_other_tabs
-b = FakeBrowser(responses={
-    "getAllTabs": [{"url": "http://keep.example.com/"}, {"url": "http://a.com/"}, {"url": "http://b.com/"}, "not_a_dict"],
-})
+b = FakeBrowser(
+    responses={
+        "getAllTabs": [
+            {"url": "http://keep.example.com/"},
+            {"url": "http://a.com/"},
+            {"url": "http://b.com/"},
+            "not_a_dict",
+        ],
+    }
+)
 r = BrowserSoftware.close_other_tabs(browser_obj=b)
 check("close_other_tabs", r == 2 and sum(1 for k, _ in b.calls if k == "closeTab") == 2, repr(r))
 
@@ -253,8 +281,20 @@ check("import_js_url", r is True and len(b.calls) == 1, repr(r))
 b = FakeBrowser()
 r = BrowserSoftware.import_js_library(browser_obj=b, import_type=JsImportType.Text, js_content="console.log(1)")
 check("import_js_text", r is True, repr(r))
-expect_raise("import_js_url_empty", BrowserSoftware.import_js_library, browser_obj=FakeBrowser(), import_type=JsImportType.Url, url="")
-expect_raise("import_js_text_empty", BrowserSoftware.import_js_library, browser_obj=FakeBrowser(), import_type=JsImportType.Text, js_content="")
+expect_raise(
+    "import_js_url_empty",
+    BrowserSoftware.import_js_library,
+    browser_obj=FakeBrowser(),
+    import_type=JsImportType.Url,
+    url="",
+)
+expect_raise(
+    "import_js_text_empty",
+    BrowserSoftware.import_js_library,
+    browser_obj=FakeBrowser(),
+    import_type=JsImportType.Text,
+    js_content="",
+)
 
 # 8. import_common_js_library
 b = FakeBrowser()
@@ -263,7 +303,12 @@ check("import_common_lib", r is True, repr(r))
 b = FakeBrowser()
 r = BrowserSoftware.import_common_js_library(browser_obj=b, lib_name=CommonJsLibType.Html2Canvas)
 check("import_common_lib_h2c", r is True, repr(r))
-expect_raise("import_common_lib_bad", BrowserSoftware.import_common_js_library, browser_obj=FakeBrowser(), lib_name=BorderStyleType.Solid)  # 非法库值(借其他枚举触发不支持分支)
+expect_raise(
+    "import_common_lib_bad",
+    BrowserSoftware.import_common_js_library,
+    browser_obj=FakeBrowser(),
+    lib_name=BorderStyleType.Solid,
+)  # 非法库值(借其他枚举触发不支持分支)
 
 print("== BrowserElement 10 atoms ==")
 XP = "//div[@class='t']"
@@ -286,7 +331,13 @@ check("universal_set_select_hit", r is True, repr(r))
 b = FakeBrowser(env_js=env)
 r = BrowserElement.universal_set_select(browser_obj=b, xpath=XP, option_text="NotExist", wait_timeout=1)
 check("universal_set_select_timeout", r is False, repr(r))
-expect_raise("universal_set_select_empty", BrowserElement.universal_set_select, browser_obj=FakeBrowser(), xpath="", option_text="x")
+expect_raise(
+    "universal_set_select_empty",
+    BrowserElement.universal_set_select,
+    browser_obj=FakeBrowser(),
+    xpath="",
+    option_text="x",
+)
 
 # 11-13. 颜色三件套
 env_color = (
@@ -299,7 +350,10 @@ check("get_font_color", BrowserElement.get_font_color(browser_obj=b, xpath=XP) =
 b = FakeBrowser(env_js=env_color)
 check("get_background_color", BrowserElement.get_background_color(browser_obj=b, xpath=XP) == "rgb(0, 128, 0)")
 b = FakeBrowser(env_js=env_color)
-check("get_background_image", BrowserElement.get_background_image(browser_obj=b, xpath=XP) == "https://img.example.com/a.png")
+check(
+    "get_background_image",
+    BrowserElement.get_background_image(browser_obj=b, xpath=XP) == "https://img.example.com/a.png",
+)
 b = FakeBrowser(env_js=f"mkEl({json.dumps(XP)}); __computed[{json.dumps(XP)}]={{backgroundImage:'none'}};")
 check("get_background_image_none", BrowserElement.get_background_image(browser_obj=b, xpath=XP) == "")
 try:
@@ -310,7 +364,9 @@ except BaseException:
 
 # 14. element_add_border
 b = FakeBrowser(env_js=f"mkEl({json.dumps(XP)});")
-r = BrowserElement.element_add_border(browser_obj=b, xpath=XP, border_width=3, border_style=BorderStyleType.Dashed, border_color="blue")
+r = BrowserElement.element_add_border(
+    browser_obj=b, xpath=XP, border_width=3, border_style=BorderStyleType.Dashed, border_color="blue"
+)
 check("element_add_border", r is True, repr(r))
 
 # 15-17. show/hide/remove
@@ -344,7 +400,11 @@ with tempfile.TemporaryDirectory() as td:
     # step = 600*0.8 = 480 → 段高480×3+尾段60 = 1500 (无重叠拼接)
     check("long_screenshot_size", img.size == (int(elem_w), int(elem_h)), f"size={img.size}")
     # 滚动恢复: 最后一次调用应为 runJS(restore scrollTo 0)
-    check("long_screenshot_restore", b.calls[-1][0] == "runJS" and b.calls[-1][1]["code"].find("scrollTo") >= 0, str(b.calls[-1]))
+    check(
+        "long_screenshot_restore",
+        b.calls[-1][0] == "runJS" and b.calls[-1][1]["code"].find("scrollTo") >= 0,
+        str(b.calls[-1]),
+    )
 
 print(f"\nTOTAL: {PASS} PASS, {FAIL} FAIL")
 sys.exit(1 if FAIL else 0)

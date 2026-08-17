@@ -3,6 +3,7 @@
 
 注: P4-3 URL×2 属 encrypt 组件，见 astronverse-encrypt/tests/smoke/smoke_m1_url.py
 """
+
 import os
 import sys
 
@@ -84,25 +85,67 @@ r = T.date_to_chinese(time=d(datetime(2020, 1, 10)))
 check("汉字日期 二零二零年一月十日", r == "二零二零年一月十日", r)
 
 # get_datetime_list
-lst = T.get_datetime_list(start_time=d(datetime(2023, 1, 1)), end_time=d(datetime(2023, 1, 5)), interval=2, interval_unit=TimeUnitType.DAY, output_type=DateListOutputType.TEXT)
+lst = T.get_datetime_list(
+    start_time=d(datetime(2023, 1, 1)),
+    end_time=d(datetime(2023, 1, 5)),
+    interval=2,
+    interval_unit=TimeUnitType.DAY,
+    output_type=DateListOutputType.TEXT,
+)
 check("list 文本输出", lst == ["2023-01-01 00:00:00", "2023-01-03 00:00:00", "2023-01-05 00:00:00"], lst)
-lst = T.get_datetime_list(start_time=d(datetime(2023, 1, 1)), end_time=d(datetime(2023, 1, 3)), interval=1, interval_unit=TimeUnitType.DAY, output_type=DateListOutputType.TEXT, without_zeros=True)
+lst = T.get_datetime_list(
+    start_time=d(datetime(2023, 1, 1)),
+    end_time=d(datetime(2023, 1, 3)),
+    interval=1,
+    interval_unit=TimeUnitType.DAY,
+    output_type=DateListOutputType.TEXT,
+    without_zeros=True,
+)
 check("list 去零", lst == ["2023-1-1 0:0:0", "2023-1-2 0:0:0", "2023-1-3 0:0:0"], lst)
-lst = T.get_datetime_list(start_time=d(datetime(2023, 1, 1)), end_time=d(datetime(2023, 1, 3)), interval=1, interval_unit=TimeUnitType.DAY, output_type=DateListOutputType.DATETIME)
+lst = T.get_datetime_list(
+    start_time=d(datetime(2023, 1, 1)),
+    end_time=d(datetime(2023, 1, 3)),
+    interval=1,
+    interval_unit=TimeUnitType.DAY,
+    output_type=DateListOutputType.DATETIME,
+)
 check("list 对象输出", [x.time.day for x in lst] == [1, 2, 3], lst)
-lst = T.get_datetime_list(start_time=d(datetime(2023, 1, 1)), end_time=d(datetime(2023, 1, 3)), interval=1, interval_unit=TimeUnitType.DAY, output_type=DateListOutputType.TEXT, reverse=True)
+lst = T.get_datetime_list(
+    start_time=d(datetime(2023, 1, 1)),
+    end_time=d(datetime(2023, 1, 3)),
+    interval=1,
+    interval_unit=TimeUnitType.DAY,
+    output_type=DateListOutputType.TEXT,
+    reverse=True,
+)
 check("list 倒序", lst == ["2023-01-03 00:00:00", "2023-01-02 00:00:00", "2023-01-01 00:00:00"], lst)
-lst = T.get_datetime_list(start_time=d(datetime(2023, 1, 31)), end_time=d(datetime(2023, 3, 31)), interval=1, interval_unit=TimeUnitType.MONTH, output_type=DateListOutputType.TEXT)
+lst = T.get_datetime_list(
+    start_time=d(datetime(2023, 1, 31)),
+    end_time=d(datetime(2023, 3, 31)),
+    interval=1,
+    interval_unit=TimeUnitType.MONTH,
+    output_type=DateListOutputType.TEXT,
+)
 check("list 月末步进1.31→2.28", [x[:10] for x in lst] == ["2023-01-31", "2023-02-28", "2023-03-31"], lst)
-lst = T.get_datetime_list(start_time=d(datetime(2023, 1, 1)), end_time=d(datetime(2023, 1, 1, 0, 0, 5)), interval=2, interval_unit=TimeUnitType.SECOND, output_type=DateListOutputType.TEXT)
+lst = T.get_datetime_list(
+    start_time=d(datetime(2023, 1, 1)),
+    end_time=d(datetime(2023, 1, 1, 0, 0, 5)),
+    interval=2,
+    interval_unit=TimeUnitType.SECOND,
+    output_type=DateListOutputType.TEXT,
+)
 check("list 秒步进", len(lst) == 3, lst)
 try:
-    T.get_datetime_list(start_time=d(datetime(2023, 2, 1)), end_time=d(datetime(2023, 1, 1)), interval=1, interval_unit=TimeUnitType.DAY)
+    T.get_datetime_list(
+        start_time=d(datetime(2023, 2, 1)), end_time=d(datetime(2023, 1, 1)), interval=1, interval_unit=TimeUnitType.DAY
+    )
     check("list 起止倒挂报错", False)
 except ValueError as e:
     check("list 起止倒挂报错", "开始时间" in str(e), str(e))
 try:
-    T.get_datetime_list(start_time=d(datetime(2023, 1, 1)), end_time=d(datetime(2023, 1, 2)), interval=0, interval_unit=TimeUnitType.DAY)
+    T.get_datetime_list(
+        start_time=d(datetime(2023, 1, 1)), end_time=d(datetime(2023, 1, 2)), interval=0, interval_unit=TimeUnitType.DAY
+    )
     check("list 间隔0报错", False)
 except ValueError as e:
     check("list 间隔0报错", "间隔" in str(e), str(e))

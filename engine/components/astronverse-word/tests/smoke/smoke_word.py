@@ -14,9 +14,11 @@ sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/shared/astronve
 from astronverse.word import CursorPointerType, CursorPositionType, ReplaceMethodType, ReplaceType
 from astronverse.word.core_unix import WordDocumentCore
 
+
 # ---- 1. bookmark cursor positioning ----
 class FakeBookmarkRange:
     Start, End = 100, 150
+
 
 class FakeBookmarks:
     def __init__(self, names):
@@ -29,6 +31,7 @@ class FakeBookmarks:
         if name not in self.names:
             raise KeyError(name)
         return types.SimpleNamespace(Range=FakeBookmarkRange())
+
 
 class FakeSel:
     def __init__(self):
@@ -59,6 +62,7 @@ class FakeSel:
     @property
     def Range(self):
         return "range"
+
 
 class FakeDoc:
     def __init__(self, names=(), sel=None, content=None):
@@ -98,6 +102,7 @@ try:
 except BaseException:
     pass  # 分支正确抛错: 书签名称为空
 print("bookmark positioning OK")
+
 
 # ---- 2. replace counting ----
 class FakeFind:

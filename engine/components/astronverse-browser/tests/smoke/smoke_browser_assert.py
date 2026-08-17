@@ -1,12 +1,30 @@
 """browser组件断言冒烟(macOS需stub平台模块)"""
+
 import sys
 import types
 import importlib.machinery as importlib_machinery
 
 
 class _StubFinder:
-    STUB_PREFIXES = ("win32", "pythoncom", "_winapi", "pywintypes", "uiautomation", "pyautogui", "mouseinfo", "tkinter", "psutil")
-    STUB_EXACT = ("astronverse.locator", "astronverse.locator.locator", "astronverse.software", "astronverse.software.software", "astronverse.software.core_unix", "astronverse.software.core_win")
+    STUB_PREFIXES = (
+        "win32",
+        "pythoncom",
+        "_winapi",
+        "pywintypes",
+        "uiautomation",
+        "pyautogui",
+        "mouseinfo",
+        "tkinter",
+        "psutil",
+    )
+    STUB_EXACT = (
+        "astronverse.locator",
+        "astronverse.locator.locator",
+        "astronverse.software",
+        "astronverse.software.software",
+        "astronverse.software.core_unix",
+        "astronverse.software.core_win",
+    )
 
     def _should_stub(self, name):
         return name in self.STUB_EXACT or name.split(".")[0].startswith(self.STUB_PREFIXES)
@@ -46,10 +64,17 @@ class _FakeBrowser:
 
 
 fake_browser = _FakeBrowser()
-browser_assert.Assert.assert_element(browser_obj=fake_browser, element_data={"elementData": {"path": [], "app": "chrome"}}, wait_time=1)
+browser_assert.Assert.assert_element(
+    browser_obj=fake_browser, element_data={"elementData": {"path": [], "app": "chrome"}}, wait_time=1
+)
 BrowserElement.wait_element = staticmethod(lambda **kw: False)
 try:
-    browser_assert.Assert.assert_element(browser_obj=fake_browser, element_data={"elementData": {"path": [], "app": "chrome"}}, wait_time=1, error_message="登录按钮未出现")
+    browser_assert.Assert.assert_element(
+        browser_obj=fake_browser,
+        element_data={"elementData": {"path": [], "app": "chrome"}},
+        wait_time=1,
+        error_message="登录按钮未出现",
+    )
     print("FAIL: 应抛异常")
 except BaseException as e:
     assert "登录按钮未出现" in str(e), str(e)

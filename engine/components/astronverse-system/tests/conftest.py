@@ -3,6 +3,7 @@
 printer_core 等模块顶层 import win32com/win32print, macOS 上收集即失败;
 stub 后用例若真实触达 Windows-only 功能会显式失败, 便于区分。
 """
+
 import importlib.machinery
 import sys
 import types

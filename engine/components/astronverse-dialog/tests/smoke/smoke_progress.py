@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """M11 P5-7 进度条×3 冒烟测试：mock ws 通道验证消息协议与迭代器包装"""
+
 import sys
 
 from astronverse.actionlib.atomic import atomicMg

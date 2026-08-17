@@ -191,7 +191,16 @@ def check(name, fn):
 
 from astronverse.phone.phone import Phone  # noqa: E402
 from astronverse.phone.phone_core import PhoneCore  # noqa: E402
-from astronverse.phone import ClickType, ConnectMode, ConnectTargetType, ListSortType, LocatorType, PositionType, SwipeDirection, UnlockType  # noqa: E402
+from astronverse.phone import (
+    ClickType,
+    ConnectMode,
+    ConnectTargetType,
+    ListSortType,
+    LocatorType,
+    PositionType,
+    SwipeDirection,
+    UnlockType,
+)  # noqa: E402
 
 results = {}
 from astronverse.actionlib.error import BaseException as BE  # noqa: E402
@@ -214,8 +223,12 @@ def T_run_adb_command():
 
 
 def T_click_down_up():
-    Phone.click_screen(conn=results["conn"], position_type=PositionType.COORD, x=300, y=600, click_type=ClickType.DOWN, after_delay=0)
-    Phone.click_screen(conn=results["conn"], position_type=PositionType.COORD, x=300, y=600, click_type=ClickType.UP, after_delay=0)
+    Phone.click_screen(
+        conn=results["conn"], position_type=PositionType.COORD, x=300, y=600, click_type=ClickType.DOWN, after_delay=0
+    )
+    Phone.click_screen(
+        conn=results["conn"], position_type=PositionType.COORD, x=300, y=600, click_type=ClickType.UP, after_delay=0
+    )
     calls = results["conn"].device.calls
     assert any(c[0] == "touch.down" and c[1] == 300 and c[2] == 600 for c in calls)
     assert any(c[0] == "touch.up" and c[1] == 300 and c[2] == 600 for c in calls)
@@ -246,7 +259,9 @@ def T_lazy_load_not_found():
 
 def T_scroll_screenshot():
     MOCK_DEVICE.scroll_pos = 0
-    path = Phone.scroll_screenshot(conn=results["conn"], folder_path="/tmp/phone_m7", filename="long.png", max_scrolls=0, after_delay=0)
+    path = Phone.scroll_screenshot(
+        conn=results["conn"], folder_path="/tmp/phone_m7", filename="long.png", max_scrolls=0, after_delay=0
+    )
     from PIL import Image
 
     got = np.asarray(Image.open(path).convert("RGB"))
@@ -256,7 +271,9 @@ def T_scroll_screenshot():
 
 def T_scroll_screenshot_max_limit():
     MOCK_DEVICE.scroll_pos = 0
-    Phone.scroll_screenshot(conn=results["conn"], folder_path="/tmp/phone_m7", filename="long2.png", max_scrolls=2, after_delay=0)
+    Phone.scroll_screenshot(
+        conn=results["conn"], folder_path="/tmp/phone_m7", filename="long2.png", max_scrolls=2, after_delay=0
+    )
     assert True
 
 
@@ -329,7 +346,9 @@ def T_error_paths():
     except BE:
         pass
     try:
-        Phone.scroll_screenshot(conn=results["conn"], folder_path="/tmp/phone_m7", direction=SwipeDirection.LEFT, after_delay=0)
+        Phone.scroll_screenshot(
+            conn=results["conn"], folder_path="/tmp/phone_m7", direction=SwipeDirection.LEFT, after_delay=0
+        )
         raise AssertionError("横向应报错")
     except BE:
         pass
@@ -452,8 +471,12 @@ def T_appium_adb_shell_ops():
 
 def T_appium_click_down_up():
     before = MOCK_APPIUM.w3c_count
-    Phone.click_screen(conn=results["a_conn"], position_type=PositionType.COORD, x=400, y=800, click_type=ClickType.DOWN, after_delay=0)
-    Phone.click_screen(conn=results["a_conn"], position_type=PositionType.COORD, x=400, y=800, click_type=ClickType.UP, after_delay=0)
+    Phone.click_screen(
+        conn=results["a_conn"], position_type=PositionType.COORD, x=400, y=800, click_type=ClickType.DOWN, after_delay=0
+    )
+    Phone.click_screen(
+        conn=results["a_conn"], position_type=PositionType.COORD, x=400, y=800, click_type=ClickType.UP, after_delay=0
+    )
     assert MOCK_APPIUM.w3c_count >= before + 2, "DOWN/UP走W3C actions"
 
 

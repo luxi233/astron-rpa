@@ -1,4 +1,5 @@
 """M10 P3-2 IFrame跨域9原子冒烟：FakeBrowser + node多文档fake DOM(模拟插件frame路由) + 参数/错误分支"""
+
 import json
 import subprocess
 import sys
@@ -22,7 +23,17 @@ class _Stub:
 
 
 class _StubFinder:
-    PREFIXES = ("win32", "pythoncom", "_winapi", "pywintypes", "uiautomation", "pyautogui", "mouseinfo", "tkinter", "clipboard")
+    PREFIXES = (
+        "win32",
+        "pythoncom",
+        "_winapi",
+        "pywintypes",
+        "uiautomation",
+        "pyautogui",
+        "mouseinfo",
+        "tkinter",
+        "clipboard",
+    )
     EXACT = ("astronverse.locator", "astronverse.locator.locator")
 
     def _should_stub(self, name):
@@ -148,12 +159,27 @@ check("init_iframe by name", f3.get("iframeXpath") == "/html[1]/body[1]/iframe[2
 f4 = BrowserIframe.init_iframe(browser_obj=b, locate_mode=FrameLocateType.Xpath, xpath='//iframe[@id="f1"]')
 check("init_iframe by xpath", f4.get("iframeXpath") == "/html[1]/body[1]/iframe[1]", str(f4))
 
-check("init_iframe not found raises", raises(lambda: BrowserIframe.init_iframe(browser_obj=b, locate_mode=FrameLocateType.Xpath, xpath='//iframe[@id="nope"]')))
-check("init_iframe name empty raises", raises(lambda: BrowserIframe.init_iframe(browser_obj=b, locate_mode=FrameLocateType.Name, name="")))
-check("init_iframe xpath empty raises", raises(lambda: BrowserIframe.init_iframe(browser_obj=b, locate_mode=FrameLocateType.Xpath, xpath="")))
+check(
+    "init_iframe not found raises",
+    raises(
+        lambda: BrowserIframe.init_iframe(
+            browser_obj=b, locate_mode=FrameLocateType.Xpath, xpath='//iframe[@id="nope"]'
+        )
+    ),
+)
+check(
+    "init_iframe name empty raises",
+    raises(lambda: BrowserIframe.init_iframe(browser_obj=b, locate_mode=FrameLocateType.Name, name="")),
+)
+check(
+    "init_iframe xpath empty raises",
+    raises(lambda: BrowserIframe.init_iframe(browser_obj=b, locate_mode=FrameLocateType.Xpath, xpath="")),
+)
 
 # ---- 2. 嵌套 init_iframe ----
-fn = BrowserIframe.init_iframe(browser_obj=b, locate_mode=FrameLocateType.Xpath, xpath='//iframe[@name="inner"]', parent_frame=f)
+fn = BrowserIframe.init_iframe(
+    browser_obj=b, locate_mode=FrameLocateType.Xpath, xpath='//iframe[@name="inner"]', parent_frame=f
+)
 check(
     "nested iframeXpath join",
     fn.get("iframeXpath") == "/html[1]/body[1]/iframe[1]/$iframe$/html[1]/body[1]/iframe[1]",
@@ -176,14 +202,22 @@ check("get text fallback active frame", t2 == "hello from frameA", repr(t2))
 
 t3 = BrowserIframe.iframe_get_element_text(browser_obj=b, frame=f, xpath='//div[@class="none"]')
 check("get text missing -> empty", t3 == "", repr(t3))
-check("get text empty xpath raises", raises(lambda: BrowserIframe.iframe_get_element_text(browser_obj=b, frame=f, xpath="")))
+check(
+    "get text empty xpath raises",
+    raises(lambda: BrowserIframe.iframe_get_element_text(browser_obj=b, frame=f, xpath="")),
+)
 
 deep = BrowserIframe.iframe_get_element_text(browser_obj=b, frame=fn, xpath='//div[@class="v"]')
 check("nested frame deep text", deep == "deep text", repr(deep))
 
 check(
     "route unknown frame -> plugin ctx error",
-    raises(lambda: BrowserIframe.iframe_get_element_text(browser_obj=b, frame={"isFrame": True, "iframeXpath": "/no/such"}, xpath='//a'), RuntimeError),
+    raises(
+        lambda: BrowserIframe.iframe_get_element_text(
+            browser_obj=b, frame={"isFrame": True, "iframeXpath": "/no/such"}, xpath="//a"
+        ),
+        RuntimeError,
+    ),
 )
 
 # ---- 5. click ----
@@ -192,13 +226,18 @@ ok = BrowserIframe.iframe_click_element(browser_obj=b, frame=f, xpath="//a")
 check("click element ok", ok is True, str(ok))
 check("click dispatched to element", b.last_probe == ["A"], str(b.last_probe))
 b._probe = None
-check("click missing raises", raises(lambda: BrowserIframe.iframe_click_element(browser_obj=b, frame=f, xpath='//div[@class="none"]')))
+check(
+    "click missing raises",
+    raises(lambda: BrowserIframe.iframe_click_element(browser_obj=b, frame=f, xpath='//div[@class="none"]')),
+)
 check("click empty xpath raises", raises(lambda: BrowserIframe.iframe_click_element(browser_obj=b, frame=f, xpath="")))
 
 # ---- 6. input ----
 b._pre = None
-b._probe = 'function main(){ return document.evaluate(\'//input[@id="q"]\',document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue.value; } return main()'
-r = BrowserIframe.iframe_input_text(browser_obj=b, frame=f, xpath='//input[@id="q"]', input_text="hello", overwrite=True)
+b._probe = "function main(){ return document.evaluate('//input[@id=\"q\"]',document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue.value; } return main()"
+r = BrowserIframe.iframe_input_text(
+    browser_obj=b, frame=f, xpath='//input[@id="q"]', input_text="hello", overwrite=True
+)
 check("input overwrite ok", r is True, str(r))
 check("input overwrite value", b.last_probe == "hello", repr(b.last_probe))
 
@@ -206,26 +245,46 @@ b._pre = 'function main(){ document.evaluate(\'//input[@id="q"]\',document,null,
 BrowserIframe.iframe_input_text(browser_obj=b, frame=f, xpath='//input[@id="q"]', input_text="hello", overwrite=False)
 check("input append value", b.last_probe == "worldhello", repr(b.last_probe))
 b._pre = None
-check("input empty xpath raises", raises(lambda: BrowserIframe.iframe_input_text(browser_obj=b, frame=f, xpath="", input_text="x")))
-check("input missing element raises", raises(lambda: BrowserIframe.iframe_input_text(browser_obj=b, frame=f, xpath='//input[@id="none"]', input_text="x")))
+check(
+    "input empty xpath raises",
+    raises(lambda: BrowserIframe.iframe_input_text(browser_obj=b, frame=f, xpath="", input_text="x")),
+)
+check(
+    "input missing element raises",
+    raises(
+        lambda: BrowserIframe.iframe_input_text(browser_obj=b, frame=f, xpath='//input[@id="none"]', input_text="x")
+    ),
+)
 
 # ---- 7. similar list ----
 lst = BrowserIframe.iframe_get_similar_list(browser_obj=b, frame=f, xpath="//ul/li")
 check("similar list texts", lst == ["A", "B", "C"], str(lst))
 lst2 = BrowserIframe.iframe_get_similar_list(browser_obj=b, frame=f, xpath="//a", attribute_name="href")
 check("similar list attr", lst2 == ["https://a.example.com/link"], str(lst2))
-check("similar list empty xpath raises", raises(lambda: BrowserIframe.iframe_get_similar_list(browser_obj=b, frame=f, xpath="")))
+check(
+    "similar list empty xpath raises",
+    raises(lambda: BrowserIframe.iframe_get_similar_list(browser_obj=b, frame=f, xpath="")),
+)
 
 # ---- 8. wait ----
-w = BrowserIframe.iframe_wait_element(browser_obj=b, frame=f, xpath='//div[@class="msg"]', timeout=1, wait_status=FrameWaitStatusTypeFlag.Appear)
+w = BrowserIframe.iframe_wait_element(
+    browser_obj=b, frame=f, xpath='//div[@class="msg"]', timeout=1, wait_status=FrameWaitStatusTypeFlag.Appear
+)
 check("wait appear found", w is True, str(w))
 w2 = BrowserIframe.iframe_wait_element(browser_obj=b, frame=f, xpath='//div[@class="never"]', timeout=0)
 check("wait appear timeout", w2 is False, str(w2))
-w3 = BrowserIframe.iframe_wait_element(browser_obj=b, frame=f, xpath='//div[@class="msg"]', timeout=0, wait_status=FrameWaitStatusTypeFlag.Disappear)
+w3 = BrowserIframe.iframe_wait_element(
+    browser_obj=b, frame=f, xpath='//div[@class="msg"]', timeout=0, wait_status=FrameWaitStatusTypeFlag.Disappear
+)
 check("wait disappear still exists", w3 is False, str(w3))
-w4 = BrowserIframe.iframe_wait_element(browser_obj=b, frame=f, xpath='//div[@class="never"]', timeout=1, wait_status=FrameWaitStatusTypeFlag.Disappear)
+w4 = BrowserIframe.iframe_wait_element(
+    browser_obj=b, frame=f, xpath='//div[@class="never"]', timeout=1, wait_status=FrameWaitStatusTypeFlag.Disappear
+)
 check("wait disappear gone", w4 is True, str(w4))
-check("wait neg timeout raises", raises(lambda: BrowserIframe.iframe_wait_element(browser_obj=b, frame=f, xpath="//a", timeout=-1)))
+check(
+    "wait neg timeout raises",
+    raises(lambda: BrowserIframe.iframe_wait_element(browser_obj=b, frame=f, xpath="//a", timeout=-1)),
+)
 check("wait empty xpath raises", raises(lambda: BrowserIframe.iframe_wait_element(browser_obj=b, frame=f, xpath="")))
 
 # ---- 9. attribute ----
@@ -235,8 +294,14 @@ at = BrowserIframe.iframe_get_attribute(browser_obj=b, frame=f, xpath='//div[@cl
 check("attr text", at == "hello from frameA", repr(at))
 am = BrowserIframe.iframe_get_attribute(browser_obj=b, frame=f, xpath="//a", attr_name="nonexistent")
 check("attr missing -> empty", am == "", repr(am))
-check("attr empty name raises", raises(lambda: BrowserIframe.iframe_get_attribute(browser_obj=b, frame=f, xpath="//a", attr_name="")))
-check("attr empty xpath raises", raises(lambda: BrowserIframe.iframe_get_attribute(browser_obj=b, frame=f, xpath="", attr_name="href")))
+check(
+    "attr empty name raises",
+    raises(lambda: BrowserIframe.iframe_get_attribute(browser_obj=b, frame=f, xpath="//a", attr_name="")),
+)
+check(
+    "attr empty xpath raises",
+    raises(lambda: BrowserIframe.iframe_get_attribute(browser_obj=b, frame=f, xpath="", attr_name="href")),
+)
 
 # ---- 10. element info ----
 info = BrowserIframe.iframe_get_element_info(browser_obj=b, frame=f, xpath='//input[@id="q"]')
@@ -244,8 +309,13 @@ check("info tag", info.get("tag") == "input", str(info))
 check("info attrs", info.get("attributes", {}).get("id") == "q", str(info))
 check("info visible", info.get("visible") is True, str(info))
 check("info rect", info.get("rect", {}).get("width") == 100, str(info))
-check("info missing raises", raises(lambda: BrowserIframe.iframe_get_element_info(browser_obj=b, frame=f, xpath='//div[@class="none"]')))
-check("info empty xpath raises", raises(lambda: BrowserIframe.iframe_get_element_info(browser_obj=b, frame=f, xpath="")))
+check(
+    "info missing raises",
+    raises(lambda: BrowserIframe.iframe_get_element_info(browser_obj=b, frame=f, xpath='//div[@class="none"]')),
+)
+check(
+    "info empty xpath raises", raises(lambda: BrowserIframe.iframe_get_element_info(browser_obj=b, frame=f, xpath=""))
+)
 
 # ---- 11. Browser.frame 属性 ----
 real = Browser()

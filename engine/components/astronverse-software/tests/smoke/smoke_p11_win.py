@@ -1,4 +1,5 @@
 """P1-1 win端冒烟: wait_any_element / wait_any_group / combine_elements"""
+
 import os
 import sys
 import types
@@ -6,8 +7,25 @@ import importlib.machinery as importlib_machinery
 
 
 class _StubFinder:
-    STUB_PREFIXES = ("win32", "pythoncom", "_winapi", "pywintypes", "uiautomation", "pyautogui", "mouseinfo", "tkinter", "psutil")
-    STUB_EXACT = ("astronverse.locator", "astronverse.locator.locator", "astronverse.software", "astronverse.software.software", "astronverse.software.core_unix", "astronverse.software.core_win")
+    STUB_PREFIXES = (
+        "win32",
+        "pythoncom",
+        "_winapi",
+        "pywintypes",
+        "uiautomation",
+        "pyautogui",
+        "mouseinfo",
+        "tkinter",
+        "psutil",
+    )
+    STUB_EXACT = (
+        "astronverse.locator",
+        "astronverse.locator.locator",
+        "astronverse.software",
+        "astronverse.software.software",
+        "astronverse.software.core_unix",
+        "astronverse.software.core_win",
+    )
 
     def _should_stub(self, name):
         return name in self.STUB_EXACT or name.split(".")[0].startswith(self.STUB_PREFIXES)
@@ -65,7 +83,9 @@ name, ok = WinEle.wait_any_element(pick_1=mk_pick("ele_a"), pick_2=mk_pick("ele_
 assert (name, ok) == ("元素2", True), (name, ok)
 
 # 2. wait_any_element: 自定义名称
-name, ok = WinEle.wait_any_element(pick_1=mk_pick("ele_a"), name_1="主窗口", pick_2=mk_pick("ele_b"), name_2="弹窗", wait_time=2)
+name, ok = WinEle.wait_any_element(
+    pick_1=mk_pick("ele_a"), name_1="主窗口", pick_2=mk_pick("ele_b"), name_2="弹窗", wait_time=2
+)
 assert (name, ok) == ("弹窗", True), (name, ok)
 
 # 3. wait_any_element: 全部超时
@@ -83,8 +103,11 @@ except BaseException as e:
 # 5. wait_any_group: 组A全出现命中
 READY.update(["a1", "a2"])
 gname, ok = WinEle.wait_any_group(
-    group_a_name="加载完成", pick_a_1=mk_pick("a1"), pick_a_2=mk_pick("a2"),
-    group_b_name="出错页", pick_b_1=mk_pick("b1"),
+    group_a_name="加载完成",
+    pick_a_1=mk_pick("a1"),
+    pick_a_2=mk_pick("a2"),
+    group_b_name="出错页",
+    pick_b_1=mk_pick("b1"),
     wait_time=2,
 )
 assert (gname, ok) == ("加载完成", True), (gname, ok)
@@ -93,7 +116,8 @@ assert (gname, ok) == ("加载完成", True), (gname, ok)
 READY.clear()
 READY.update(["a1"])
 gname, ok = WinEle.wait_any_group(
-    pick_a_1=mk_pick("a1"), pick_a_2=mk_pick("a2"),
+    pick_a_1=mk_pick("a1"),
+    pick_a_2=mk_pick("a2"),
     pick_b_1=mk_pick("b1"),
     wait_time=1,
 )

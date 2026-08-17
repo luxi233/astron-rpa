@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """P0-6 file_info单位 + get_pid空名称 冒烟(system组件)"""
+
 import sys
 import os
 import tempfile
@@ -77,9 +78,21 @@ check("file_info default B", info_default == 2048, info_default)
 os.unlink(tmp.name)
 
 all_procs = Process.get_pid(process_name="")
-check("get_pid empty returns list", isinstance(all_procs, list) and len(all_procs) > 5, len(all_procs) if isinstance(all_procs, list) else all_procs)
-check("get_pid empty item format", all(isinstance(p, (list, tuple)) and len(p) == 2 and isinstance(p[1], int) for p in all_procs[:20]), all_procs[:3])
-one_pid = Process.get_pid(process_name="python", search_type=__import__("astronverse.system", fromlist=["SearchType"]).SearchType.FUZZY, pid_type=__import__("astronverse.system", fromlist=["PidType"]).PidType.ALL)
+check(
+    "get_pid empty returns list",
+    isinstance(all_procs, list) and len(all_procs) > 5,
+    len(all_procs) if isinstance(all_procs, list) else all_procs,
+)
+check(
+    "get_pid empty item format",
+    all(isinstance(p, (list, tuple)) and len(p) == 2 and isinstance(p[1], int) for p in all_procs[:20]),
+    all_procs[:3],
+)
+one_pid = Process.get_pid(
+    process_name="python",
+    search_type=__import__("astronverse.system", fromlist=["SearchType"]).SearchType.FUZZY,
+    pid_type=__import__("astronverse.system", fromlist=["PidType"]).PidType.ALL,
+)
 check("get_pid fuzzy still works", isinstance(one_pid, list), one_pid)
 
 print(f"\n=== {passed} passed, {failed} failed ===")

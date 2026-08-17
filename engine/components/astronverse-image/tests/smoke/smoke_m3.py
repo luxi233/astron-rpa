@@ -1,4 +1,5 @@
 """M3 图片处理×21 冒烟测试（Pillow 现场生成随机纹理图，避免纯色图假通过）。"""
+
 import inspect
 import os
 import shutil
@@ -158,7 +159,11 @@ with Image.open(out) as im:
 big = os.path.join(TMP, "big.jpg")
 rand_img(800, 600, 11, path=big)
 out = call(ImageProcess.compress_image, big, 30)
-check("compress_jpg_smaller", os.path.getsize(out) < os.path.getsize(big), f"{os.path.getsize(out)} < {os.path.getsize(big)}")
+check(
+    "compress_jpg_smaller",
+    os.path.getsize(out) < os.path.getsize(big),
+    f"{os.path.getsize(out)} < {os.path.getsize(big)}",
+)
 out = call(ImageProcess.compress_image, A, 60)
 check("compress_png", os.path.exists(out), out)
 try:

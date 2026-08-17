@@ -49,8 +49,12 @@ def expect_raise(name, fn, *args, **kw):
 def mkvideo(path, size, dur, audio=True, seed=0):
     """testsrc2 随机参数短视频（每支不同 pattern 保证画面非纯色）。"""
     cmd = [
-        FF, "-y",
-        "-f", "lavfi", "-i", f"testsrc2=size={size}:duration={dur}:rate=15",
+        FF,
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        f"testsrc2=size={size}:duration={dur}:rate=15",
     ]
     if audio:
         cmd += ["-f", "lavfi", "-i", f"sine=frequency={440 + seed * 60}:duration={dur}"]
@@ -108,14 +112,20 @@ check("set_video_speed 2x ≈2.5s", abs(sd - 2.5) < 0.6, f"→ {sd}")
 sp05 = call(Video.set_video_speed, V1, 0.5)
 check("set_video_speed 0.5x ≈10s", abs(_probe(sp05)["duration"] - 10) < 1.0, f"→ {_probe(sp05)['duration']}")
 sp4 = call(Video.set_video_speed, V1, 4)
-check("set_video_speed 4x(音频atempo链) ≈1.25s", abs(_probe(sp4)["duration"] - 1.25) < 0.5, f"→ {_probe(sp4)['duration']}")
+check(
+    "set_video_speed 4x(音频atempo链) ≈1.25s", abs(_probe(sp4)["duration"] - 1.25) < 0.5, f"→ {_probe(sp4)['duration']}"
+)
 spna = call(Video.set_video_speed, VNA, 2)
 check("set_video_speed 无音频视频", abs(_probe(spna)["duration"] - 2) < 0.5)
 expect_raise("set_video_speed 超4倍抛错", Video.set_video_speed, V1, 8)
 
 # ---------- 5. 批量前后置/合并 ----------
 prep = call(Video.batch_prepend, [V2], V1)
-check("batch_prepend 3+5≈8s", len(prep) == 1 and abs(_probe(prep[0])["duration"] - 8) < 0.8, f"→ {_probe(prep[0])['duration']}")
+check(
+    "batch_prepend 3+5≈8s",
+    len(prep) == 1 and abs(_probe(prep[0])["duration"] - 8) < 0.8,
+    f"→ {_probe(prep[0])['duration']}",
+)
 app = call(Video.batch_append, f"{V1},{V2}", VNA)
 check("batch_append 逗号串入参 5+4≈9s", len(app) == 2 and abs(_probe(app[0])["duration"] - 9) < 0.8)
 merged = call(Video.concat_videos, [V1, V2])

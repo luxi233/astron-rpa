@@ -1,12 +1,30 @@
 """P1-3/P1-4 冒烟: get_similar_lazy / get_similar_lazy_xpath / paginator"""
+
 import sys
 import types
 import importlib.machinery as importlib_machinery
 
 
 class _StubFinder:
-    STUB_PREFIXES = ("win32", "pythoncom", "_winapi", "pywintypes", "uiautomation", "pyautogui", "mouseinfo", "tkinter", "psutil")
-    STUB_EXACT = ("astronverse.locator", "astronverse.locator.locator", "astronverse.software", "astronverse.software.software", "astronverse.software.core_unix", "astronverse.software.core_win")
+    STUB_PREFIXES = (
+        "win32",
+        "pythoncom",
+        "_winapi",
+        "pywintypes",
+        "uiautomation",
+        "pyautogui",
+        "mouseinfo",
+        "tkinter",
+        "psutil",
+    )
+    STUB_EXACT = (
+        "astronverse.locator",
+        "astronverse.locator.locator",
+        "astronverse.software",
+        "astronverse.software.software",
+        "astronverse.software.core_unix",
+        "astronverse.software.core_win",
+    )
 
     def _should_stub(self, name):
         return name in self.STUB_EXACT or name.split(".")[0].startswith(self.STUB_PREFIXES)
@@ -105,7 +123,12 @@ def h_lazy2(key, data):
 
 
 elems2, cnt2 = BrowserElement.get_similar_lazy(
-    browser_obj=FakeBrowser(h_lazy2), element_data=mk_ele(), max_rounds=10, stable_rounds=2, wait_load=0.01, max_count=50
+    browser_obj=FakeBrowser(h_lazy2),
+    element_data=mk_ele(),
+    max_rounds=10,
+    stable_rounds=2,
+    wait_load=0.01,
+    max_count=50,
 )
 assert cnt2 >= 50, cnt2  # 达到50提前停
 
@@ -159,7 +182,7 @@ def h_page(key, data):
 
 
 it = BrowserElement.paginator(
-    browser_obj=FakeBrowser(h_page), next_xpath='//a[@class="next"]', item_xpath='//li', wait_load=0.01
+    browser_obj=FakeBrowser(h_page), next_xpath='//a[@class="next"]', item_xpath="//li", wait_load=0.01
 )
 pages = list(it)
 assert len(pages) == 3, pages
@@ -181,7 +204,7 @@ def h_page2(key, data):
 
 
 it2 = BrowserElement.paginator(
-    browser_obj=FakeBrowser(h_page2), next_xpath='//a[@class="next"]', item_xpath='//li', max_pages=2, wait_load=0.01
+    browser_obj=FakeBrowser(h_page2), next_xpath='//a[@class="next"]', item_xpath="//li", max_pages=2, wait_load=0.01
 )
 pages2 = list(it2)
 assert len(pages2) == 2, pages2

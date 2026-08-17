@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """M2-A批次冒烟: P4-6 条码二维码×3 (生成二维码/生成条形码/识别) 正常+异常路径"""
+
 import os
 import sys
 import tempfile
@@ -46,7 +47,9 @@ tmp = tempfile.mkdtemp(prefix="m2a_")
 
 # ---------- 生成二维码 ----------
 p1 = os.path.join(tmp, "qr.png")
-r = B.create_qrcode(content="https://example.com/测试", size=300, error_correction=QrErrorCorrectionType.H, save_path=p1)
+r = B.create_qrcode(
+    content="https://example.com/测试", size=300, error_correction=QrErrorCorrectionType.H, save_path=p1
+)
 check("qrcode 生成成功返回路径", r == p1 and os.path.exists(p1), r)
 from PIL import Image  # noqa: E402
 
@@ -61,7 +64,9 @@ p1c = B.create_qrcode(content="小尺寸自动抬高到60", size=10, save_path=o
 with Image.open(p1c) as img:
     check("qrcode 最小60像素", img.size == (60, 60), img.size)
 
-expect_err("qrcode 空内容报错", B.create_qrcode, {"content": "  ", "save_path": os.path.join(tmp, "x.png")}, "生成内容无效")
+expect_err(
+    "qrcode 空内容报错", B.create_qrcode, {"content": "  ", "save_path": os.path.join(tmp, "x.png")}, "生成内容无效"
+)
 expect_err("qrcode 坏路径报错", B.create_qrcode, {"content": "x", "save_path": "/nonexist_dir_abc/qr.png"}, "保存失败")
 
 # ---------- 生成条形码 ----------
@@ -78,8 +83,18 @@ check("barcode EAN13 13位成功", os.path.exists(p3))
 p4 = B.create_barcode(content="690123456789", barcode_type=BarcodeType.EAN13, save_path=os.path.join(tmp, "ean12.png"))
 check("barcode EAN13 12位自动补校验码", os.path.exists(p4))
 
-expect_err("barcode EAN13 非数字报错", B.create_barcode, {"content": "abc", "barcode_type": BarcodeType.EAN13, "save_path": os.path.join(tmp, "x.png")}, "生成内容无效")
-expect_err("barcode 空内容报错", B.create_barcode, {"content": "", "barcode_type": BarcodeType.CODE128, "save_path": os.path.join(tmp, "x.png")}, "生成内容无效")
+expect_err(
+    "barcode EAN13 非数字报错",
+    B.create_barcode,
+    {"content": "abc", "barcode_type": BarcodeType.EAN13, "save_path": os.path.join(tmp, "x.png")},
+    "生成内容无效",
+)
+expect_err(
+    "barcode 空内容报错",
+    B.create_barcode,
+    {"content": "", "barcode_type": BarcodeType.CODE128, "save_path": os.path.join(tmp, "x.png")},
+    "生成内容无效",
+)
 
 # ---------- 识别 ----------
 r = B.recognize_code(image_path=p1)

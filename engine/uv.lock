@@ -143,6 +143,9 @@ requires-dist = [
     { name = "sseclient-py" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-baseline"
 version = "1.0.1"
@@ -190,6 +193,9 @@ requires-dist = [
     { name = "pandas" },
     { name = "requests" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-browser-bridge"
@@ -252,6 +258,9 @@ requires-dist = [
     { name = "requests" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-database"
 version = "1.0.0"
@@ -269,6 +278,9 @@ requires-dist = [
     { name = "pyodbc" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-dataprocess"
 version = "1.0.2"
@@ -285,6 +297,9 @@ requires-dist = [
     { name = "numpy" },
     { name = "python-dateutil" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-datatable"
@@ -307,6 +322,9 @@ requires-dist = [
     { name = "pyperclip", specifier = "==1.11.0" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-dialog"
 version = "1.0.2"
@@ -322,6 +340,9 @@ requires-dist = [
     { name = "pynput" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-email"
 version = "1.0.2"
@@ -332,6 +353,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "astronverse-actionlib", editable = "shared/astronverse-actionlib" }]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-encrypt"
@@ -348,6 +372,9 @@ requires-dist = [
     { name = "pycryptodomex" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-enterprise"
 version = "1.0.2"
@@ -362,6 +389,9 @@ requires-dist = [
     { name = "astronverse-actionlib", editable = "shared/astronverse-actionlib" },
     { name = "requests" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-excel"
@@ -383,6 +413,9 @@ requires-dist = [
     { name = "psutil" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-executor"
@@ -452,6 +485,9 @@ requires-dist = [
     { name = "qrcode", specifier = "==8.2" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-input"
 version = "1.0.1"
@@ -475,12 +511,16 @@ requires-dist = [
     { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-locator"
 version = "1.0.2"
 source = { editable = "shared/astronverse-locator" }
 dependencies = [
     { name = "astronverse-baseline" },
+    { name = "comtypes", marker = "sys_platform == 'win32'" },
     { name = "numpy" },
     { name = "psutil" },
     { name = "pyautogui" },
@@ -493,6 +533,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "astronverse-baseline", editable = "shared/astronverse-baseline" },
+    { name = "comtypes", marker = "sys_platform == 'win32'" },
     { name = "numpy" },
     { name = "psutil" },
     { name = "pyautogui" },
@@ -521,6 +562,9 @@ requires-dist = [
     { name = "sshtunnel" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-openapi"
 version = "1.0.1"
@@ -537,6 +581,9 @@ requires-dist = [
     { name = "openpyxl" },
     { name = "requests" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-pdf"
@@ -567,6 +614,9 @@ requires-dist = [
     { name = "reportlab" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-phone"
 version = "1.0.0"
@@ -589,6 +639,9 @@ requires-dist = [
     { name = "pillow" },
     { name = "uiautomator2" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-picker"
@@ -641,6 +694,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "astronverse-actionlib", editable = "shared/astronverse-actionlib" }]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-scheduler"
@@ -704,6 +760,9 @@ requires-dist = [
     { name = "requests" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-smart"
 version = "1.0.1"
@@ -723,6 +782,9 @@ requires-dist = [
     { name = "astronverse-system", editable = "components/astronverse-system" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-software"
 version = "1.0.1"
@@ -739,6 +801,9 @@ requires-dist = [
     { name = "psutil" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-system"
@@ -777,6 +842,9 @@ requires-dist = [
     { name = "pyzipper" },
     { name = "send2trash" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-trigger"
@@ -832,6 +900,9 @@ requires-dist = [
     { name = "requests" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-vision"
 version = "1.0.1"
@@ -858,6 +929,9 @@ requires-dist = [
     { name = "pynput" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-vision-picker"
@@ -931,6 +1005,9 @@ requires-dist = [
     { name = "uiautomation", marker = "sys_platform == 'win32'" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
+
 [[package]]
 name = "astronverse-winelement"
 version = "1.0.1"
@@ -949,6 +1026,9 @@ requires-dist = [
     { name = "keyring" },
     { name = "pyautogui" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-word"
@@ -972,6 +1052,9 @@ requires-dist = [
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "pywpsrpc", marker = "sys_platform == 'linux'" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "astronverse-workflowlib"

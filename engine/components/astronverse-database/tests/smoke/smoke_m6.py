@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """M6 冒烟: Postgres 6 原子全链路 (mock psycopg2 全接口, 仿 pyodbc mock 模式)"""
+
 import os
 import sys
 import types
@@ -101,9 +102,14 @@ def expect_error(name, fn, contains):
 # 1. connect 成功 + kwargs 捕获 + 端口字符串转int
 conn = Postgres.connect(host="127.0.0.1", port="5433", user="postgres", password="pwd", dbname="test")
 check("connect 返回连接对象", isinstance(conn, FakeConnection))
-check("connect 参数透传", conn.connect_kwargs.get("host") == "127.0.0.1" and conn.connect_kwargs.get("port") == 5433
-      and conn.connect_kwargs.get("user") == "postgres" and conn.connect_kwargs.get("password") == "pwd"
-      and conn.connect_kwargs.get("dbname") == "test")
+check(
+    "connect 参数透传",
+    conn.connect_kwargs.get("host") == "127.0.0.1"
+    and conn.connect_kwargs.get("port") == 5433
+    and conn.connect_kwargs.get("user") == "postgres"
+    and conn.connect_kwargs.get("password") == "pwd"
+    and conn.connect_kwargs.get("dbname") == "test",
+)
 
 # 2. connect 端口空 → 默认5432
 conn2 = Postgres.connect(host="h", user="u", password="p", dbname="d")
@@ -111,8 +117,11 @@ check("connect 空端口默认5432", conn2.connect_kwargs.get("port") == 5432)
 
 # 3. connect 失败 (database 组件 BaseException 是内置名, except BaseException:raise 前置 → 驱动错误原样抛, 与 Database/Sqlite 一致)
 FAIL_CONNECT["on"] = True
-expect_error("connect 失败抛原始异常", lambda: Postgres.connect(host="x", user="u", password="p", dbname="d"),
-             "connection refused")
+expect_error(
+    "connect 失败抛原始异常",
+    lambda: Postgres.connect(host="x", user="u", password="p", dbname="d"),
+    "connection refused",
+)
 FAIL_CONNECT["on"] = False
 
 # 4. execute_sql 受影响行数 + commit + 游标关闭
@@ -128,7 +137,9 @@ n = Postgres.execute_sql(conn=conn, sql="CREATE TABLE t(id int)")
 check("execute_sql DDL 行数归0", n == 0)
 
 # 6. execute_sql 缺连接
-expect_error("execute_sql 缺连接", lambda: Postgres.execute_sql(conn=None, sql="SELECT 1"), "缺少PostgreSQL数据库连接对象")
+expect_error(
+    "execute_sql 缺连接", lambda: Postgres.execute_sql(conn=None, sql="SELECT 1"), "缺少PostgreSQL数据库连接对象"
+)
 
 # 7. execute_sql 执行异常 (原样抛出驱动错误)
 conn.fail_execute = True
@@ -169,11 +180,15 @@ check("insert_dict 字典绑定", params_i is d)
 check("insert_dict 行数", n == 1)
 
 # 13. insert_dict 非字典
-expect_error("insert_dict 非字典", lambda: Postgres.insert_dict(conn=conn, table_name="users", data=["x"]), "必须是字典")
+expect_error(
+    "insert_dict 非字典", lambda: Postgres.insert_dict(conn=conn, table_name="users", data=["x"]), "必须是字典"
+)
 
 # 14. insert_dict 失败回滚
 conn.fail_execute = True
-expect_error("insert_dict 失败报错", lambda: Postgres.insert_dict(conn=conn, table_name="users", data={"a": 1}), "syntax error")
+expect_error(
+    "insert_dict 失败报错", lambda: Postgres.insert_dict(conn=conn, table_name="users", data={"a": 1}), "syntax error"
+)
 check("insert_dict 失败回滚", conn.rollbacks >= 1)
 conn.fail_execute = False
 
@@ -196,16 +211,25 @@ Postgres.batch_insert(conn=conn_c, table_name="t", columns=["a"], data=[[1], [2]
 check("batch_insert 默认单批", len(conn_c.cursors[-1].executemany_calls) == 1)
 
 # 17/18. batch_insert 参数校验
-expect_error("batch_insert 非二维", lambda: Postgres.batch_insert(conn=conn_b, table_name="t", columns=["a"], data=["x"]),
-             "必须是二维列表")
-expect_error("batch_insert 列名非列表", lambda: Postgres.batch_insert(conn=conn_b, table_name="t", columns="a", data=[[1]]),
-             "列名必须是列表")
+expect_error(
+    "batch_insert 非二维",
+    lambda: Postgres.batch_insert(conn=conn_b, table_name="t", columns=["a"], data=["x"]),
+    "必须是二维列表",
+)
+expect_error(
+    "batch_insert 列名非列表",
+    lambda: Postgres.batch_insert(conn=conn_b, table_name="t", columns="a", data=[[1]]),
+    "列名必须是列表",
+)
 
 # 19. batch_insert 中途失败回滚
 conn_d = FakeConnection()
 conn_d.fail_executemany = True
-expect_error("batch_insert 失败报错",
-             lambda: Postgres.batch_insert(conn=conn_d, table_name="t", columns=["a"], data=[[1], [2]]), "duplicate key")
+expect_error(
+    "batch_insert 失败报错",
+    lambda: Postgres.batch_insert(conn=conn_d, table_name="t", columns=["a"], data=[[1], [2]]),
+    "duplicate key",
+)
 check("batch_insert 失败回滚", conn_d.rollbacks == 1)
 
 # 20/21. close

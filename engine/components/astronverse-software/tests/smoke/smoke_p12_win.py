@@ -1,4 +1,5 @@
 """P1-2 win端冒烟: get_all_attributes / get_all_text / batch_scrape / scroll_into_view"""
+
 import os
 import sys
 import types
@@ -6,8 +7,25 @@ import importlib.machinery as importlib_machinery
 
 
 class _StubFinder:
-    STUB_PREFIXES = ("win32", "pythoncom", "_winapi", "pywintypes", "uiautomation", "pyautogui", "mouseinfo", "tkinter", "psutil")
-    STUB_EXACT = ("astronverse.locator", "astronverse.locator.locator", "astronverse.software", "astronverse.software.software", "astronverse.software.core_unix", "astronverse.software.core_win")
+    STUB_PREFIXES = (
+        "win32",
+        "pythoncom",
+        "_winapi",
+        "pywintypes",
+        "uiautomation",
+        "pyautogui",
+        "mouseinfo",
+        "tkinter",
+        "psutil",
+    )
+    STUB_EXACT = (
+        "astronverse.locator",
+        "astronverse.locator.locator",
+        "astronverse.software",
+        "astronverse.software.software",
+        "astronverse.software.core_unix",
+        "astronverse.software.core_win",
+    )
 
     def _should_stub(self, name):
         return name in self.STUB_EXACT or name.split(".")[0].startswith(self.STUB_PREFIXES)

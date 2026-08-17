@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """P0-5 文本扩展×13原子 冒烟测试(全部kwargs调用)"""
+
 import sys
 
 sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-dataprocess/src")
@@ -24,19 +25,34 @@ def check(name, cond, detail=""):
 r = S.generate_random_string(length=16, include_upper=True, include_lower=True, include_digit=True)
 check("random_string len", len(r) == 16, r)
 check("random_string ascii", all(c.isalnum() and ord(c) < 128 for c in r), r)
-r2 = S.generate_random_string(length=10, include_chinese=True, include_upper=False, include_lower=False, include_digit=False)
+r2 = S.generate_random_string(
+    length=10, include_chinese=True, include_upper=False, include_lower=False, include_digit=False
+)
 check("random_string chinese", all("\u4e00" <= c <= "\u9fff" for c in r2), r2)
 try:
-    S.generate_random_string(length=5, include_upper=False, include_lower=False, include_digit=False, include_chinese=False, include_special=False)
+    S.generate_random_string(
+        length=5,
+        include_upper=False,
+        include_lower=False,
+        include_digit=False,
+        include_chinese=False,
+        include_special=False,
+    )
     check("random_string empty-pool raises", False)
 except BaseException:
     check("random_string empty-pool raises", True)
 
 # 2. convert_percent
-check("percent to_percent", S.convert_percent(value=0.1234, convert_type=PercentConvertType.TO_PERCENT, precision=2) == "12.34%",
-      S.convert_percent(value=0.1234, convert_type=PercentConvertType.TO_PERCENT, precision=2))
-check("percent to_number", S.convert_percent(value="12.34%", convert_type=PercentConvertType.TO_NUMBER, precision=2) == 0.1234,
-      S.convert_percent(value="12.34%", convert_type=PercentConvertType.TO_NUMBER, precision=2))
+check(
+    "percent to_percent",
+    S.convert_percent(value=0.1234, convert_type=PercentConvertType.TO_PERCENT, precision=2) == "12.34%",
+    S.convert_percent(value=0.1234, convert_type=PercentConvertType.TO_PERCENT, precision=2),
+)
+check(
+    "percent to_number",
+    S.convert_percent(value="12.34%", convert_type=PercentConvertType.TO_NUMBER, precision=2) == 0.1234,
+    S.convert_percent(value="12.34%", convert_type=PercentConvertType.TO_NUMBER, precision=2),
+)
 
 # 3. split_address
 parts = S.split_address(address="广东省深圳市南山区科技园路1号")
@@ -47,7 +63,9 @@ parts3 = S.split_address(address="内蒙古自治区赤峰市")
 check("address autonomous", parts3[0] == "内蒙古自治区", parts3)
 
 # 4. match_similar_text
-ml, best, ratio = S.match_similar_text(source_text="苹果手机12", samples=["苹果手机", "华为手机", "苹果耳机"], threshold=0.3)
+ml, best, ratio = S.match_similar_text(
+    source_text="苹果手机12", samples=["苹果手机", "华为手机", "苹果耳机"], threshold=0.3
+)
 check("similar best", best == "苹果手机", f"{best}/{ratio}")
 check("similar best_ratio", ratio >= 0.3, (ml, ratio))
 
@@ -67,21 +85,51 @@ v3 = S.cn_symbol_to_en(text="第一《书》")
 check("cn2en book", v3 == "第一<书>", v3)
 
 # 9. remove_blank_lines
-check("remove_blank", S.remove_blank_lines(text="a\n\n  \nb\n") == "a\nb", repr(S.remove_blank_lines(text="a\n\n  \nb\n")))
+check(
+    "remove_blank", S.remove_blank_lines(text="a\n\n  \nb\n") == "a\nb", repr(S.remove_blank_lines(text="a\n\n  \nb\n"))
+)
 
 # 10. merge_lines_to_one
-check("merge_lines", S.merge_lines_to_one(text="a\n\nb\nc", separator=";", remove_blank=True) == "a;b;c", S.merge_lines_to_one(text="a\n\nb\nc", separator=";", remove_blank=True))
+check(
+    "merge_lines",
+    S.merge_lines_to_one(text="a\n\nb\nc", separator=";", remove_blank=True) == "a;b;c",
+    S.merge_lines_to_one(text="a\n\nb\nc", separator=";", remove_blank=True),
+)
 
 # 11. chinese_to_number
-for cn, num in [("一千零二十三", 1023), ("三百零五", 305), ("一千二百三十", 1230), ("两", 2), ("拾", 10), ("一万", 10000), ("零", 0)]:
+for cn, num in [
+    ("一千零二十三", 1023),
+    ("三百零五", 305),
+    ("一千二百三十", 1230),
+    ("两", 2),
+    ("拾", 10),
+    ("一万", 10000),
+    ("零", 0),
+]:
     got = S.chinese_to_number(chinese_number=cn)
     check(f"cn2num {cn}", got == num, got)
 
 # 12. number_to_chinese
-for num, expect in [(123, "一百二十三"), (0, "零"), (10, "十"), (110, "一百一十"), (100000, "十万"), (10000, "一万"), (10001, "一万零一"), (100000001, "一亿零一"), (100000000, "一亿"), (100020003, "一亿零二万零三"), (-15, "负十五")]:
+for num, expect in [
+    (123, "一百二十三"),
+    (0, "零"),
+    (10, "十"),
+    (110, "一百一十"),
+    (100000, "十万"),
+    (10000, "一万"),
+    (10001, "一万零一"),
+    (100000001, "一亿零一"),
+    (100000000, "一亿"),
+    (100020003, "一亿零二万零三"),
+    (-15, "负十五"),
+]:
     got = S.number_to_chinese(number=num, case_type=ChineseNumberType.NORMAL)
     check(f"num2cn {num}", got == expect, got)
-check("num2cn amount", S.number_to_chinese(number=123, case_type=ChineseNumberType.AMOUNT) == "壹佰贰拾叁元整", S.number_to_chinese(number=123, case_type=ChineseNumberType.AMOUNT))
+check(
+    "num2cn amount",
+    S.number_to_chinese(number=123, case_type=ChineseNumberType.AMOUNT) == "壹佰贰拾叁元整",
+    S.number_to_chinese(number=123, case_type=ChineseNumberType.AMOUNT),
+)
 
 # 13. generate_uuid
 u1, u2 = S.generate_uuid(), S.generate_uuid(upper=True, with_hyphen=False)

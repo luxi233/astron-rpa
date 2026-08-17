@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """M2-B批次冒烟: P5-2 打印机×6 macOS守卫 + fake win32print 逻辑验证"""
+
 import sys
 import types
 
@@ -126,7 +127,11 @@ check("status 空闲", code == 0 and text == "空闲", (code, text))
 state["jobs"] = [make_job(5, "doc1.docx", "user1", 0x10 | 0x80, 3, 10), make_job(6, "doc2.pdf", "user2", 0x8, 0, 5)]
 jobs = P.get_printer_jobs(printer_name="FakePrinter")
 check("jobs 2项", len(jobs) == 2, jobs)
-check("jobs[0] 字段", jobs[0]["job_id"] == 5 and jobs[0]["document"] == "doc1.docx" and jobs[0]["owner"] == "user1", jobs[0])
+check(
+    "jobs[0] 字段",
+    jobs[0]["job_id"] == 5 and jobs[0]["document"] == "doc1.docx" and jobs[0]["owner"] == "user1",
+    jobs[0],
+)
 check("jobs[0] 状态文本", jobs[0]["status_text"] == "正在打印、已打印", jobs[0]["status_text"])
 check("jobs[0] 页数", jobs[0]["pages_printed"] == 3 and jobs[0]["total_pages"] == 10, jobs[0])
 check("jobs[0] 提交时间", jobs[0]["submitted"] == "2026/08/16 20:00:00", jobs[0])

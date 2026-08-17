@@ -2,6 +2,7 @@ r"""P2 动态调用×3冒烟测试: run_process_dynamic / run_module_dynamic / r
 构造 /tmp/p2_dyn 工程结构(包+子流程+模块v1/v2+组件c-id), 从 main() 帧提供 __package__ 上下文。
 运行: cd astronverse-script && uv run python /tmp/smoke_p2_dynamic.py
 """
+
 import os
 import sys
 
@@ -97,7 +98,9 @@ def main():
         except AssertionError:
             raise
         except BaseException as e:
-            assert "模块" in str(e) or "导入" in str(e) or "main" in str(e) or "字符串" in str(e), "{}: {}".format(name, e)
+            assert "模块" in str(e) or "导入" in str(e) or "main" in str(e) or "字符串" in str(e), "{}: {}".format(
+                name, e
+            )
     check("7种错误分支全部拦截", True)
 
 

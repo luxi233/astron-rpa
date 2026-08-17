@@ -1,6 +1,7 @@
 r"""P1.5 数据库增强冒烟测试: upsert / execute_transaction / run_procedure / execute_sql(params+return_format)
 mock pyodbc (paramiko式), 不连真库。运行: .venv/bin/python /tmp/smoke_p15_db.py
 """
+
 import sys
 import types
 
@@ -248,9 +249,7 @@ conn4 = FakeConn()
 res = Database.execute_sql(conn=conn4, sql="SELECT id,name FROM t WHERE name=?", params=["张三"])
 check("execute_sql params透传", conn4.statements[0] == ("SELECT id,name FROM t WHERE name=?", ["张三"]))
 check("execute_sql 默认list格式", res == [["id", "name"], ["1", "张三"], ["2", ""]], str(res))
-res_d = Database.execute_sql(
-    conn=conn4, sql="SELECT id,name FROM t", return_format=SqlResultFormatFlag.DICTS
-)
+res_d = Database.execute_sql(conn=conn4, sql="SELECT id,name FROM t", return_format=SqlResultFormatFlag.DICTS)
 check(
     "execute_sql dicts格式",
     res_d == [{"id": "1", "name": "张三"}, {"id": "2", "name": ""}],

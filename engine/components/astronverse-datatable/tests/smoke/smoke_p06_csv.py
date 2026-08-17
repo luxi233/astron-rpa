@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """P0-6 CSV分隔符冒烟(datatable组件)"""
+
 import sys
 import os
 import tempfile
@@ -36,22 +37,30 @@ DataTable.import_data_table_from_file(import_file_path=semi_csv, csv_delimiter="
 vals = DataTable.read_data(read_type=ReadType.AREA, start_row=1, start_col="A", end_row=3, end_col="C")
 check("csv import semicolon", vals == [["a", "b", "c"], ["1", "2", "3"], ["4", "5", "6"]], vals)
 
-out = DataTable.export_data_table_to_file(export_dest_path=workdir, export_file_name="tab_out", export_file_type=ExportFileType.CSV, csv_delimiter="\\t")
+out = DataTable.export_data_table_to_file(
+    export_dest_path=workdir, export_file_name="tab_out", export_file_type=ExportFileType.CSV, csv_delimiter="\\t"
+)
 content = open(out, encoding="utf-8").read()
 check("csv export tab", "a\tb\tc" in content and "1\t2\t3" in content, content[:80])
 
-out2 = DataTable.export_data_table_to_file(export_dest_path=workdir, export_file_name="semi_out", export_file_type=ExportFileType.CSV, csv_delimiter=";")
+out2 = DataTable.export_data_table_to_file(
+    export_dest_path=workdir, export_file_name="semi_out", export_file_type=ExportFileType.CSV, csv_delimiter=";"
+)
 content2 = open(out2, encoding="utf-8").read()
 check("csv export semicolon", "a;b;c" in content2, content2[:80])
 
 try:
-    DataTable.export_data_table_to_file(export_dest_path=workdir, export_file_name="bad", export_file_type=ExportFileType.CSV, csv_delimiter=";;")
+    DataTable.export_data_table_to_file(
+        export_dest_path=workdir, export_file_name="bad", export_file_type=ExportFileType.CSV, csv_delimiter=";;"
+    )
     check("csv delimiter invalid raises", False)
 except BaseException:
     check("csv delimiter invalid raises", True)
 
 # 默认逗号不受影响
-out3 = DataTable.export_data_table_to_file(export_dest_path=workdir, export_file_name="def_out", export_file_type=ExportFileType.CSV)
+out3 = DataTable.export_data_table_to_file(
+    export_dest_path=workdir, export_file_name="def_out", export_file_type=ExportFileType.CSV
+)
 content3 = open(out3, encoding="utf-8").read()
 check("csv default comma", "a,b,c" in content3, content3[:80])
 
