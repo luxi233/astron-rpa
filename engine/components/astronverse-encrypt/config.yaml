@@ -113,12 +113,49 @@ atomic:
       - key: decoded_string
         title: 解码后的字符串/图片绝对路径
         tip: ''
+  Encrypt.url_encode:
+    title: URL编码
+    comment: 对文本(@{source_str})进行URL百分号编码，保留字符集(@{safe_chars})中的字符不转义
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: source_str
+        title: 需要编码的文本
+        tip: ''
+      - key: safe_chars
+        title: 保留字符集
+        tip: 其中的字符不被转义，如 /:?&=，留空则全部特殊字符转义
+    outputList:
+      - key: encoded_url
+        title: 编码后的文本
+        tip: ''
+  Encrypt.url_decode:
+    title: URL解码
+    comment: 对URL编码文本(@{source_str})按字符集(@{encoding})解码还原
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: source_str
+        title: 需要解码的文本
+        tip: 含 %XX 转义的文本
+      - key: encoding
+        title: 解码字符集
+        tip: ''
+    outputList:
+      - key: decoded_url
+        title: 解码后的文本
+        tip: ''
 options:
   MD5bitsType:
     - value: '32'
       label: 32位
     - value: '16'
       label: 16位
+  UrlEncodingType:
+    - value: utf-8
+      label: UTF-8
+    - value: gbk
+      label: GBK
   EncryptCaseType:
     - value: lower
       label: 小写字母

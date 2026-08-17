@@ -5,6 +5,7 @@ from typing import Any
 from astronverse.actionlib import DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.dataprocess import NoKeyOptionType
+from astronverse.dataprocess.error import INVALID_DICT_FORMAT_ERROR_FORMAT, BaseException
 
 
 class DictProcess:
@@ -123,3 +124,116 @@ class DictProcess:
         字典获取所有值
         """
         return list(dict_data.values())
+
+    @staticmethod
+    @atomicMg.atomic(
+        "DictProcess",
+        inputList=[
+            atomicMg.param("dict_data", types="Any"),
+            atomicMg.param("merge_dict_data", types="Any"),
+        ],
+        outputList=[atomicMg.param("merged_dict_data", types="Dict")],
+    )
+    def merge_dict(dict_data: dict, merge_dict_data: dict):
+        """
+        合并字典：将被合并字典的键值对更新到字典（同名键后者覆盖），就地修改
+        """
+        if not isinstance(dict_data, dict):
+            raise BaseException(INVALID_DICT_FORMAT_ERROR_FORMAT, "目标字典必须是字典类型")
+        if not isinstance(merge_dict_data, dict):
+            raise BaseException(INVALID_DICT_FORMAT_ERROR_FORMAT, "被合并字典必须是字典类型")
+        dict_data.update(merge_dict_data)
+        return dict_data
+
+    @staticmethod
+    @atomicMg.atomic(
+        "DictProcess",
+        inputList=[
+            atomicMg.param("dict_data", types="Any"),
+        ],
+        outputList=[atomicMg.param("cleared_dict_data", types="Dict")],
+    )
+    def clear_dict(dict_data: dict):
+        """
+        清空字典：清空全部键值对，就地修改
+        """
+        if not isinstance(dict_data, dict):
+            raise BaseException(INVALID_DICT_FORMAT_ERROR_FORMAT, "目标必须是字典类型")
+        dict_data.clear()
+        return dict_data
+
+    @staticmethod
+    @atomicMg.atomic(
+        "DictProcess",
+        inputList=[
+            atomicMg.param("dict_data", types="Any"),
+        ],
+        outputList=[atomicMg.param("stripped_keys_dict_data", types="Dict")],
+    )
+    def strip_dict_keys(dict_data: dict):
+        """
+        删除字典键两端空格：仅处理字符串键（非字符串键保持原样），就地重建
+        """
+        if not isinstance(dict_data, dict):
+            raise BaseException(INVALID_DICT_FORMAT_ERROR_FORMAT, "目标必须是字典类型")
+        new_dict = {}
+        for k, v in dict_data.items():
+            new_key = k.strip() if isinstance(k, str) else k
+            new_dict[new_key] = v
+        dict_data.clear()
+        dict_data.update(new_dict)
+        return dict_data
+
+    @staticmethod
+    @atomicMg.atomic(
+        "DictProcess",
+        inputList=[
+            atomicMg.param("dict_data", types="Any"),
+        ],
+        outputList=[atomicMg.param("stripped_values_dict_data", types="Dict")],
+    )
+    def strip_dict_values(dict_data: dict):
+        """
+        删除字典值两端空格：仅处理字符串值（非字符串值保持原样），就地修改
+        """
+        if not isinstance(dict_data, dict):
+            raise BaseException(INVALID_DICT_FORMAT_ERROR_FORMAT, "目标必须是字典类型")
+        for k in dict_data:
+            if isinstance(dict_data[k], str):
+                dict_data[k] = dict_data[k].strip()
+        return dict_data
+
+    @staticmethod
+    @atomicMg.atomic(
+        "DictProcess",
+        inputList=[
+            atomicMg.param("dict_data", types="Any"),
+            atomicMg.param("dict_key", types="Any"),
+        ],
+        outputList=[atomicMg.param("key_exist", types="Bool")],
+    )
+    def dict_key_exist(dict_data: dict, dict_key: Any):
+        """
+        判断字典中指定键是否存在，输出布尔值
+        """
+        if not isinstance(dict_data, dict):
+            raise BaseException(INVALID_DICT_FORMAT_ERROR_FORMAT, "目标必须是字典类型")
+        return dict_key in dict_data
+
+    @staticmethod
+    @atomicMg.atomic(
+        "DictProcess",
+        inputList=[
+            atomicMg.param("dict_data", types="Any"),
+            atomicMg.param("item_connect", types="Str", required=False),
+            atomicMg.param("kv_connect", types="Str", required=False),
+        ],
+        outputList=[atomicMg.param("dict_text", types="Str")],
+    )
+    def dict_to_text(dict_data: dict, item_connect: str = "\n", kv_connect: str = ":"):
+        """
+        字典格式化为文本：按"键+键值连接符+值"生成每项，项之间用项连接符拼接
+        """
+        if not isinstance(dict_data, dict):
+            raise BaseException(INVALID_DICT_FORMAT_ERROR_FORMAT, "目标必须是字典类型")
+        return item_connect.join(f"{k}{kv_connect}{v}" for k, v in dict_data.items())

@@ -3,6 +3,7 @@ from astronverse.actionlib.config import config
 from astronverse.baseline.config.config import load_config
 from astronverse.network.ftp import FTP
 from astronverse.network.network import Network
+from astronverse.network.ssh_tunnel import SshTunnel
 
 
 def get_version():
@@ -14,4 +15,5 @@ if __name__ == "__main__":
     config.set_config_file("config.yaml")
     atomicMg.register(FTP, group_key="Network", version=get_version())
     atomicMg.register(Network, group_key="Network", version=get_version())
+    atomicMg.register(SshTunnel, group_key="Network", version=get_version())
     atomicMg.meta()

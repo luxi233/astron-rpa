@@ -68,3 +68,36 @@ class DataConvertProcess:
                 return ast.literal_eval(input_data)
         except Exception:
             raise Exception("请输入正确的待转换目标字符串")
+
+    @staticmethod
+    @atomicMg.atomic(
+        "DataConvertProcess",
+        inputList=[
+            atomicMg.param("input_data", types="Any"),
+            atomicMg.param("extract_key", types="Str"),
+        ],
+        outputList=[atomicMg.param("extracted_values", types="List")],
+    )
+    def extract_json_key(input_data: Any, extract_key: str):
+        """
+        递归提取JSON数据中指定键的所有值：遍历嵌套字典/列表，输入为字符串时先尝试按JSON解析，未匹配返回空列表
+        """
+        if isinstance(input_data, str):
+            try:
+                input_data = json.loads(input_data)
+            except (json.JSONDecodeError, ValueError):
+                raise ValueError("输入字符串不是有效的JSON文本!")
+        values = []
+
+        def _walk(node):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    if k == extract_key:
+                        values.append(v)
+                    _walk(v)
+            elif isinstance(node, list):
+                for item in node:
+                    _walk(item)
+
+        _walk(input_data)
+        return values

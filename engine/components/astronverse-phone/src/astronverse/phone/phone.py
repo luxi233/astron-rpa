@@ -13,6 +13,7 @@ from . import (
     ImageTargetPart,
     InputTargetType,
     KeyType,
+    ListSortType,
     LocatorType,
     OrientationType,
     PositionType,
@@ -904,3 +905,480 @@ class Phone:
         if not conn:
             raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
         return PhoneCore.get_ui_tree(conn)
+
+    # ---------- ADB命令/懒加载/长截屏 ----------
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param(
+                "command",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "udid",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+        ],
+        outputList=[atomicMg.param("result", types="Str")],
+    )
+    def run_adb_command(command: str = "", udid: str = "") -> str:
+        """
+        运行ADB命令
+        :param command: adb shell命令内容(如 dumpsys battery)
+        :param udid: 手机serial(空=自动选择唯一已连接设备)
+        :return: 命令输出内容
+        """
+        if not command:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "请填写ADB命令")
+        return PhoneCore.run_adb_command(command, udid)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param("by"),
+            atomicMg.param(
+                "value",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param("direction"),
+            atomicMg.param("max_swipes", types="Int"),
+            atomicMg.param("duration", types="Int"),
+            atomicMg.param("after_delay", types="Float"),
+        ],
+        outputList=[atomicMg.param("element", types="PhoneElement")],
+    )
+    def lazy_load(
+        conn: PhoneObject = None,
+        by: LocatorType = LocatorType.ID,
+        value: str = "",
+        direction: SwipeDirection = SwipeDirection.UP,
+        max_swipes: int = 10,
+        duration: int = 300,
+        after_delay: float = 0.5,
+    ):
+        """
+        手机懒加载(元素特征)
+        :param conn: 手机连接对象
+        :param by: 定位方式(id/text/text_contains/description/xpath/selector/class)
+        :param value: 元素特征(定位方式对应的值)
+        :param direction: 滑动方向(默认向上滑动加载更多)
+        :param max_swipes: 最大滑动次数(超出未找到则报错)
+        :param duration: 每次滑动时间(毫秒)
+        :param after_delay: 执行后延迟秒数
+        :return: 找到的元素对象
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        from astronverse.phone.phone_core import _build_xpath
+
+        element = PhoneCore.lazy_load(conn, _build_xpath(by, value, 0), direction, max_swipes, duration, 0.3)
+        if after_delay > 0:
+            time.sleep(after_delay)
+        return element
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=True,
+            ),
+            atomicMg.param("direction"),
+            atomicMg.param("max_swipes", types="Int"),
+            atomicMg.param("duration", types="Int"),
+            atomicMg.param("after_delay", types="Float"),
+        ],
+        outputList=[atomicMg.param("element", types="PhoneElement")],
+    )
+    def lazy_load_xpath(
+        conn: PhoneObject = None,
+        xpath: str = "",
+        direction: SwipeDirection = SwipeDirection.UP,
+        max_swipes: int = 10,
+        duration: int = 300,
+        after_delay: float = 0.5,
+    ):
+        """
+        手机懒加载(xpath)
+        :param conn: 手机连接对象
+        :param xpath: xpath表达式(如//*[@text="加载更多"])
+        :param direction: 滑动方向(默认向上滑动加载更多)
+        :param max_swipes: 最大滑动次数(超出未找到则报错)
+        :param duration: 每次滑动时间(毫秒)
+        :param after_delay: 执行后延迟秒数
+        :return: 找到的元素对象
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        if not xpath:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "请填写xpath表达式")
+        element = PhoneCore.lazy_load(conn, xpath, direction, max_swipes, duration, 0.3)
+        if after_delay > 0:
+            time.sleep(after_delay)
+        return element
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "folder_path",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param("direction"),
+            atomicMg.param("max_scrolls", types="Int"),
+            atomicMg.param("duration", types="Int"),
+            atomicMg.param(
+                "filename",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+            atomicMg.param("after_delay", types="Float"),
+        ],
+        outputList=[atomicMg.param("file_path", types="Str")],
+    )
+    def scroll_screenshot(
+        conn: PhoneObject = None,
+        folder_path: str = "",
+        direction: SwipeDirection = SwipeDirection.UP,
+        max_scrolls: int = 0,
+        duration: int = 300,
+        after_delay: float = 0,
+        filename: str = "",
+    ) -> str:
+        """
+        手机滚动长截屏
+        :param conn: 手机连接对象
+        :param folder_path: 本地保存文件夹
+        :param direction: 滚动方向(向上/向下)
+        :param max_scrolls: 最大滚动次数(0=滚动到底部自动停止)
+        :param duration: 每次滑动时间(毫秒)
+        :param after_delay: 执行后延迟秒数
+        :param filename: 保存文件名(空=自动生成)
+        :return: 拼接长图本地路径
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        path = PhoneCore.scroll_screenshot(conn, folder_path, filename, direction, max_scrolls, duration, 0.4)
+        if after_delay > 0:
+            time.sleep(after_delay)
+        return path
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "apk_path",
+                formType=AtomicFormTypeMeta(
+                    type=AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,
+                    params={"filters": [], "file_type": "file"},
+                ),
+                required=True,
+            ),
+        ],
+        outputList=[],
+    )
+    def install_apk(conn: PhoneObject = None, apk_path: str = ""):
+        """
+        安装APK到手机
+        :param conn: 手机连接对象
+        :param apk_path: 本地APK文件路径
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        PhoneCore.install_apk(conn, apk_path)
+
+    # ---------- 手机文件管理 ----------
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[],
+    )
+    def delete_file(conn: PhoneObject = None, path: str = ""):
+        """
+        删除手机文件
+        :param conn: 手机连接对象
+        :param path: 手机文件路径(如/sdcard/dcim/旧图.png)
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        PhoneCore.delete_file(conn, path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[],
+    )
+    def delete_folder(conn: PhoneObject = None, path: str = ""):
+        """
+        删除手机文件夹
+        :param conn: 手机连接对象
+        :param path: 手机文件夹路径(含其中全部内容)
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        PhoneCore.delete_folder(conn, path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[],
+    )
+    def create_folder(conn: PhoneObject = None, path: str = ""):
+        """
+        创建手机文件夹
+        :param conn: 手机连接对象
+        :param path: 手机文件夹路径(多级不存在时递归创建)
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        PhoneCore.create_folder(conn, path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "old_path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "new_path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[],
+    )
+    def rename_file(conn: PhoneObject = None, old_path: str = "", new_path: str = ""):
+        """
+        重命名手机文件
+        :param conn: 手机连接对象
+        :param old_path: 原文件路径
+        :param new_path: 新文件路径(不同目录即移动)
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        PhoneCore.rename_file(conn, old_path, new_path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "old_path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "new_path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[],
+    )
+    def rename_folder(conn: PhoneObject = None, old_path: str = "", new_path: str = ""):
+        """
+        重命名手机文件夹
+        :param conn: 手机连接对象
+        :param old_path: 原文件夹路径
+        :param new_path: 新文件夹路径(不同父目录即移动)
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        PhoneCore.rename_folder(conn, old_path, new_path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[atomicMg.param("exists", types="Bool")],
+    )
+    def file_exists(conn: PhoneObject = None, path: str = "") -> bool:
+        """
+        手机文件是否存在
+        :param conn: 手机连接对象
+        :param path: 手机文件路径
+        :return: 存在返回True
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        return PhoneCore.file_exists(conn, path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[atomicMg.param("exists", types="Bool")],
+    )
+    def folder_exists(conn: PhoneObject = None, path: str = "") -> bool:
+        """
+        手机文件夹是否存在
+        :param conn: 手机连接对象
+        :param path: 手机文件夹路径
+        :return: 存在返回True
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        return PhoneCore.folder_exists(conn, path)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "folder",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "pattern",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+            atomicMg.param("sort_type"),
+        ],
+        outputList=[atomicMg.param("file_list", types="List")],
+    )
+    def get_file_list(
+        conn: PhoneObject = None, folder: str = "", pattern: str = "*", sort_type: ListSortType = ListSortType.ASC
+    ) -> list:
+        """
+        获取手机文件列表
+        :param conn: 手机连接对象
+        :param folder: 手机文件夹路径
+        :param pattern: 文件名通配符(如*.png, 多个用|分隔)
+        :return: 文件名列表
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        return PhoneCore.get_file_list(conn, folder, pattern, sort_type)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "folder",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "pattern",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+            atomicMg.param("sort_type"),
+        ],
+        outputList=[atomicMg.param("folder_list", types="List")],
+    )
+    def get_folder_list(
+        conn: PhoneObject = None, folder: str = "", pattern: str = "*", sort_type: ListSortType = ListSortType.ASC
+    ) -> list:
+        """
+        获取手机文件夹列表
+        :param conn: 手机连接对象
+        :param folder: 手机文件夹路径
+        :param pattern: 文件夹名通配符(如DCIM*)
+        :return: 子文件夹名列表
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        return PhoneCore.get_folder_list(conn, folder, pattern, sort_type)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Phone",
+        inputList=[
+            atomicMg.param("conn", types="PhoneObject"),
+            atomicMg.param(
+                "path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[],
+    )
+    def refresh_file(conn: PhoneObject = None, path: str = ""):
+        """
+        刷新手机文件
+        :param conn: 手机连接对象
+        :param path: 手机文件路径(发送媒体扫描广播, 让相册等应用识别)
+        """
+        if not conn:
+            raise BaseException(PHONE_NO_CONNECTION_FORMAT, "conn is None")
+        PhoneCore.refresh_file(conn, path)

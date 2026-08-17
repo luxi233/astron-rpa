@@ -693,17 +693,34 @@ class File:
                 ),
             ),
             atomicMg.param("info_type", required=False),
+            atomicMg.param("size_unit", required=False),
         ],
         outputList=[
             atomicMg.param("file_info", types="Dict"),
         ],
     )
-    def file_info(file_path: str = "", info_type: InfoType = InfoType.ALL) -> dict:
+    def file_info(
+        file_path: str = "",
+        info_type: InfoType = InfoType.ALL,
+        size_unit: FileSizeUnitType = FileSizeUnitType.B,
+    ) -> dict:
         """
         获取文件信息
+        :param size_unit: 文件大小单位(B/KB/MB/GB, 默认B字节)
         """
         if not os.path.isfile(file_path):
             raise BaseException(FILE_PATH_ERROR_FORMAT.format(file_path), "文件不存在，请检查路径信息")
+
+        unit_divisors = {
+            FileSizeUnitType.B: 1,
+            FileSizeUnitType.KB: 1024,
+            FileSizeUnitType.MB: 1024**2,
+            FileSizeUnitType.GB: 1024**3,
+        }
+        divisor = unit_divisors.get(size_unit, 1)
+        size_bytes = os.path.getsize(file_path)
+        size_value = size_bytes / divisor if divisor > 1 else size_bytes
+        size_value = round(size_value, 4) if divisor > 1 else size_value
 
         abs_path = os.path.abspath(file_path)
         file_info = {
@@ -713,7 +730,7 @@ class File:
             "name_ext": os.path.basename(file_path),
             "name": get_file_name_only(abs_path),
             "extension": os.path.splitext(file_path)[1],
-            "size": os.path.getsize(abs_path),
+            "size": size_value,
             "c_time": convert_time_format(os.path.getctime(abs_path)),
             "m_time": convert_time_format(os.path.getmtime(abs_path)),
         }
@@ -871,3 +888,187 @@ class File:
             return file_list
         else:
             raise NotImplementedError()
+
+    @staticmethod
+    @atomicMg.atomic(
+        "File",
+        inputList=[
+            atomicMg.param(
+                "file_path",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,
+                    params={"filters": [], "file_type": "file"},
+                ),
+            ),
+            atomicMg.param("output_html", types="Bool", required=False),
+        ],
+        outputList=[
+            atomicMg.param("base64_string", types="Str"),
+        ],
+    )
+    def encode_base64(file_path: str = "", output_html: bool = False) -> str:
+        """
+        Base64编码文件
+        :param file_path: 文件路径(多为图片)
+        :param output_html: 输出为HTML的img标签(可直接嵌入网页显示)
+        :return: Base64编码字符串
+        """
+        import base64
+        import mimetypes
+
+        if not file_is_exists(file_path):
+            raise BaseException(
+                FILE_PATH_ERROR_FORMAT.format(file_path),
+                "文件不存在，请检查路径信息",
+            )
+        try:
+            with open(file_path, "rb") as f:
+                data = base64.b64encode(f.read()).decode("utf-8")
+            if output_html:
+                mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+                return f'<img src="data:{mime_type};base64,{data}">'
+            return data
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(FILE_BASE64_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "File",
+        inputList=[
+            atomicMg.param(
+                "file_path",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,
+                    params={"filters": [], "file_type": "file"},
+                ),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("md5_string", types="Str"),
+        ],
+    )
+    def get_md5(file_path: str = "") -> str:
+        """
+        计算文件MD5(可用于校验文件是否被修改)
+        :param file_path: 文件路径
+        :return: MD5哈希字符串
+        """
+        import hashlib
+
+        if not file_is_exists(file_path):
+            raise BaseException(
+                FILE_PATH_ERROR_FORMAT.format(file_path),
+                "文件不存在，请检查路径信息",
+            )
+        try:
+            md5 = hashlib.md5()
+            with open(file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    md5.update(chunk)
+            return md5.hexdigest()
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(FILE_MD5_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "File",
+        inputList=[
+            atomicMg.param(
+                "path",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("expanded_path", types="Str"),
+        ],
+    )
+    def expand_env_path(path: str = "") -> str:
+        """
+        展开路径中的环境变量
+        :param path: 含环境变量的路径，如 %TEMP%\\test 或 ~/documents
+        :return: 展开后的实际路径
+        """
+        import os as _os
+
+        if not path:
+            raise BaseException(FILE_PATH_ERROR_FORMAT.format(path), "路径不能为空")
+        try:
+            return _os.path.expandvars(_os.path.expanduser(path))
+        except Exception as e:
+            raise BaseException(FILE_EXPAND_ENV_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "File",
+        inputList=[
+            atomicMg.param(
+                "path1",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param("path2", types="Str", required=False),
+            atomicMg.param("path3", types="Str", required=False),
+            atomicMg.param("path4", types="Str", required=False),
+        ],
+        outputList=[
+            atomicMg.param("joined_path", types="Str"),
+        ],
+    )
+    def join_path(path1: str = "", path2: str = "", path3: str = "", path4: str = "") -> str:
+        """
+        合成一个路径(自动处理路径分隔符)
+        :param path1: 路径第1段，如 C:/Users
+        :param path2: 路径第2段，如 admin
+        :param path3: 路径第3段
+        :param path4: 路径第4段
+        :return: 合成后的完整路径
+        """
+        import os as _os
+
+        if not path1:
+            raise BaseException(FILE_PATH_ERROR_FORMAT.format(path1), "路径第1段不能为空")
+        parts = [p for p in (path1, path2, path3, path4) if p]
+        return _os.path.join(*parts)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "File",
+        inputList=[
+            atomicMg.param(
+                "file_path",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,
+                    params={"filters": [], "file_type": "file"},
+                ),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("is_locked", types="Bool"),
+        ],
+    )
+    def is_file_locked(file_path: str = "") -> bool:
+        """
+        检查文件是否被占用(被其他程序打开锁定时返回True)
+        :param file_path: 文件路径
+        :return: 文件是否被占用
+        """
+        if not file_is_exists(file_path):
+            raise BaseException(
+                FILE_PATH_ERROR_FORMAT.format(file_path),
+                "文件不存在，请检查路径信息",
+            )
+        try:
+            with open(file_path, "a"):
+                pass
+            return False
+        except OSError:
+            return True
+        except Exception as e:
+            raise BaseException(FILE_LOCK_CHECK_ERROR_FORMAT.format(str(e)), str(e))

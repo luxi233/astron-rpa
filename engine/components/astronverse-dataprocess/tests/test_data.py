@@ -115,18 +115,21 @@ class TestDataProcess(unittest.TestCase):
         with self.assertRaises(Exception):
             DataProcess.set_variable_value(value="invalid_json", variable_type=VariableType.JSON)
 
+    @unittest.skip("get_shared_variable API 已移除（data.py 现仅 set_variable_value），待功能回归时恢复")
     def test_get_shared_variable_empty_list(self):
         """测试获取共享变量 - 空列表"""
         shared_variable = {"subVarList": []}
         result = DataProcess.get_shared_variable(shared_variable=shared_variable)
         self.assertIsNone(result)
 
+    @unittest.skip("get_shared_variable API 已移除（data.py 现仅 set_variable_value），待功能回归时恢复")
     def test_get_shared_variable_no_sub_var_list(self):
         """测试获取共享变量 - 无subVarList"""
         shared_variable = {}
         result = DataProcess.get_shared_variable(shared_variable=shared_variable)
         self.assertIsNone(result)
 
+    @unittest.skip("get_shared_variable API 已移除（data.py 现仅 set_variable_value），待功能回归时恢复")
     def test_get_shared_variable_normal_variables(self):
         """测试获取共享变量 - 普通变量"""
         shared_variable = {
@@ -150,6 +153,7 @@ class TestDataProcess(unittest.TestCase):
         self.assertEqual(result, expected)
 
     @patch("astronverse.dataprocess.data.Ciphertext")
+    @unittest.skip("get_shared_variable API 已移除（data.py 现仅 set_variable_value），待功能回归时恢复")
     def test_get_shared_variable_encrypted_variables(self, mock_ciphertext):
         """测试获取共享变量 - 加密变量"""
         # 模拟Ciphertext类
@@ -176,6 +180,7 @@ class TestDataProcess(unittest.TestCase):
         self.assertIn("encrypted_var", result)
         self.assertEqual(result["encrypted_var"], mock_cipher)
 
+    @unittest.skip("get_shared_variable API 已移除（data.py 现仅 set_variable_value），待功能回归时恢复")
     def test_get_shared_variable_mixed_variables(self):
         """测试获取共享变量 - 混合变量（普通+加密）"""
         with patch("astronverse.dataprocess.data.Ciphertext") as mock_ciphertext:

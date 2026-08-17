@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 from ast import literal_eval
+
 import requests
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, AtomicLevel, DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
@@ -11,9 +12,9 @@ from astronverse.actionlib.types import PATH, URL, WebPick
 from astronverse.browser import *
 from astronverse.browser.browser import Browser
 from astronverse.browser.core.core_win import BrowserCore
+from astronverse.browser.core.launcher import BrowserLauncher
 from astronverse.browser.error import *
 from astronverse.software.software import Software
-from astronverse.browser.core.launcher import BrowserLauncher
 
 
 def _copy_image_to_clipboard(image_path: str):
@@ -1196,3 +1197,209 @@ class BrowserSoftware:
             except Exception:
                 return {"status": -1, "headers": {}, "body": data}
         return {"status": -1, "headers": {}, "body": str(data)}
+
+    # ---------------- P3-1 Web 增强（M9） ----------------
+
+    @staticmethod
+    def _run_js(browser_obj: Browser, js_code: str, time_out: float = 30):
+        """runJS 通道统一入口"""
+        from astronverse.browser.browser_script import eval_js_code
+
+        return browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="runJS",
+            data={"code": js_code + eval_js_code(False)},
+            timeout=float(time_out),
+        )
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("session_storage", types="Dict"),
+        ],
+    )
+    def get_session_storage(browser_obj: Browser):
+        """获取会话存储(sessionStorage全量字典)"""
+        js_code = (
+            "function main(){ var out={}; for(var i=0;i<sessionStorage.length;i++){"
+            " var k=sessionStorage.key(i); out[k]=sessionStorage.getItem(k); } return out; }"
+        )
+        data = BrowserSoftware._run_js(browser_obj, js_code)
+        return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("local_storage", types="Dict"),
+        ],
+    )
+    def get_local_storage(browser_obj: Browser):
+        """获取本地存储(localStorage全量字典)"""
+        js_code = (
+            "function main(){ var out={}; for(var i=0;i<localStorage.length;i++){"
+            " var k=localStorage.key(i); out[k]=localStorage.getItem(k); } return out; }"
+        )
+        data = BrowserSoftware._run_js(browser_obj, js_code)
+        return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("cancel_zoom_result", types="Bool"),
+        ],
+    )
+    def cancel_html_zoom(browser_obj: Browser):
+        """取消HTML缩放(恢复页面zoom/transform与viewport缩放限制)"""
+        js_code = (
+            "function main(){ var ns=[document.documentElement, document.body];"
+            " for(var i=0;i<ns.length;i++){ var n=ns[i]; if(!n){ continue; }"
+            " n.style.zoom=''; n.style.transform=''; n.style.mozTransform=''; n.style.webkitTransform=''; }"
+            " var m=document.querySelector('meta[name=viewport]');"
+            " if(m){ m.setAttribute('content','width=device-width, initial-scale=1'); }"
+            " return true; }"
+        )
+        return bool(BrowserSoftware._run_js(browser_obj, js_code))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("keep_url", types="Str", required=False),
+        ],
+        outputList=[
+            atomicMg.param("closed_count", types="Int"),
+        ],
+    )
+    def close_other_tabs(browser_obj: Browser, keep_url: str = ""):
+        """关闭其他网页(保留指定或当前网页, 关闭同实例其他标签)"""
+        if not keep_url:
+            keep_url = str(browser_obj.get_url() or "")
+        tabs = browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="getAllTabs",
+        )
+        closed = 0
+        if isinstance(tabs, list):
+            for tab in tabs:
+                if not isinstance(tab, dict):
+                    continue
+                tab_url = str(tab.get("url", ""))
+                if tab_url and tab_url != keep_url:
+                    browser_obj.send_browser_extension(
+                        browser_type=browser_obj.browser_type.value,
+                        key="closeTab",
+                        data={"url": tab_url},
+                    )
+                    closed += 1
+        return closed
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("url", types="Str", required=False),
+        ],
+        outputList=[
+            atomicMg.param("close_result", types="Bool"),
+        ],
+    )
+    def force_close_web(browser_obj: Browser, url: str = ""):
+        """强制关闭网页(忽略对话框提示直接关闭指定或当前标签)"""
+        try:
+            browser_obj.send_browser_extension(
+                browser_type=browser_obj.browser_type.value,
+                key="closeTab",
+                data={"url": url},
+            )
+            return True
+        except Exception:
+            js_code = "function main(){ window.close(); return true; }"
+            return bool(BrowserSoftware._run_js(browser_obj, js_code))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        outputList=[
+            atomicMg.param("browser_type_name", types="Str"),
+        ],
+    )
+    def get_browser_type(browser_obj: Browser) -> str:
+        """获取网页对象类型(输出chrome/edge/firefox等)"""
+        if not browser_obj:
+            raise BaseException(WEB_GET_BROWSER_ERROR, "浏览器对象为空，请先获取浏览器对象")
+        return str(browser_obj.browser_type.value)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("import_type", required=False),
+            atomicMg.param("url", types="Str", required=False),
+            atomicMg.param("js_content", types="Str", required=False),
+        ],
+        outputList=[
+            atomicMg.param("import_result", types="Bool"),
+        ],
+    )
+    def import_js_library(
+        browser_obj: Browser,
+        import_type: JsImportType = JsImportType.Url,
+        url: str = "",
+        js_content: str = "",
+    ):
+        """导入JS库(URL或脚本文本注入script标签)"""
+        import json as json_module
+
+        if import_type == JsImportType.Url:
+            if not url:
+                raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "URL不能为空")
+            src_literal = json_module.dumps(str(url))
+            js_code = (
+                "function main(){ var s=document.createElement('script');"
+                " s.type='text/javascript'; s.src=__SRC__;"
+                " document.head.appendChild(s); return true; }"
+            ).replace("__SRC__", src_literal)
+        else:
+            if not js_content:
+                raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "脚本内容不能为空")
+            text_literal = json_module.dumps(str(js_content))
+            js_code = (
+                "function main(){ var s=document.createElement('script');"
+                " s.type='text/javascript'; s.textContent=__TEXT__;"
+                " document.head.appendChild(s); return true; }"
+            ).replace("__TEXT__", text_literal)
+        return bool(BrowserSoftware._run_js(browser_obj, js_code))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserSoftware",
+        inputList=[
+            atomicMg.param("lib_name", required=False),
+        ],
+        outputList=[
+            atomicMg.param("import_result", types="Bool"),
+        ],
+    )
+    def import_common_js_library(
+        browser_obj: Browser,
+        lib_name: CommonJsLibType = CommonJsLibType.Jquery,
+    ):
+        """导入常用JS库(jquery/lodash/dayjs/axios/html2canvas)"""
+        import json as json_module
+
+        lib_url = COMMON_JS_LIB_URLS.get(lib_name.value, "")
+        if not lib_url:
+            raise BaseException(
+                PARAMETER_INVALID_FORMAT.format(lib_name),
+                "不支持的JS库: {}".format(lib_name),
+            )
+        src_literal = json_module.dumps(lib_url)
+        js_code = (
+            "function main(){ var s=document.createElement('script');"
+            " s.type='text/javascript'; s.src=__SRC__;"
+            " document.head.appendChild(s); return true; }"
+        ).replace("__SRC__", src_literal)
+        return bool(BrowserSoftware._run_js(browser_obj, js_code))

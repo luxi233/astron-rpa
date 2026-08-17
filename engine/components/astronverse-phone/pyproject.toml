@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "astronverse-actionlib",
     "uiautomator2",
+    "adbutils",
     "appium-python-client",
     "opencv-python-headless",
     "pillow",
@@ -21,3 +22,8 @@ packages = ["src/astronverse"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]

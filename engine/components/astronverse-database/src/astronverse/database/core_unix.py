@@ -1,7 +1,0 @@
-from astronverse.database.core import IDatabaseCore
-
-
-class DatabaseCore(IDatabaseCore):
-    @staticmethod
-    def print(msg: str = "") -> str:
-        return "linux {}".format(msg)

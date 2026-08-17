@@ -1,7 +1,7 @@
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.config import config
 from astronverse.baseline.config.config import load_config
-from astronverse.winelement.winele import WinEle
+from astronverse.winelement.winele import WinEle, WinEleExtension
 
 
 def get_version():
@@ -12,4 +12,5 @@ def get_version():
 if __name__ == "__main__":
     config.set_config_file("config.yaml")
     atomicMg.register(WinEle, version=get_version())
+    atomicMg.register(WinEleExtension, group_key="WinEle", version=get_version())
     atomicMg.meta()

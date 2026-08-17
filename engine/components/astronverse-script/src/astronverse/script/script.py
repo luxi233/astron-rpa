@@ -227,3 +227,123 @@ class Script:
             return tuple(output_values)
         else:
             return None
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Script",
+        inputList=[
+            atomicMg.param(
+                "process_name",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "process_param",
+                types="Dict",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=False,
+            ),
+        ],
+        outputList=[atomicMg.param("process_res", types="Dict")],
+    )
+    def run_process_dynamic(process_name: str, process_param: dict = None):
+        """
+        动态调用子流程(名称来自变量)
+        :param process_name: 子流程名称(运行时变量)
+        :param process_param: 子流程输入参数字典，如 {'name': '张三', 'age': 18}
+        :return: 子流程输出参数字典
+        """
+        if not process_name or not isinstance(process_name, str):
+            raise BaseException(MODULE_IMPORT_ERROR.format(process_name), "子流程名称必须是非空字符串")
+        kwargs = dict(process_param or {})
+        _, package, _ = Script._get_auto_context()
+        _, kwargs = Script._call(".{}".format(process_name), package=package, **kwargs)
+        return kwargs
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Script",
+        inputList=[
+            atomicMg.param(
+                "module_name",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "module_param",
+                types="Dict",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=False,
+            ),
+        ],
+        outputList=[atomicMg.param("program_script", types="Any")],
+    )
+    def run_module_dynamic(module_name: str, module_param: dict = None):
+        """
+        动态调用Python模块(名称来自变量)
+        :param module_name: 模块名称(运行时变量)
+        :param module_param: 模块输入参数字典，如 {'x': 1}
+        :return: 模块main函数的返回值
+        """
+        if not module_name or not isinstance(module_name, str):
+            raise BaseException(MODULE_IMPORT_ERROR.format(module_name), "模块名称必须是非空字符串")
+        out_kwargs = dict(module_param or {})
+        _, package, _ = Script._get_auto_context()
+
+        path = ".{}".format(module_name)
+        try:
+            process_module = importlib.import_module(path, package=package)
+        except SyntaxError as e:
+            raise e
+        except Exception as e:
+            raise BaseException(MODULE_IMPORT_ERROR.format(path), f"无法导入模块 {path}: {str(e)}")
+
+        main_func = getattr(process_module, "main", None)
+        if not main_func or not callable(main_func):
+            raise BaseException(MODULE_MAIN_FUNCTION_NOT_FOUND.format(path), f"模块 {path} 未定义可调用的 main 函数")
+
+        # v2: main(args) 单参数字典；v1: main(**kwargs)
+        sig = inspect.signature(main_func)
+        params = list(sig.parameters.values())
+        if len(params) == 1 and params[0].name == "args":
+            return main_func(out_kwargs)
+        report.warning(ReportTip(msg_str=MSG_MODULE_VERSION_WARRING))
+        return main_func(**out_kwargs)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Script",
+        inputList=[
+            atomicMg.param(
+                "component",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "command_param",
+                types="Dict",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value),
+                required=False,
+            ),
+        ],
+        outputList=[atomicMg.param("component_res", types="Dict")],
+    )
+    def run_command_dynamic(component: str, command_param: dict = None):
+        """
+        动态调用自定义指令(编码/名称来自变量)
+        :param component: 组件编码(运行时变量)，如 c1990298105483890688 或 c1990298105483890688.main
+        :param command_param: 指令输入参数字典，如 {'param1': 'value1'}
+        :return: 指令输出参数字典(按键名取值)
+        """
+        if not component or not isinstance(component, str):
+            raise BaseException(MODULE_IMPORT_ERROR.format(component), "组件编码必须是非空字符串")
+        kwargs = {k: v for k, v in dict(command_param or {}).items() if not k.startswith("__")}
+
+        # 解析组件路径: c1990298105483890688 或 c1990298105483890688.main -> 组件目录名和模块名
+        package = component.split(".")[0]
+        module_name = component.split(".")[-1] if "." in component else "main"
+        _, kwargs = Script._call(".{}".format(module_name), package=package, **kwargs)
+        return kwargs

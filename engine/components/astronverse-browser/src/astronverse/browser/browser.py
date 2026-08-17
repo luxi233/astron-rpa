@@ -16,6 +16,7 @@ class Browser:
         self.browser_type: CommonForBrowserType = CommonForBrowserType.BTChrome
         self.browser_abs_path: str = ""
         self.browser_control = None
+        self.frame = None
 
     @typesMg.shortcut(group_key="Browser", res_type="Str")
     def get_url(self) -> str:

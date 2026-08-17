@@ -1,3 +1,4 @@
+import os
 from unittest import TestCase
 
 from astronverse.datatable import (
@@ -162,7 +163,6 @@ class TestDataTable(TestCase):
             paste_type=PasteType.CELL,
             row=3,
             col="D",
-            paste_value_type=PasteValueType.VALUE,
         )
         
     def test_paste_row(self):
@@ -216,9 +216,9 @@ class TestDataTable(TestCase):
         )
         
     def test_sort_table(self):
-        DataTable().sort_table(
-            col="B",
-            sort_type=SortOrder.DESCENDING,
+        DataTable().sort_data_table(
+            sort_cols="B",
+            sort_orders="descending",
         )
         
     def test_insert_row_column(self):
@@ -318,16 +318,31 @@ class TestDataTable(TestCase):
         print(filtered_dt)
         
     def test_import_data_table_from_file(self):
+        import tempfile
+
+        workdir = tempfile.mkdtemp()
+        csv_path = os.path.join(workdir, "file.csv")
+        with open(csv_path, "w", encoding="utf-8") as f:
+            f.write("a,b\n1,2\n")
+
         dt = DataTable()
         dt.import_data_table_from_file(
-            import_file_path="path/to/file.csv",
+            import_file_path=csv_path,
             sheet_name="Sheet1"
         )
-        
+
     def test_export_data_table_to_file(self):
+        import tempfile
+
+        workdir = tempfile.mkdtemp()
+        csv_path = os.path.join(workdir, "file.csv")
+        with open(csv_path, "w", encoding="utf-8") as f:
+            f.write("a,b\n1,2\n")
+
         dt = DataTable()
+        dt.import_data_table_from_file(import_file_path=csv_path)
         dt.export_data_table_to_file(
-            export_dest_path="path/to/exported_file.csv",
+            export_dest_path=workdir,
             export_file_name="exported_file",
             export_file_type=ExportFileType.CSV
         )

@@ -1,0 +1,556 @@
+atomic:
+  Barcode.create_qrcode:
+    title: 生成二维码
+    comment: 将内容 @{content} 生成二维码图片（边长 @{size} 像素，容错 @{error_correction}），保存至 @{save_path}，返回图片路径 @{qrcode_path}
+    icon: atom-default
+    helpManual: 容错等级越高越耐污损（L约7%/M约15%/Q约25%/H约30%）；保存路径留空时保存到工作目录 astron/ 下
+    inputList:
+      - key: content
+        title: 二维码内容
+        tip: 文本或URL
+      - key: size
+        title: 图片边长(像素)
+        tip: 默认300
+      - key: error_correction
+        title: 容错等级
+        tip: ''
+      - key: save_path
+        title: 保存路径
+        tip: 留空保存到工作目录 astron/ 下
+    outputList:
+      - key: qrcode_path
+        title: 图片路径
+        tip: ''
+  Barcode.create_barcode:
+    title: 生成条形码
+    comment: 将内容 @{content} 生成 @{barcode_type} 条形码图片，保存至 @{save_path}，返回图片路径 @{barcode_path}
+    icon: atom-default
+    helpManual: EAN13内容须为12或13位数字（末位校验码可省略自动补全）；保存路径留空时保存到工作目录 astron/ 下
+    inputList:
+      - key: content
+        title: 条形码内容
+        tip: ''
+      - key: barcode_type
+        title: 条形码类型
+        tip: EAN13/CODE128
+      - key: save_path
+        title: 保存路径
+        tip: 留空保存到工作目录 astron/ 下
+    outputList:
+      - key: barcode_path
+        title: 图片路径
+        tip: ''
+  Barcode.recognize_code:
+    title: 识别二维码/条形码
+    comment: 识别图片 @{image_path} 中的二维码/条形码，输出结果列表 @{recognize_results}（每项含类型/内容）
+    icon: atom-default
+    helpManual: 支持一图多码，未识别到返回空列表；需要系统zbar库（Windows随安装包分发，macOS需brew install zbar）
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+    outputList:
+      - key: recognize_results
+        title: 识别结果列表
+        tip: 每项为字典，含"类型"与"内容"字段；未识别到为空列表
+  ImageProcess.get_image_dpi:
+    title: 获取图片DPI
+    comment: 获取图片 @{image_path} 的DPI（水平分辨率），保存至变量 @{dpi}
+    icon: atom-default
+    helpManual: 图片无DPI信息时返回72
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+    outputList:
+      - key: dpi
+        title: 输出DPI至变量
+        tip: 无DPI信息时返回72
+  ImageProcess.set_image_dpi:
+    title: 设置图片DPI
+    comment: 将图片 @{image_path} 的DPI设置为 @{dpi} 并另存，返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: DPI须在1-10000之间；保存路径留空时在源文件同目录生成 原名_dpi{N} 文件
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: dpi
+        title: DPI值
+        tip: 1-10000
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.get_image_size:
+    title: 获取图片尺寸
+    comment: 获取图片 @{image_path} 的宽 @{width} 高 @{height}（像素）
+    icon: atom-default
+    helpManual: 返回图片的像素宽高
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+    outputList:
+      - key: width
+        title: 宽(像素)
+        tip: ''
+      - key: height
+        title: 高(像素)
+        tip: ''
+  ImageProcess.resize_image_pixels:
+    title: 调整图片大小(按像素)
+    comment: 将图片 @{image_path} 调整为 @{width} x @{height} 像素，返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 保持纵横比为True时等比缩放至宽高框内（不拉伸变形）；保存路径留空时源文件同目录自动命名
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: width
+        title: 目标宽(像素)
+        tip: 正整数
+      - key: height
+        title: 目标高(像素)
+        tip: 正整数
+      - key: keep_ratio
+        title: 保持纵横比
+        tip: True时等比缩放至宽高框内
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.resize_image_scale:
+    title: 调整图片大小(按比例)
+    comment: 将图片 @{image_path} 按比例 @{scale}% 缩放，返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 100为原大小，范围1-10000；保存路径留空时源文件同目录自动命名
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: scale
+        title: 缩放比例(%)
+        tip: 100=原大小
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.convert_image_format:
+    title: 转换图片格式
+    comment: 将图片 @{image_path} 批量转换为 @{image_format} 格式，输出新图路径列表 @{image_paths_out}
+    icon: atom-default
+    helpManual: 输入支持 单文件|文件列表|文件夹（一级遍历）；输出目录留空时与源文件同目录
+    inputList:
+      - key: image_path
+        title: 图片路径/列表/文件夹
+        tip: 支持单文件、列表、文件夹
+      - key: image_format
+        title: 目标格式
+        tip: png/jpeg/bmp/webp
+      - key: save_dir
+        title: 输出目录
+        tip: 留空时与源文件同目录
+    outputList:
+      - key: image_paths_out
+        title: 新图路径列表
+        tip: ''
+  ImageProcess.split_image_size:
+    title: 切割图片(按尺寸)
+    comment: 将图片 @{image_path} 按块 @{block_width} x @{block_height} 像素切割，输出切块路径列表 @{image_paths_out}
+    icon: atom-default
+    helpManual: 每块固定宽高像素，边缘不足保留余量；输出目录留空时与源文件同目录，命名 原名_r行c列
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: block_width
+        title: 块宽(像素)
+        tip: 正整数
+      - key: block_height
+        title: 块高(像素)
+        tip: 正整数
+      - key: out_dir
+        title: 输出目录
+        tip: 留空时与源文件同目录
+    outputList:
+      - key: image_paths_out
+        title: 切块路径列表
+        tip: 先行后列
+  ImageProcess.split_image_ratio:
+    title: 切割图片(按比例)
+    comment: 将图片 @{image_path} 等分为 @{rows} 行 @{cols} 列，输出切块路径列表 @{image_paths_out}
+    icon: atom-default
+    helpManual: 行列数范围1-100，等宽高等分；输出目录留空时与源文件同目录
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: rows
+        title: 行数
+        tip: 1-100
+      - key: cols
+        title: 列数
+        tip: 1-100
+      - key: out_dir
+        title: 输出目录
+        tip: 留空时与源文件同目录
+    outputList:
+      - key: image_paths_out
+        title: 切块路径列表
+        tip: 先行后列
+  ImageProcess.crop_image:
+    title: 图片裁剪
+    comment: 裁剪图片 @{image_path} 左@{left} 上@{top} 右@{right} 下@{bottom} 边界区域，返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 左上为原点(0,0)，右/下边界为 exclusiveness 坐标；区域越界时报错
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: left
+        title: 左边界(像素)
+        tip: ''
+      - key: top
+        title: 上边界(像素)
+        tip: ''
+      - key: right
+        title: 右边界(像素)
+        tip: ''
+      - key: bottom
+        title: 下边界(像素)
+        tip: ''
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.join_images:
+    title: 图片拼接
+    comment: 将图片列表 @{image_paths} 按 @{direction} 方向拼接（间隔 @{gap} 像素），返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 至少2张图片；背景色支持 #RRGGBB/#RGB 格式；拼接方向横向/纵向
+    inputList:
+      - key: image_paths
+        title: 图片路径列表
+        tip: 至少2张
+      - key: direction
+        title: 拼接方向
+        tip: 横向/纵向
+      - key: gap
+        title: 间隔(像素)
+        tip: 默认0
+      - key: bg_color
+        title: 背景色
+        tip: '#RRGGBB'
+      - key: save_path
+        title: 保存路径
+        tip: 留空时以首图目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.overlay_images:
+    title: 图层叠加
+    comment: 将图片 @{overlay_path} 叠加到 @{base_path} 的 @{position} 位置（透明度 @{opacity}%），返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 叠图大于底图时自动等比缩小；位置九宫格可选；透明度1-100
+    inputList:
+      - key: base_path
+        title: 底图路径
+        tip: ''
+      - key: overlay_path
+        title: 叠加图路径
+        tip: 支持PNG透明通道
+      - key: position
+        title: 叠加位置
+        tip: 九宫格
+      - key: opacity
+        title: 透明度(%)
+        tip: 1-100
+      - key: margin
+        title: 边距(像素)
+        tip: 默认10
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.trim_image_border:
+    title: 去除图片边框
+    comment: 将图片 @{image_path} 四边各裁掉 @{border} 像素，返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 边框像素须大于等于0且不超过图片尺寸的一半
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: border
+        title: 边框(像素)
+        tip: 四边相同
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.add_image_watermark:
+    title: 添加图片水印
+    comment: 将水印图 @{watermark_path} 批量添加到图片 @{image_path}（坐标 @{x},@{y}，透明度 @{opacity}%），输出新图路径列表 @{image_paths_out}
+    icon: atom-default
+    helpManual: 输入支持 单文件|列表|文件夹；x/y 为负值时表示距右/下边缘偏移；输出目录留空时与源文件同目录
+    inputList:
+      - key: image_path
+        title: 图片路径/列表/文件夹
+        tip: 支持单文件、列表、文件夹
+      - key: watermark_path
+        title: 水印图路径
+        tip: 支持PNG透明通道
+      - key: x
+        title: X坐标(像素)
+        tip: 负值表示距右边缘
+      - key: y
+        title: Y坐标(像素)
+        tip: 负值表示距下边缘
+      - key: opacity
+        title: 透明度(%)
+        tip: 1-100
+      - key: save_dir
+        title: 输出目录
+        tip: 留空时与源文件同目录
+    outputList:
+      - key: image_paths_out
+        title: 新图路径列表
+        tip: ''
+  ImageProcess.add_text_watermark:
+    title: 添加文字水印
+    comment: 在图片 @{image_path} 上批量添加文字水印 @{text}（@{font_size} 号 @{color} 色），输出新图路径列表 @{image_paths_out}
+    icon: atom-default
+    helpManual: 输入支持 单文件|列表|文件夹；x/y 负值距右/下边缘；字体路径留空时自动选择系统中文字体
+    inputList:
+      - key: image_path
+        title: 图片路径/列表/文件夹
+        tip: 支持单文件、列表、文件夹
+      - key: text
+        title: 水印文字
+        tip: 不能为空
+      - key: x
+        title: X坐标(像素)
+        tip: 负值表示距右边缘
+      - key: y
+        title: Y坐标(像素)
+        tip: 负值表示距下边缘
+      - key: font_size
+        title: 字号
+        tip: 默认32
+      - key: color
+        title: 文字颜色
+        tip: '#RRGGBB'
+      - key: opacity
+        title: 透明度(%)
+        tip: 1-100
+      - key: font_path
+        title: 字体文件路径
+        tip: 留空自动选择系统字体
+      - key: save_dir
+        title: 输出目录
+        tip: 留空时与源文件同目录
+    outputList:
+      - key: image_paths_out
+        title: 新图路径列表
+        tip: ''
+  ImageProcess.image_similarity:
+    title: 图片相似度
+    comment: 比较图片 @{image_path1} 与 @{image_path2} 的相似度，保存至变量 @{similarity}
+    icon: atom-default
+    helpManual: 输出0-1（1=完全相同）；不同尺寸自动归一化后按灰度逐像素相关系数计算
+    inputList:
+      - key: image_path1
+        title: 图片1路径
+        tip: ''
+      - key: image_path2
+        title: 图片2路径
+        tip: ''
+    outputList:
+      - key: similarity
+        title: 输出相似度至变量
+        tip: 0-1
+  ImageProcess.save_clipboard_image:
+    title: 保存剪贴板图片
+    comment: 将剪贴板中的图片保存至 @{save_path}，返回图片路径 @{image_path_out}
+    icon: atom-default
+    helpManual: Windows读取DIB格式、macOS读取TIFF/PNG格式；剪贴板无图片时报错
+    inputList:
+      - key: save_path
+        title: 保存路径
+        tip: 留空时保存到工作目录
+    outputList:
+      - key: image_path_out
+        title: 图片路径
+        tip: ''
+  ImageProcess.compress_image:
+    title: 压缩图片
+    comment: 按质量 @{quality} 压缩图片 @{image_path}（保持原格式），返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 质量默认85（1-100）；仅支持 jpg/png，其他格式报错；保存路径留空时源文件同目录自动命名
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: 仅jpg/png
+      - key: quality
+        title: 质量
+        tip: 1-100，默认85
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.set_image_opacity:
+    title: 调整图片透明度
+    comment: 将图片 @{image_path} 整体不透明度调整为 @{opacity}%，返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 不透明度0-100；输出为带透明通道的PNG格式
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: opacity
+        title: 不透明度(%)
+        tip: 0-100
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: 输出PNG格式
+  ImageProcess.correct_extension:
+    title: 更正扩展名
+    comment: 批量更正图片 @{image_path} 的扩展名为真实格式，输出路径列表 @{image_paths_out}
+    icon: atom-default
+    helpManual: 按文件内容嗅探真实格式（JPEG/PNG/BMP/GIF/WEBP）后改名；目标已存在且不覆盖时保留原路径；输入支持 单文件|列表|文件夹
+    inputList:
+      - key: image_path
+        title: 图片路径/列表/文件夹
+        tip: 支持单文件、列表、文件夹
+      - key: overwrite
+        title: 覆盖已存在文件
+        tip: False时跳过改名
+    outputList:
+      - key: image_paths_out
+        title: 路径列表
+        tip: 未改名的返回原路径
+  ImageProcess.image_to_sketch:
+    title: 彩图转线稿
+    comment: 将彩图 @{image_path} 转换为素描线稿，返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 灰度→反色→高斯模糊→颜色减淡三步法；输出灰度图
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+  ImageProcess.replace_id_photo_bg:
+    title: 证件照换底色
+    comment: 将证件照 @{image_path} 背景替换为 @{bg_color} 底色（容差 @{tolerance}），返回新图路径 @{image_path_out}
+    icon: atom-default
+    helpManual: 依据四边边缘主色识别背景，色差容差10-50（越大替换范围越大）；自定义底色填 #RRGGBB
+    inputList:
+      - key: image_path
+        title: 图片路径
+        tip: ''
+      - key: bg_color
+        title: 目标底色
+        tip: 蓝/红/白/自定义
+      - key: custom_color
+        title: 自定义底色
+        tip: '#RRGGBB，底色选自定义时生效'
+      - key: tolerance
+        title: 容差
+        tip: 10-50，默认30
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: image_path_out
+        title: 新图路径
+        tip: ''
+options:
+  ImageFormatType:
+    - value: png
+      label: PNG
+    - value: jpeg
+      label: JPEG
+    - value: bmp
+      label: BMP
+    - value: webp
+      label: WEBP
+  DirectionType:
+    - value: horizontal
+      label: 横向拼接
+    - value: vertical
+      label: 纵向拼接
+  WatermarkPositionType:
+    - value: top_left
+      label: 左上
+    - value: top_center
+      label: 上中
+    - value: top_right
+      label: 右上
+    - value: middle_left
+      label: 左中
+    - value: middle_center
+      label: 居中
+    - value: middle_right
+      label: 右中
+    - value: bottom_left
+      label: 左下
+    - value: bottom_center
+      label: 下中
+    - value: bottom_right
+      label: 右下
+  IdPhotoBgColorType:
+    - value: blue
+      label: 蓝底
+    - value: red
+      label: 红底
+    - value: white
+      label: 白底
+    - value: custom
+      label: 自定义
+  BarcodeType:
+    - value: ean13
+      label: EAN13
+    - value: code128
+      label: CODE128
+  QrErrorCorrectionType:
+    - value: L
+      label: L-低(约7%)
+    - value: M
+      label: M-中(约15%)
+    - value: Q
+      label: Q-高(约25%)
+    - value: H
+      label: H-最高(约30%)

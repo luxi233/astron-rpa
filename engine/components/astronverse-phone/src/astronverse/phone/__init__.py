@@ -25,11 +25,13 @@ class UnlockType(Enum):
 
 
 class ClickType(Enum):
-    """点击方式: 单击/双击/长按"""
+    """点击方式: 单击/双击/长按/按下/抬起"""
 
     SINGLE = "single"
     DOUBLE = "double"
     LONG = "long"
+    DOWN = "down"
+    UP = "up"
 
 
 class PositionType(Enum):
@@ -131,3 +133,10 @@ class SwipeAreaType(Enum):
 
     SCREEN = "screen"
     ELEMENT = "element"
+
+
+class ListSortType(Enum):
+    """列表排序: 名称升序/名称降序"""
+
+    ASC = "asc"
+    DESC = "desc"

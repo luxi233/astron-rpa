@@ -686,6 +686,137 @@ class PrinterCore:
         printer_names = [printers[2] for printers in printers if printers[2]]
         return printer_names
 
+    # 打印机状态位(PRINTER_INFO_2 Status) → 中文描述
+    PRINTER_STATUS_BITS = [
+        (0x00000001, "暂停"),
+        (0x00000002, "错误"),
+        (0x00000004, "正在删除"),
+        (0x00000008, "卡纸"),
+        (0x00000010, "缺纸"),
+        (0x00000020, "手动进纸"),
+        (0x00000040, "纸张问题"),
+        (0x00000080, "脱机"),
+        (0x00000100, "正在输入/输出"),
+        (0x00000200, "忙碌"),
+        (0x00000400, "正在打印"),
+        (0x00000800, "出纸槽已满"),
+        (0x00001000, "不可用"),
+        (0x00002000, "等待"),
+        (0x00004000, "正在处理"),
+        (0x00008000, "正在初始化"),
+        (0x00010000, "预热中"),
+        (0x00020000, "墨粉不足"),
+        (0x00040000, "缺墨粉"),
+        (0x00080000, "无法打印当前页"),
+        (0x00100000, "需要用户干预"),
+        (0x00200000, "内存不足"),
+        (0x00400000, "打印机盖未关"),
+        (0x00800000, "服务器状态未知"),
+        (0x01000000, "省电模式"),
+    ]
+
+    # 打印作业状态位(JOB_INFO_1 Status) → 中文描述
+    JOB_STATUS_BITS = [
+        (0x00000001, "暂停"),
+        (0x00000002, "错误"),
+        (0x00000004, "正在删除"),
+        (0x00000008, "正在后台处理"),
+        (0x00000010, "正在打印"),
+        (0x00000020, "脱机"),
+        (0x00000040, "缺纸"),
+        (0x00000080, "已打印"),
+        (0x00000100, "已删除"),
+        (0x00000200, "被阻塞"),
+        (0x00000400, "需要用户干预"),
+        (0x00000800, "已重新启动"),
+    ]
+
+    @staticmethod
+    def status_text(status_code: int, bits) -> str:
+        """状态位掩码转中文描述，0 视为空闲。"""
+        if not status_code:
+            return "空闲"
+        texts = [text for bit, text in bits if status_code & bit]
+        return "、".join(texts) if texts else f"未知状态({status_code})"
+
+    @staticmethod
+    def get_default_printer_name() -> str:
+        """
+        获取默认打印机名称。
+        """
+        return win32print.GetDefaultPrinter()
+
+    @staticmethod
+    def set_default_printer_name(printer_name: str) -> bool:
+        """
+        设置默认打印机（名称须在已安装打印机列表中）。
+        """
+        printer_name = (printer_name or "").strip()
+        all_printers = PrinterCore.view_printer()
+        if printer_name not in all_printers:
+            raise ValueError("未发现 {} 打印机，请检查打印机名称.".format(printer_name))
+        win32print.SetDefaultPrinter(printer_name)
+        return win32print.GetDefaultPrinter() == printer_name
+
+    @staticmethod
+    def get_printer_status_by_name(printer_name: str = "") -> dict:
+        """
+        获取打印机状态（名称为空时取默认打印机）。
+        """
+        name = (printer_name or "").strip() or win32print.GetDefaultPrinter()
+        handle = win32print.OpenPrinter(name)
+        try:
+            status_code = int(win32print.GetPrinter(handle, 2)["Status"])
+        finally:
+            win32print.ClosePrinter(handle)
+        return {
+            "printer_name": name,
+            "status_code": status_code,
+            "status_text": PrinterCore.status_text(status_code, PrinterCore.PRINTER_STATUS_BITS),
+        }
+
+    @staticmethod
+    def get_printer_jobs_by_name(printer_name: str = "") -> list:
+        """
+        获取打印机工作队列（名称为空时取默认打印机），返回作业信息列表。
+        """
+        name = (printer_name or "").strip() or win32print.GetDefaultPrinter()
+        handle = win32print.OpenPrinter(name)
+        try:
+            jobs = win32print.EnumJobs(handle, 0, -1, 1)
+        finally:
+            win32print.ClosePrinter(handle)
+        result = []
+        for job in jobs or []:
+            submitted = job.get("Submitted")
+            result.append(
+                {
+                    "job_id": job.get("JobId"),
+                    "document": job.get("pDocument", ""),
+                    "owner": job.get("pUserName", ""),
+                    "status_code": int(job.get("Status", 0)),
+                    "status_text": PrinterCore.status_text(int(job.get("Status", 0)), PrinterCore.JOB_STATUS_BITS),
+                    "pages_printed": job.get("PagesPrinted", 0),
+                    "total_pages": job.get("TotalPages", 0),
+                    "submitted": str(submitted) if submitted else "",
+                }
+            )
+        return result
+
+    @staticmethod
+    def clear_printer_jobs_by_name(printer_name: str = "") -> bool:
+        """
+        清空打印机队列中所有打印作业（名称为空时取默认打印机）。
+        """
+        name = (printer_name or "").strip() or win32print.GetDefaultPrinter()
+        handle = win32print.OpenPrinter(name, {"DesiredAccess": win32print.PRINTER_ALL_ACCESS})
+        try:
+            # 3 = PRINTER_CONTROL_PURGE 清空队列
+            win32print.SetPrinter(handle, 0, None, 3)
+        finally:
+            win32print.ClosePrinter(handle)
+        return True
+
     @staticmethod
     def get_printer_status():
         """

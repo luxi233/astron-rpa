@@ -410,6 +410,9 @@ atomic:
       - key: first_row_is_header
         title: 首行是列头
         tip: 勾选后首行将写入数据表格列头，数据从第二行开始
+      - key: csv_delimiter
+        title: CSV分隔符
+        tip: 仅对CSV生效，默认逗号，可填 \t 表示制表符
     outputList: []
   DataTable.export_data_table_to_file:
     title: 导出数据表格到文件
@@ -435,6 +438,9 @@ atomic:
       - key: file_encoding
         title: 文件编码
         tip: CSV/JSON文件的编码格式
+      - key: csv_delimiter
+        title: CSV分隔符
+        tip: 仅对CSV生效，默认逗号，可填 \t 表示制表符
     outputList:
       - key: export_file_path
         title: 导出文件路径

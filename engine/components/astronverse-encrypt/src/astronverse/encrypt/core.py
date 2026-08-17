@@ -7,12 +7,14 @@ import base64
 import hashlib
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import quote, unquote
 
 from astronverse.encrypt import (
     Base64CodeType,
     EncryptCaseType,
     MD5bitsType,
     SHAType,
+    UrlEncodingType,
 )
 from Cryptodome.Cipher import AES
 
@@ -158,3 +160,14 @@ class EncryptCore:  # pylint: disable=too-few-public-methods
         if file_path:
             Path(file_path).write_bytes(base64.b64decode(string_data.replace("data:image/png;base64,", "")))
         return file_path
+
+    # ---- URL 编解码 ----
+    @staticmethod
+    def url_encode(source_str: str, safe: str = "") -> str:
+        """URL 百分号编码。safe 中的字符不被转义（如 /:?&=）。"""
+        return quote(str(source_str), safe=safe or "")
+
+    @staticmethod
+    def url_decode(source_str: str, encoding: UrlEncodingType = UrlEncodingType.UTF8) -> str:
+        """URL 百分号解码，按指定字符集还原文本。"""
+        return unquote(str(source_str), encoding=encoding.value, errors="replace")

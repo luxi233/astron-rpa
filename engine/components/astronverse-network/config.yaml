@@ -291,6 +291,60 @@ atomic:
       - key: http_download_path
         title: 下载文件保存到
         tip: 将下载文件路径保存到变量中
+  Network.open_ssh_tunnel:
+    title: 创建SSH隧道
+    comment: >-
+      通过跳板机(@{ssh_host}):(@{ssh_port})创建到目标服务(@{remote_host}):(@{remote_port})的SSH隧道，隧道对象保存至(@{tunnel_instance})，本地端口输出为(@{local_bind_port})
+    icon: network-tunnel-open
+    helpManual: 通过跳板机端口转发创建SSH隧道，返回隧道对象与实际监听的本地端口；支持密码连接与密钥连接两种方式
+    inputList:
+      - key: ssh_host
+        title: 跳板机地址
+        tip: SSH跳板机（堡垒机）地址
+      - key: ssh_port
+        title: 跳板机端口
+        tip: SSH端口，常用22
+      - key: ssh_user
+        title: 用户名
+        tip: 跳板机登录用户名
+      - key: login_mode
+        title: 登录方式
+        tip: 选择密码连接或密钥连接
+      - key: password
+        title: 密码
+        tip: 跳板机登录密码；密钥连接时为私钥口令，可为空
+      - key: key_path
+        title: 私钥文件路径
+        tip: 密钥连接时必填的私钥文件路径
+      - key: remote_host
+        title: 目标服务地址
+        tip: 跳板机可达的目标服务地址
+      - key: remote_port
+        title: 目标服务端口
+        tip: 需要转发的目标服务端口
+      - key: local_port
+        title: 本地监听端口
+        tip: 本地监听端口，留空或0时自动分配
+    outputList:
+      - key: tunnel_instance
+        title: 隧道对象保存至
+        tip: 将SSH隧道对象保存至指定变量中，供后续关闭隧道使用
+      - key: local_bind_port
+        title: 本地端口保存至
+        tip: 隧道实际监听的本地端口，访问本地该端口即访问目标服务
+  Network.close_ssh_tunnel:
+    title: 关闭SSH隧道
+    comment: 关闭SSH隧道(@{tunnel_instance})，关闭结果输出至(@{close_tunnel})
+    icon: network-tunnel-close
+    helpManual: 关闭一个已创建的SSH隧道并释放本地端口
+    inputList:
+      - key: tunnel_instance
+        title: SSH隧道对象
+        tip: open_ssh_tunnel返回的隧道对象
+    outputList:
+      - key: close_tunnel
+        title: 关闭结果保存至
+        tip: SSH隧道是否成功关闭的布尔值
 options:
   FileExistenceType:
     - value: rename
@@ -305,6 +359,11 @@ options:
     - value: sftp
       label: SFTP服务器
   SftpLoginMode:
+    - value: password
+      label: 密码连接
+    - value: key
+      label: 密钥连接
+  SshLoginMode:
     - value: password
       label: 密码连接
     - value: key

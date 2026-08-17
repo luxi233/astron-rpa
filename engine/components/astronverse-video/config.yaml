@@ -1,0 +1,237 @@
+atomic:
+  Video.check_video_valid:
+    title: 校验视频文件
+    comment: 校验视频文件 @{file_path} 是否有效，输出至变量 @{is_valid}
+    icon: atom-default
+    helpManual: 文件不存在或无法解析时返回False，不抛出异常
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+    outputList:
+      - key: is_valid
+        title: 是否有效
+        tip: 有效为True，无效为False
+  Video.get_video_duration:
+    title: 获取视频时长
+    comment: 获取视频文件 @{file_path} 的时长（秒），输出至变量 @{duration}
+    icon: atom-default
+    helpManual: 返回秒数（浮点），如 12.5 表示 12.5 秒
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+    outputList:
+      - key: duration
+        title: 视频时长(秒)
+        tip: ''
+  Video.cut_video:
+    title: 剪辑视频
+    comment: 剪辑视频 @{file_path} 从第 @{start} 秒起 @{duration} 秒的片段，保存至 @{save_path}，输出新文件路径 @{video_path_out}
+    icon: atom-default
+    helpManual: '流复制快速模式，剪点对齐最近关键帧（误差约1秒内）；保存路径留空时源文件同目录自动命名'
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+      - key: start
+        title: 起始时间(秒)
+        tip: 从第几秒开始剪辑
+      - key: duration
+        title: 剪辑时长(秒)
+        tip: 剪辑的时长，须大于0
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: video_path_out
+        title: 新文件路径
+        tip: ''
+  Video.remove_audio:
+    title: 去除视频声音
+    comment: 去除视频 @{file_path} 中的音频（保留画面），保存至 @{save_path}，输出新文件路径 @{video_path_out}
+    icon: atom-default
+    helpManual: 保存路径留空时源文件同目录生成 原名_noaudio 文件
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: video_path_out
+        title: 新文件路径
+        tip: ''
+  Video.extract_audio:
+    title: 提取视频音频
+    comment: 从视频 @{file_path} 提取音频，格式为 @{audio_format}，保存至 @{save_path}，输出音频文件路径 @{audio_path_out}
+    icon: atom-default
+    helpManual: 支持MP3/WAV/AAC格式；视频中无音频流时报错；保存路径留空时源文件同目录生成 原名_audio 文件
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+      - key: audio_format
+        title: 音频格式
+        tip: ''
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: audio_path_out
+        title: 音频文件路径
+        tip: ''
+  Video.video_to_gif:
+    title: 视频转GIF
+    comment: 将视频 @{file_path} 从第 @{start} 秒起 @{duration} 秒转为GIF（帧率 @{fps} 宽 @{width}），输出GIF路径 @{gif_path_out}
+    icon: atom-default
+    helpManual: 剪辑时长留0表示转换到视频结尾；帧率1-30默认10；宽度默认480（高度等比）；lanczos高质量缩放
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+      - key: start
+        title: 起始时间(秒)
+        tip: 默认从头开始
+      - key: duration
+        title: 转换时长(秒)
+        tip: 留0为到视频结尾
+      - key: fps
+        title: 帧率
+        tip: 1-30，默认10
+      - key: width
+        title: 宽度(像素)
+        tip: 默认480，高度等比缩放
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: gif_path_out
+        title: GIF文件路径
+        tip: ''
+  Video.set_video_speed:
+    title: 调整视频倍速
+    comment: 将视频 @{file_path} 播放速度调整为 @{speed} 倍，保存至 @{save_path}，输出新文件路径 @{video_path_out}
+    icon: atom-default
+    helpManual: 倍速范围0.25-4（大于1加速、小于1慢放），音频同步变速；保存路径留空时源文件同目录生成 原名_speed 文件
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+      - key: speed
+        title: 倍速
+        tip: 0.25-4，如2表示2倍速
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: video_path_out
+        title: 新文件路径
+        tip: ''
+  Video.batch_prepend:
+    title: 批量前置视频
+    comment: 将视频 @{prepend_file} 拼到视频列表 @{video_files} 每个的开头，保存至 @{save_dir}，输出文件路径列表 @{video_paths_out}
+    icon: atom-default
+    helpManual: 对列表中每个视频执行 片头+视频 拼接；保存文件夹留空时各视频同目录生成 原名_prepended 文件
+    inputList:
+      - key: video_files
+        title: 视频路径列表
+        tip: 多个视频路径，逗号分隔或列表
+      - key: prepend_file
+        title: 前置视频路径
+        tip: 拼到开头的视频
+      - key: save_dir
+        title: 保存文件夹
+        tip: 留空时各视频同目录
+    outputList:
+      - key: video_paths_out
+        title: 文件路径列表
+        tip: 拼接后的视频路径
+  Video.batch_append:
+    title: 批量后置视频
+    comment: 将视频 @{append_file} 拼到视频列表 @{video_files} 每个的结尾，保存至 @{save_dir}，输出文件路径列表 @{video_paths_out}
+    icon: atom-default
+    helpManual: 对列表中每个视频执行 视频+片尾 拼接；保存文件夹留空时各视频同目录生成 原名_appended 文件
+    inputList:
+      - key: video_files
+        title: 视频路径列表
+        tip: 多个视频路径，逗号分隔或列表
+      - key: append_file
+        title: 后置视频路径
+        tip: 拼到结尾的视频
+      - key: save_dir
+        title: 保存文件夹
+        tip: 留空时各视频同目录
+    outputList:
+      - key: video_paths_out
+        title: 文件路径列表
+        tip: 拼接后的视频路径
+  Video.concat_videos:
+    title: 合并视频
+    comment: 将视频列表 @{video_files} 合并为一个视频，保存至 @{save_path}，输出新文件路径 @{video_path_out}
+    icon: atom-default
+    helpManual: 至少2个视频；自动校验分辨率一致（不一致报错提示）；保存路径留空时第一个视频同目录生成 videos_merged 文件
+    inputList:
+      - key: video_files
+        title: 视频路径列表
+        tip: 至少2个视频路径，逗号分隔或列表
+      - key: save_path
+        title: 保存路径
+        tip: 留空时第一个视频同目录自动命名
+    outputList:
+      - key: video_path_out
+        title: 新文件路径
+        tip: ''
+  Video.add_video_watermark:
+    title: 添加视频水印
+    comment: 为视频 @{file_path} 添加图片水印 @{watermark_path}（位置 @{position} 透明度 @{opacity}%），输出新文件路径 @{video_path_out}
+    icon: atom-default
+    helpManual: 水印随画面全程显示；透明度1-100；保存路径留空时源文件同目录生成 原名_watermarked 文件
+    inputList:
+      - key: file_path
+        title: 视频文件路径
+        tip: ''
+      - key: watermark_path
+        title: 水印图片路径
+        tip: 支持PNG/JPG等图片
+      - key: position
+        title: 水印位置
+        tip: ''
+      - key: opacity
+        title: 透明度(%)
+        tip: 1-100，默认100不透明
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: video_path_out
+        title: 新文件路径
+        tip: ''
+options:
+  AudioFormatType:
+    - value: mp3
+      label: MP3
+    - value: wav
+      label: WAV
+    - value: aac
+      label: AAC
+  WatermarkPositionType:
+    - value: top_left
+      label: 左上
+    - value: top_center
+      label: 上中
+    - value: top_right
+      label: 右上
+    - value: middle_left
+      label: 左中
+    - value: middle_center
+      label: 居中
+    - value: middle_right
+      label: 右中
+    - value: bottom_left
+      label: 左下
+    - value: bottom_center
+      label: 下中
+    - value: bottom_right
+      label: 右下

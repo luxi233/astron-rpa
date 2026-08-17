@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import tempfile
 import unittest
@@ -44,6 +45,7 @@ class TestClipboard(TestCase):
         with self.assertRaises(BaseException):
             Clipboard.copy_clip(content_type=ContentType.MSG, message="")
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_copy_clip_file_success(self):
         """测试复制到剪贴板 - 文件成功"""
         # 复制文件到剪贴板
@@ -64,6 +66,7 @@ class TestClipboard(TestCase):
         with self.assertRaises(BaseException):
             Clipboard.copy_clip(content_type=ContentType.FILE, file_path=non_existent_file)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_copy_clip_folder_success(self):
         """测试复制到剪贴板 - 文件夹成功"""
         # 复制文件夹到剪贴板
@@ -117,6 +120,7 @@ class TestClipboard(TestCase):
         result = Clipboard.paste_clip(content_type=ContentType.MSG)
         self.assertEqual(result, expected_content)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_paste_clip_file_success(self):
         """测试从剪贴板粘贴 - 文件成功"""
         # 复制文件到剪贴板
@@ -131,6 +135,7 @@ class TestClipboard(TestCase):
         self.assertTrue(os.path.exists(result))
         self.assertEqual(os.path.basename(result), "test_file.txt")
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_paste_clip_file_with_custom_name(self):
         """测试从剪贴板粘贴 - 文件带自定义名称"""
         # 复制文件到剪贴板
@@ -146,6 +151,7 @@ class TestClipboard(TestCase):
         self.assertTrue(os.path.exists(result))
         self.assertEqual(os.path.basename(result), "custom_name.txt")
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_paste_clip_folder_success(self):
         """测试从剪贴板粘贴 - 文件夹成功"""
         # 复制文件夹到剪贴板
@@ -160,6 +166,7 @@ class TestClipboard(TestCase):
         self.assertTrue(os.path.exists(result))
         self.assertEqual(os.path.basename(result), "test_folder")
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_paste_clip_folder_with_custom_name(self):
         """测试从剪贴板粘贴 - 文件夹带自定义名称"""
         # 复制文件夹到剪贴板
@@ -175,6 +182,7 @@ class TestClipboard(TestCase):
         self.assertTrue(os.path.exists(result))
         self.assertEqual(os.path.basename(result), "custom_folder_name")
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_paste_clip_folder_not_exists_error(self):
         """测试从剪贴板粘贴 - 目标文件夹不存在且设置为错误"""
         # 复制文件到剪贴板
@@ -188,6 +196,7 @@ class TestClipboard(TestCase):
                 state_type=StateType.ERROR,
             )
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_paste_clip_folder_not_exists_create(self):
         """测试从剪贴板粘贴 - 目标文件夹不存在但自动创建"""
         # 复制文件到剪贴板
@@ -214,6 +223,7 @@ class TestClipboard(TestCase):
         result = Clipboard.paste_clip(content_type=ContentType.MSG)
         self.assertEqual(result, special_message)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_copy_clip_multiple_files(self):
         """测试复制到剪贴板 - 多个文件"""
         # 创建多个测试文件
@@ -245,6 +255,7 @@ class TestClipboard(TestCase):
         result = Clipboard.paste_clip(content_type=ContentType.MSG)
         self.assertEqual(result, "")
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_copy_clip_file_with_spaces_in_path(self):
         """测试复制到剪贴板 - 路径包含空格的文件"""
         file_with_spaces = os.path.join(self.temp_dir, "file with spaces.txt")
@@ -263,6 +274,7 @@ class TestClipboard(TestCase):
         self.assertTrue(os.path.exists(result))
         self.assertEqual(os.path.basename(result), "file with spaces.txt")
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_copy_clip_folder_with_spaces_in_path(self):
         """测试复制到剪贴板 - 路径包含空格的文件夹"""
         folder_with_spaces = os.path.join(self.temp_dir, "folder with spaces")
@@ -296,6 +308,7 @@ class TestClipboard(TestCase):
         final_message = Clipboard.paste_clip(content_type=ContentType.MSG)
         self.assertEqual(final_message, original_message)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_file_content_integrity(self):
         """测试文件内容完整性"""
         original_content = "这是原始文件内容"

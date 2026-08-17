@@ -1652,6 +1652,10 @@ class DataTable:
             ),
             atomicMg.param("file_encoding"),
             atomicMg.param("first_row_is_header"),
+            atomicMg.param(
+                "csv_delimiter",
+                required=False,
+            ),
         ],
         outputList=[],
     )
@@ -1661,6 +1665,7 @@ class DataTable:
         password: str = "",
         file_encoding: FileEncodingType = FileEncodingType.AUTO,
         first_row_is_header: bool = False,
+        csv_delimiter: str = ",",
     ):
         """
         从指定文件导入数据表格
@@ -1669,7 +1674,15 @@ class DataTable:
         :param password: 打开密码(用于加密的Excel文件)
         :param file_encoding: 文件编码(仅对CSV生效)
         :param first_row_is_header: 首行是否作为列头(勾选后首行写入列头, 数据从第二行开始)
+        :param csv_delimiter: CSV分隔符(仅对CSV生效, 默认逗号, 支持\t表示制表符)
         """
+        if csv_delimiter == "\\t":
+            csv_delimiter = "\t"
+        if len(csv_delimiter) != 1:
+            raise DATAFRAME_EXPECTION(
+                PARAMS_ERROR.format("CSV分隔符必须是单个字符"),
+                "CSV分隔符必须是单个字符",
+            )
         if not import_file_path:
             raise DATAFRAME_EXPECTION(IMPORT_FILE_ERROR_FORMAT.format("导入文件路径不能为空"), "导入文件路径不能为空")
         file_ext = os.path.splitext(import_file_path)[1].lower()
@@ -1705,6 +1718,7 @@ class DataTable:
                 sheet_name=sheet_name,
                 encoding=encoding,
                 first_row_is_header=first_row_is_header,
+                delimiter=csv_delimiter,
             )
             if header_row is not None:
                 head_max_col = PyxlHeadWrapper.get_max_column()
@@ -1734,6 +1748,10 @@ class DataTable:
             ),
             atomicMg.param("csv_write_type"),
             atomicMg.param("file_encoding"),
+            atomicMg.param(
+                "csv_delimiter",
+                required=False,
+            ),
         ],
         outputList=[
             atomicMg.param(
@@ -1749,12 +1767,21 @@ class DataTable:
         is_overwrite: bool = True,
         csv_write_type: CsvWriteType = CsvWriteType.OVERWRITE,
         file_encoding: FileEncodingType = FileEncodingType.UTF8,
+        csv_delimiter: str = ",",
     ) -> str:
         """
         导出数据表格到指定文件
         :param csv_write_type: CSV写入方式(追加/覆盖)
         :param file_encoding: 文件编码(仅对CSV/JSON生效)
+        :param csv_delimiter: CSV分隔符(仅对CSV生效, 默认逗号, 支持\t表示制表符)
         """
+        if csv_delimiter == "\\t":
+            csv_delimiter = "\t"
+        if len(csv_delimiter) != 1:
+            raise DATAFRAME_EXPECTION(
+                PARAMS_ERROR.format("CSV分隔符必须是单个字符"),
+                "CSV分隔符必须是单个字符",
+            )
         if not export_dest_path:
             raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("导出文件夹路径不能为空"), "导出文件夹路径不能为空")
         if not export_file_name:
@@ -1785,7 +1812,7 @@ class DataTable:
             )
             write_mode = "a" if (csv_write_type == CsvWriteType.APPEND and os.path.exists(file_path)) else "w"
             with open(file_path, write_mode, newline="", encoding=encoding) as csvfile:
-                csv.writer(csvfile).writerows(data)
+                csv.writer(csvfile, delimiter=csv_delimiter).writerows(data)
         elif export_file_type == ExportFileType.JSON:
             data = DataTable.read_data(
                 read_type=ReadType.AREA,

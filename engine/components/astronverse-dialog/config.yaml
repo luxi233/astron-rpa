@@ -238,6 +238,51 @@ atomic:
       - key: result_button
         title: 保存点击的按钮名称至
         tip: ''
+  Dialog.init_progress_bar:
+    title: 初始化进度条
+    comment: ''
+    icon: message-dialog
+    helpManual: 初始化进度条，包装可迭代对象输出进度条对象，配合循环节点使用，每次迭代自动推送进度到前端展示
+    inputList:
+      - key: iterable
+        title: 可迭代对象
+        tip: 要遍历的列表数据，进度条对象可直接接入循环节点
+      - key: title
+        title: 标题
+        tip: 进度条弹窗标题，默认"任务进度"
+      - key: task_name
+        title: 任务名
+        tip: 进度条初始任务描述，可后续用「设置进度条任务描述」更新
+    outputList:
+      - key: progress_bar
+        title: 进度条对象至
+        tip: 输出的进度条对象，接入循环节点自动推进进度，也可配合「更新进度条进度」「设置进度条任务描述」使用
+  Dialog.update_progress:
+    title: 更新进度条进度
+    comment: ''
+    icon: message-dialog
+    helpManual: 手动更新进度条当前进度（0-100），需配合「初始化进度条」的输出对象使用
+    inputList:
+      - key: progress_bar
+        title: 进度条对象
+        tip: 「初始化进度条」输出的进度条对象
+      - key: percent
+        title: 进度值
+        tip: 0-100 的整数进度值，越界自动收敛
+    outputList: []
+  Dialog.set_progress_description:
+    title: 设置进度条任务描述
+    comment: ''
+    icon: message-dialog
+    helpManual: 设置进度条当前任务描述文本，需配合「初始化进度条」的输出对象使用
+    inputList:
+      - key: progress_bar
+        title: 进度条对象
+        tip: 「初始化进度条」输出的进度条对象
+      - key: description
+        title: 任务描述
+        tip: 进度条上展示的任务描述文本，限制200个字符
+    outputList: []
 options:
   MessageType:
     - value: message

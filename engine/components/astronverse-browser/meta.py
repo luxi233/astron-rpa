@@ -3,7 +3,9 @@ from astronverse.actionlib.config import config
 from astronverse.actionlib.types import typesMg
 from astronverse.baseline.config.config import load_config
 from astronverse.browser.browser import Browser
+from astronverse.browser.browser_assert import Assert
 from astronverse.browser.browser_element import BrowserElement
+from astronverse.browser.browser_iframe import BrowserIframe
 from astronverse.browser.browser_script import BrowserScript
 from astronverse.browser.browser_software import BrowserSoftware
 
@@ -15,8 +17,10 @@ def get_version():
 
 if __name__ == "__main__":
     config.set_config_file("config.yaml")
+    atomicMg.register(Assert, version=get_version())
     atomicMg.register(BrowserElement, version=get_version())
     atomicMg.register(BrowserSoftware, version=get_version())
+    atomicMg.register(BrowserIframe, version=get_version())
     atomicMg.register(BrowserScript, version=get_version())
     atomicMg.meta()
 

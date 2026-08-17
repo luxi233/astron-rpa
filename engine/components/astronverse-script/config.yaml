@@ -41,4 +41,52 @@ atomic:
         title: 选择组件
         tip: ''
     outputList: []
+  Script.run_process_dynamic:
+    title: 动态调用子流程
+    comment: 动态调用子流程(@{process_name})，名称来自变量
+    icon: run-sub-process
+    helpManual: 按运行时变量中的子流程名称调用子流程；输入参数为字典(键=参数名,值=参数值)，输出为子流程全部输出参数组成的字典
+    inputList:
+      - key: process_name
+        title: 子流程名称
+        tip: 子流程名称变量，如 'get_order_data'
+      - key: process_param
+        title: 输入参数
+        tip: '参数字典，如 {"name": "张三", "age": 18}'
+    outputList:
+      - key: process_res
+        title: 保存输出参数字典至
+        tip: 子流程全部输出参数组成的字典
+  Script.run_module_dynamic:
+    title: 动态调用Python模块
+    comment: 动态调用Python模块(@{module_name})，名称来自变量
+    icon: run-python-module
+    helpManual: 按运行时变量中的模块名称调用Python模块；输入参数为字典，输出为模块main函数的返回值
+    inputList:
+      - key: module_name
+        title: 模块名称
+        tip: 模块名称变量，如 'my_util'
+      - key: module_param
+        title: 输入参数
+        tip: '参数字典，如 {"x": 1}'
+    outputList:
+      - key: program_script
+        title: 保存模块返回值至
+        tip: 模块main函数的返回值
+  Script.run_command_dynamic:
+    title: 动态调用自定义指令
+    comment: 动态调用自定义指令(@{component})，编码来自变量
+    icon: run-sub-process
+    helpManual: 按运行时变量中的组件编码调用自定义指令；编码如 c1990298105483890688 或 c1990298105483890688.main；输入参数为字典，输出为指令全部输出参数组成的字典
+    inputList:
+      - key: component
+        title: 组件编码
+        tip: 组件编码变量，如 'c1990298105483890688'
+      - key: command_param
+        title: 输入参数
+        tip: '参数字典，如 {"param1": "value1"}'
+    outputList:
+      - key: component_res
+        title: 保存输出参数字典至
+        tip: 指令全部输出参数组成的字典
 options: {}

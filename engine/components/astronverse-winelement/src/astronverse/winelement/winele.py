@@ -850,3 +850,447 @@ class WinEle:
             )
         finally:
             pyautogui.mouseUp(button="left")
+
+    @staticmethod
+    def _probe_element(pick: WinPick) -> bool:
+        """探测单个桌面元素是否出现（不抛异常）"""
+        if not pick:
+            return False
+        try:
+            WinEleCore.find(pick=pick, wait_time=0)
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_1", types="Str", required=False),
+            atomicMg.param(
+                "pick_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_2", types="Str", required=False),
+            atomicMg.param(
+                "pick_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_3", types="Str", required=False),
+            atomicMg.param(
+                "pick_4",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_4", types="Str", required=False),
+            atomicMg.param(
+                "pick_5",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_5", types="Str", required=False),
+            atomicMg.param("wait_time", types="Float"),
+        ],
+        outputList=[
+            atomicMg.param("hit_element_name", types="Str"),
+            atomicMg.param("wait_result", types="Bool"),
+        ],
+    )
+    def wait_any_element(
+        pick_1: WinPick = None,
+        name_1: str = "元素1",
+        pick_2: WinPick = None,
+        name_2: str = "元素2",
+        pick_3: WinPick = None,
+        name_3: str = "元素3",
+        pick_4: WinPick = None,
+        name_4: str = "元素4",
+        pick_5: WinPick = None,
+        name_5: str = "元素5",
+        wait_time: float = 10.0,
+    ):
+        """等待任意一个元素出现（桌面）：轮询多个元素，任意一个出现即返回其名称"""
+        candidates = [
+            (pick_i, str(name_i))
+            for pick_i, name_i in [
+                (pick_1, name_1),
+                (pick_2, name_2),
+                (pick_3, name_3),
+                (pick_4, name_4),
+                (pick_5, name_5),
+            ]
+            if pick_i
+        ]
+        if not candidates:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "至少需要拾取一个元素")
+
+        wait_time = max(0, float(wait_time))
+        deadline = time.time() + wait_time
+        while True:
+            for pick_i, name_i in candidates:
+                if WinEle._probe_element(pick_i):
+                    return name_i, True
+            if time.time() >= deadline:
+                return "", False
+            time.sleep(0.3)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param("group_a_name", types="Str", required=False),
+            atomicMg.param(
+                "pick_a_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_a_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_a_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("group_b_name", types="Str", required=False),
+            atomicMg.param(
+                "pick_b_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_b_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_b_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("wait_time", types="Float"),
+        ],
+        outputList=[
+            atomicMg.param("hit_group_name", types="Str"),
+            atomicMg.param("wait_result", types="Bool"),
+        ],
+    )
+    def wait_any_group(
+        group_a_name: str = "组A",
+        pick_a_1: WinPick = None,
+        pick_a_2: WinPick = None,
+        pick_a_3: WinPick = None,
+        group_b_name: str = "组B",
+        pick_b_1: WinPick = None,
+        pick_b_2: WinPick = None,
+        pick_b_3: WinPick = None,
+        wait_time: float = 10.0,
+    ):
+        """等待任意一组元素出现（桌面）：组内全部元素出现即该组命中，返回命中组名"""
+        groups = []
+        group_a = [p for p in [pick_a_1, pick_a_2, pick_a_3] if p]
+        if group_a:
+            groups.append((str(group_a_name), group_a))
+        group_b = [p for p in [pick_b_1, pick_b_2, pick_b_3] if p]
+        if group_b:
+            groups.append((str(group_b_name), group_b))
+        if not groups:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "至少需要配置一组元素")
+
+        wait_time = max(0, float(wait_time))
+        deadline = time.time() + wait_time
+        while True:
+            for group_name, group_picks in groups:
+                if all(WinEle._probe_element(p) for p in group_picks):
+                    return group_name, True
+            if time.time() >= deadline:
+                return "", False
+            time.sleep(0.3)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_4",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "pick_5",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("picks", types="List"),
+            atomicMg.param("pick_count", types="Int"),
+        ],
+    )
+    def combine_elements(
+        pick_1: WinPick = None,
+        pick_2: WinPick = None,
+        pick_3: WinPick = None,
+        pick_4: WinPick = None,
+        pick_5: WinPick = None,
+    ):
+        """组合多元素（桌面）：将拾取的多个元素合成一个元素列表"""
+        picks = [p for p in [pick_1, pick_2, pick_3, pick_4, pick_5] if p]
+        if not picks:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "至少需要拾取一个元素")
+        return picks, len(picks)
+
+
+# ---- P1-2 软件(win)扩展 ----
+
+# (属性名, 是否为方法调用)
+_UIA_ATTRIBUTE_SPECS = [
+    ("Name", False),
+    ("ClassName", False),
+    ("ControlTypeName", False),
+    ("LocalizedControlType", False),
+    ("AutomationId", False),
+    ("ProcessId", False),
+    ("FrameworkId", False),
+    ("IsEnabled", False),
+    ("IsKeyboardFocusable", False),
+    ("HasKeyboardFocus", False),
+    ("IsPassword", False),
+    ("IsOffscreen", True),
+    ("HelpText", False),
+    ("AriaRole", False),
+    ("AriaProperties", False),
+    ("Culture", False),
+    ("NativeWindowHandle", False),
+]
+
+
+def _collect_uia_attributes(control) -> dict:
+    """采集 uiautomation Control 的常用属性为字典"""
+    attrs = {}
+    for attr_name, is_method in _UIA_ATTRIBUTE_SPECS:
+        try:
+            value = getattr(control, attr_name, None)
+            if is_method and callable(value):
+                value = value()
+            if value is None:
+                continue
+            attrs[attr_name] = str(value)
+        except Exception:
+            continue
+    try:
+        rect = control.BoundingRectangle
+        attrs["BoundingRectangle"] = f"({rect.left},{rect.top},{rect.right},{rect.bottom})"
+    except Exception:
+        pass
+    try:
+        attrs["Value"] = control.GetValuePattern().Value
+    except Exception:
+        try:
+            attrs["Value"] = control.GetLegacyIAccessiblePattern().Value
+        except Exception:
+            pass
+    return attrs
+
+
+def _collect_descendant_texts(control, max_depth: int = 20) -> list[str]:
+    """递归收集元素及全部子孙的非空文本（按UI树先序顺序）"""
+    texts = []
+    stack = [(control, 0)]
+    while stack:
+        cur, depth = stack.pop()
+        try:
+            name = cur.Name
+        except Exception:
+            name = None
+        if name:
+            texts.append(str(name))
+        if depth >= max_depth:
+            continue
+        try:
+            children = cur.GetChildren()
+        except Exception:
+            children = []
+        for child in reversed(children):
+            stack.append((child, depth + 1))
+    return texts
+
+
+class WinEleExtension:
+    """桌面元素扩展操作（属性/文本/批量抓取/滚动显示）"""
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("attributes", types="Dict"),
+            atomicMg.param("attribute_count", types="Int"),
+        ],
+    )
+    def get_all_attributes(pick: WinPick, wait_time: float = 10.0):
+        """获取元素全部属性（桌面）：采集元素常用UIA属性，输出字典"""
+        control = WinEleCore.find(pick, wait_time).control()
+        attrs = _collect_uia_attributes(control)
+        if not attrs:
+            raise BaseException(ELEMENT_NO_FOUND, "未能获取到元素属性")
+        return attrs, len(attrs)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("all_text", types="Str"),
+            atomicMg.param("text_list", types="List"),
+            atomicMg.param("text_count", types="Int"),
+        ],
+    )
+    def get_all_text(
+        pick: WinPick,
+        separator: str = "\n",
+        include_self: bool = True,
+        max_depth: int = 20,
+        wait_time: float = 10.0,
+    ):
+        """获取元素所有文本（桌面）：递归收集元素及子孙的全部文本"""
+        control = WinEleCore.find(pick, wait_time).control()
+        texts = _collect_descendant_texts(control, max_depth)
+        if not include_self:
+            try:
+                self_name = str(control.Name or "")
+            except Exception:
+                self_name = ""
+            if self_name and self_name in texts:
+                texts.remove(self_name)
+        joined = separator.join(texts)
+        return joined, texts, len(texts)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("data_table", types="List"),
+            atomicMg.param("row_count", types="Int"),
+        ],
+    )
+    def batch_scrape(
+        pick: WinPick,
+        include_self_text: bool = False,
+        max_depth: int = 10,
+        wait_time: float = 10.0,
+    ):
+        """批量数据抓取（桌面）：按相似元素逐行抓取子孙文本，输出二维列表"""
+        if pick.get("elementData", {}).get("type", None) != PickerDomain.UIA.value:
+            raise BaseException(UNPICKABLE, "类型不支持{}".format(pick.get("type", None)))
+
+        locator_list = WinEleCore.find(pick, wait_time)
+        if not locator_list:
+            raise BaseException(ELEMENT_NO_FOUND, "未找到相似元素")
+        if not isinstance(locator_list, list):
+            locator_list = [locator_list]
+
+        rows = []
+        for locator in locator_list:
+            try:
+                control = locator.control()
+            except Exception:
+                continue
+            texts = _collect_descendant_texts(control, max_depth)
+            if not include_self_text:
+                try:
+                    self_name = str(control.Name or "")
+                except Exception:
+                    self_name = ""
+                if self_name and self_name in texts:
+                    texts.remove(self_name)
+            if texts:
+                rows.append(texts)
+        if not rows:
+            raise BaseException(ELEMENT_NO_FOUND, "相似元素中未抓取到数据")
+        return rows, len(rows)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "WinEle",
+        inputList=[
+            atomicMg.param(
+                "pick",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+        outputList=[],
+    )
+    def scroll_into_view(
+        pick: WinPick,
+        auto_click: bool = False,
+        max_ancestor: int = 10,
+        wait_time: float = 10.0,
+    ):
+        """显示指定元素（桌面）：通过ScrollItemPattern将元素滚动到可视区域，可选自动点击"""
+        locator = WinEleCore.find(pick, wait_time)
+        control = locator.control()
+
+        scrolled = False
+        cur = control
+        for _ in range(max(int(max_ancestor), 1)):
+            try:
+                cur.GetScrollItemPattern().ScrollIntoView()
+                scrolled = True
+                break
+            except Exception:
+                pass
+            try:
+                cur = cur.GetParentControl()
+            except Exception:
+                break
+            if cur is None:
+                break
+        if not scrolled:
+            raise BaseException(ELEMENT_NO_FOUND, "元素及其祖先均不支持滚动操作")
+
+        if auto_click:
+            point = locator.point()
+            human_sim.pre_action_pause()
+            locator.move(point)
+            pyautogui.click(clicks=1, button="left", interval=human_sim.click_interval())

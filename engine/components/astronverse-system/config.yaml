@@ -396,6 +396,9 @@ atomic:
       - key: info_type
         title: 获取信息类型
         tip: 指定获取的信息类型
+      - key: size_unit
+        title: 文件大小单位
+        tip: 仅在信息类型含大小时生效，默认B(字节)
     outputList:
       - key: file_info
         title: 文件信息为
@@ -634,6 +637,96 @@ atomic:
       - key: system_folder_path
         title: 系统文件夹路径
         tip: 保存获取到的系统文件夹路径为变量
+  Folder.is_empty_folder:
+    title: 判断文件夹是否为空
+    comment: 判断文件夹(@{folder_path})是否为空，结果保存至(@{is_empty})
+    icon: folder-exist
+    helpManual: 判断指定文件夹内是否没有任何文件或子文件夹；文件夹不存在时报错
+    inputList:
+      - key: folder_path
+        title: 文件夹路径
+        tip: 待判断的文件夹路径
+    outputList:
+      - key: is_empty
+        title: 是否为空保存至
+        tip: 输出布尔值(空=True)
+  File.encode_base64:
+    title: Base64编码文件
+    comment: 将文件(@{file_path})编码为Base64字符串保存至(@{base64_string})
+    icon: file-write
+    helpManual: 将文件(多为图片)编码为Base64字符串；勾选【输出为HTML标签】后返回可直接嵌入网页的img标签
+    inputList:
+      - key: file_path
+        title: 文件路径
+        tip: 待编码的文件路径(多为图片)
+      - key: output_html
+        title: 输出为HTML标签
+        tip: 勾选后返回可直接嵌入网页的img标签
+    outputList:
+      - key: base64_string
+        title: Base64字符串保存至
+        tip: 输出Base64编码字符串
+  File.get_md5:
+    title: 计算文件MD5
+    comment: 计算文件(@{file_path})的MD5保存至(@{md5_string})
+    icon: file-write
+    helpManual: 计算文件的MD5哈希值，可用于校验文件内容是否被修改或比对文件是否一致
+    inputList:
+      - key: file_path
+        title: 文件路径
+        tip: 待计算的文件路径
+    outputList:
+      - key: md5_string
+        title: MD5保存至
+        tip: 输出32位MD5哈希字符串
+  File.expand_env_path:
+    title: 展开路径环境变量
+    comment: 展开(@{path})中的环境变量保存至(@{expanded_path})
+    icon: file-write
+    helpManual: 将路径中的环境变量展开为实际路径，如 %TEMP%\\test 或 $HOME/test；支持 ~ 用户目录
+    inputList:
+      - key: path
+        title: 含环境变量的路径
+        tip: 如 %TEMP%\\test 或 ~/documents
+    outputList:
+      - key: expanded_path
+        title: 展开后路径保存至
+        tip: 输出展开后的实际路径
+  File.join_path:
+    title: 合成一个路径
+    comment: 将多段路径合成为完整路径保存至(@{joined_path})
+    icon: file-write
+    helpManual: 将最多4段路径合成为一个完整路径，自动处理路径分隔符，跨平台可用
+    inputList:
+      - key: path1
+        title: 路径第1段
+        tip: 如 C:/Users
+      - key: path2
+        title: 路径第2段
+        tip: 如 admin
+      - key: path3
+        title: 路径第3段
+        tip: 选填
+      - key: path4
+        title: 路径第4段
+        tip: 选填
+    outputList:
+      - key: joined_path
+        title: 完整路径保存至
+        tip: 输出合成后的完整路径
+  File.is_file_locked:
+    title: 检查文件是否被占用
+    comment: 检查文件(@{file_path})是否被占用保存至(@{is_locked})
+    icon: file-write
+    helpManual: 检查文件是否被其他程序打开锁定，被占用返回True；常用于写文件前判断
+    inputList:
+      - key: file_path
+        title: 文件路径
+        tip: 待检查的文件路径
+    outputList:
+      - key: is_locked
+        title: 是否被占用保存至
+        tip: 输出布尔值(被占用=True)
   System.run_command:
     title: 运行或打开
     comment: 运行或打开 @{command} ，并将执行结果保存到输出变量 @{process_out}
@@ -666,11 +759,11 @@ atomic:
     title: 获取进程PID
     comment: 获取与输入 @{process_name} 匹配的进程PID，并保存至输出变量 @{match_proces_pid}
     icon: get-process-pid
-    helpManual: 输入待匹配进程名称，支持精确匹配/模糊匹配/正则表达式匹配，可获取单个匹配进程PID或全部匹配进程PID，并输出至变量列表
+    helpManual: 输入待匹配进程名称，支持精确匹配/模糊匹配/正则表达式匹配，可获取单个匹配进程PID或全部匹配进程PID，并输出至变量列表；名称为空时返回全部进程(每项为[进程名, PID]二元组列表)
     inputList:
       - key: process_name
         title: 待匹配内容
-        tip: 输入待匹配进程内容，精确匹配模式下需输入完整进程名，区分大小写
+        tip: 输入待匹配进程内容，精确匹配模式下需输入完整进程名，区分大小写；为空时返回全部进程(进程名+PID)
       - key: search_type
         title: 匹配方式
         tip: 选择匹配方式
@@ -1015,7 +1108,278 @@ atomic:
       - key: printer_status
         title: 打印结果
         tip: 保存打印结果到输出变量，数据类型为布尔值
+  Printer.get_printer_list:
+    title: 获取所有打印机列表
+    comment: 获取系统所有本地和网络连接的打印机名称，保存至列表 @{printer_list}
+    icon: printer-print
+    helpManual: 返回已安装的打印机名称列表（含本地与网络连接的打印机）
+    inputList: []
+    outputList:
+      - key: printer_list
+        title: 打印机列表
+        tip: 保存打印机名称列表到输出变量
+  Printer.get_default_printer:
+    title: 获取默认打印机
+    comment: 获取系统默认打印机名称，保存至 @{printer_name}
+    icon: printer-print
+    helpManual: 返回当前系统默认打印机名称
+    inputList: []
+    outputList:
+      - key: printer_name
+        title: 打印机名称
+        tip: 保存默认打印机名称到输出变量
+  Printer.set_default_printer:
+    title: 设置默认打印机
+    comment: 将打印机 @{printer_name} 设置为系统默认打印机，执行结果保存至 @{success}
+    icon: printer-print
+    helpManual: 打印机名称须在已安装打印机列表中，可通过"获取所有打印机列表"查询
+    inputList:
+      - key: printer_name
+        title: 打印机名称
+        tip: 输入要设为默认的打印机名称
+    outputList:
+      - key: success
+        title: 执行结果
+        tip: 保存执行结果到输出变量，数据类型为布尔值
+  Printer.get_printer_status:
+    title: 获取打印机状态
+    comment: 获取打印机 @{printer_name}(为空时取默认打印机) 的状态，状态码保存至 @{status_code}，状态描述保存至 @{status_text}
+    icon: printer-print
+    helpManual: 打印机名称为空时取默认打印机；状态码为0表示空闲，其余为各异常状态位组合（如卡纸/缺纸/脱机等）
+    inputList:
+      - key: printer_name
+        title: 打印机名称
+        tip: 输入打印机名称，为空时使用默认打印机
+    outputList:
+      - key: status_code
+        title: 状态码
+        tip: 保存打印机状态码到输出变量，0表示空闲
+      - key: status_text
+        title: 状态描述
+        tip: 保存打印机状态中文描述到输出变量
+  Printer.get_printer_jobs:
+    title: 获取打印机工作队列
+    comment: 获取打印机 @{printer_name}(为空时取默认打印机) 的打印作业列表，保存至 @{job_list}
+    icon: printer-print
+    helpManual: 打印机名称为空时取默认打印机；每项含作业ID/文档名/所有者/状态/已打印页数/总页数/提交时间，无作业时为空列表
+    inputList:
+      - key: printer_name
+        title: 打印机名称
+        tip: 输入打印机名称，为空时使用默认打印机
+    outputList:
+      - key: job_list
+        title: 打印作业列表
+        tip: 保存打印作业信息列表到输出变量
+  Printer.clear_printer_jobs:
+    title: 清空打印机队列
+    comment: 清空打印机 @{printer_name}(为空时取默认打印机) 队列中所有打印作业，执行结果保存至 @{success}
+    icon: printer-print
+    helpManual: 打印机名称为空时取默认打印机；清空后队列中的作业将不再打印
+    inputList:
+      - key: printer_name
+        title: 打印机名称
+        tip: 输入打印机名称，为空时使用默认打印机
+    outputList:
+      - key: success
+        title: 执行结果
+        tip: 保存执行结果到输出变量，数据类型为布尔值
+  Screen.get_screen_resolution:
+    title: 获取屏幕分辨率
+    comment: 获取主屏幕分辨率，宽保存至 @{width}，高保存至 @{height}，缩放百分比保存至 @{scale}
+    icon: system-check
+    helpManual: 返回主屏幕物理分辨率（像素）与系统缩放百分比（100=100%）；多显示器时取主屏幕
+    inputList: []
+    outputList:
+      - key: width
+        title: 宽(像素)
+        tip: 保存屏幕宽度到输出变量
+      - key: height
+        title: 高(像素)
+        tip: 保存屏幕高度到输出变量
+      - key: scale
+        title: 缩放(%)
+        tip: 保存系统缩放百分比到输出变量，100表示100%
+  Screen.set_screen_resolution:
+    title: 设置屏幕分辨率
+    comment: 将主屏幕分辨率设置为 @{width} x @{height}（颜色位数 @{color_bits}，默认32位），执行结果保存至 @{success}
+    icon: system-check
+    helpManual: 宽高为像素值，颜色位数默认32位；分辨率须为显示器与显卡支持的组合，否则执行失败
+    inputList:
+      - key: width
+        title: 宽(像素)
+        tip: 输入目标分辨率宽度，如1920
+      - key: height
+        title: 高(像素)
+        tip: 输入目标分辨率高度，如1080
+      - key: color_bits
+        title: 颜色位数
+        tip: 默认32位真彩色
+    outputList:
+      - key: success
+        title: 执行结果
+        tip: 保存执行结果到输出变量，数据类型为布尔值
+  Screen.set_screen_scale:
+    title: 设置屏幕缩放
+    comment: 将系统缩放设置为 @{scale}%，执行结果保存至 @{success}
+    icon: system-check
+    helpManual: 缩放百分比须为100-500且为25的倍数；修改注册表实现，注销并重新登录后生效
+    inputList:
+      - key: scale
+        title: 缩放(%)
+        tip: 输入缩放百分比，如100/125/150/200
+    outputList:
+      - key: success
+        title: 执行结果
+        tip: 保存执行结果到输出变量，数据类型为布尔值
+  Device.get_ip_address:
+    title: 获取本地IP地址
+    comment: 获取本地计算机的IP地址保存至 @{ip_address}，计算机名保存至 @{host_name}
+    icon: system-check
+    helpManual: 通过计算机名解析本机IP；多网卡/虚拟网卡场景可能返回其中一个地址
+    inputList: []
+    outputList:
+      - key: ip_address
+        title: IP地址
+        tip: 保存本机IP地址到输出变量
+      - key: host_name
+        title: 计算机名
+        tip: 保存本机计算机名到输出变量
+  Device.get_computer_info:
+    title: 获取计算机信息
+    comment: 获取计算机信息，名称保存至 @{computer_name}，操作系统版本保存至 @{os_version}，处理器保存至 @{processor}，系统目录保存至 @{system_dir}，位数保存至 @{arch_bits}
+    icon: system-check
+    helpManual: 返回计算机名称/操作系统版本/处理器/系统目录/系统位数（如64bit）
+    inputList: []
+    outputList:
+      - key: computer_name
+        title: 计算机名称
+        tip: 保存计算机名称到输出变量
+      - key: os_version
+        title: 操作系统版本
+        tip: 保存操作系统版本到输出变量
+      - key: processor
+        title: 处理器
+        tip: 保存处理器信息到输出变量
+      - key: system_dir
+        title: 系统目录
+        tip: 保存系统目录到输出变量
+      - key: arch_bits
+        title: 系统位数
+        tip: 保存系统位数到输出变量，如64bit
+  Device.show_desktop:
+    title: 显示桌面
+    comment: 最小化所有窗口，显示桌面
+    icon: system-check
+    helpManual: 等效于按下 Win+D 组合键，最小化当前所有窗口；再次执行不会恢复窗口
+    inputList: []
+    outputList: []
+  Device.play_sound:
+    title: 播放声音
+    comment: 播放频率 @{frequency} 赫兹、时长 @{duration} 毫秒的蜂鸣声
+    icon: system-check
+    helpManual: 频率须在37-32767赫兹之间，时长单位为毫秒；通过系统扬声器播放蜂鸣提示音
+    inputList:
+      - key: frequency
+        title: 频率(赫兹)
+        tip: 输入蜂鸣频率，如1000
+      - key: duration
+        title: 时长(毫秒)
+        tip: 输入播放时长，如500
+    outputList: []
+  Device.empty_recycle_bin:
+    title: 清空回收站
+    comment: 清空回收站中所有文件，执行结果保存至 @{success}
+    icon: system-check
+    helpManual: 直接清空回收站所有内容，不弹出确认对话框，操作不可恢复，请谨慎使用
+    inputList: []
+    outputList:
+      - key: success
+        title: 执行结果
+        tip: 保存执行结果到输出变量，数据类型为布尔值
+  Assert.assert_condition:
+    title: 条件断言
+    comment: 断言(@{value1})(@{operator})(@{value2})，失败时中断流程
+    icon: system-check
+    helpManual: 判断对象1与对象2的关系是否成立，断言失败时抛出异常并中断流程；支持等于/不等于/大于/大于等于/小于/小于等于/包含/不包含
+    inputList:
+      - key: value1
+        title: 对象1
+        tip: 待断言的对象1(支持任意类型)
+      - key: operator
+        title: 运算符
+        tip: 选择断言的运算符
+      - key: value2
+        title: 对象2
+        tip: 待断言的对象2(支持任意类型)
+      - key: error_message
+        title: 自定义错误信息
+        tip: 断言失败时抛出的错误信息(不填使用默认信息)
+  Assert.assert_empty:
+    title: 空值断言
+    comment: 断言(@{value})为空或不为空，失败时中断流程
+    icon: system-check
+    helpManual: 判断值是否为空(None/空字符串/空列表)，断言失败时抛出异常并中断流程；勾选【空白字符串视为空】后，纯空格字符串也视为空
+    inputList:
+      - key: value
+        title: 待判断的值
+        tip: 支持任意类型
+      - key: assert_mode
+        title: 断言模式
+        tip: 断言不为空/断言为空
+      - key: include_whitespace
+        title: 空白字符串视为空
+        tip: 勾选后纯空格字符串(如"  ")也视为空
+      - key: error_message
+        title: 自定义错误信息
+        tip: 断言失败时抛出的错误信息(不填使用默认信息)
+  Assert.assert_file_folder:
+    title: 文件/文件夹断言
+    comment: 断言(@{path})存在或不存在，失败时中断流程
+    icon: system-check
+    helpManual: 判断文件/文件夹是否存在，断言失败时抛出异常并中断流程
+    inputList:
+      - key: path
+        title: 文件/文件夹路径
+        tip: 待断言的文件或文件夹路径
+      - key: target_type
+        title: 目标类型
+        tip: 文件/文件夹/文件或文件夹
+      - key: exist_mode
+        title: 断言模式
+        tip: 存在/不存在
+      - key: error_message
+        title: 自定义错误信息
+        tip: 断言失败时抛出的错误信息(不填使用默认信息)
 options:
+  AssertOperator:
+    - value: eq
+      label: 等于
+    - value: neq
+      label: 不等于
+    - value: gt
+      label: 大于
+    - value: gte
+      label: 大于等于
+    - value: lt
+      label: 小于
+    - value: lte
+      label: 小于等于
+    - value: contains
+      label: 包含
+    - value: not_contains
+      label: 不包含
+  AssertEmptyMode:
+    - value: not_empty
+      label: 断言不为空
+    - value: empty
+      label: 断言为空
+  AssertTargetType:
+    - value: file
+      label: 文件
+    - value: folder
+      label: 文件夹
+    - value: any
+      label: 文件或文件夹
   ContentType:
     - value: msg
       label: 文本内容
@@ -1126,6 +1490,15 @@ options:
       label: 文件创建时间
     - value: m_time
       label: 文件修改时间
+  FileSizeUnitType:
+    - value: b
+      label: B(字节)
+    - value: kb
+      label: KB
+    - value: mb
+      label: MB
+    - value: gb
+      label: GB
   Bool:
     - value: true
       label: 是

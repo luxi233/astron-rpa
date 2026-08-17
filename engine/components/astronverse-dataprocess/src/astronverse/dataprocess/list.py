@@ -262,8 +262,8 @@ class ListProcess:
         list_data, del_pos_int = list_legal_check(list_data, del_pos, False)
         if del_mode == DeleteMethodType.INDEX:
             if isinstance(del_pos_int, list):
-                # 从大到小排序索引，避免删除时索引变化
-                sorted_indices = sorted(del_pos, reverse=True)
+                # 从大到小排序索引，避免删除时索引变化（del_pos 是原始字符串，须用解析后的 del_pos_int）
+                sorted_indices = sorted(del_pos_int, reverse=True)
                 for index in sorted_indices:
                     del list_data[int(index)]
             else:

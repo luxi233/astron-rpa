@@ -9,6 +9,7 @@ from . import (
     ImageTargetPart,
     InputTargetType,
     KeyType,
+    ListSortType,
     LocatorType,
     OrientationType,
     PositionType,
@@ -379,6 +380,19 @@ class PhoneCore:
     def _click_by_type(device, x: int, y: int, click_type: ClickType):
         click_type = _to_enum(click_type, ClickType)
         if _is_appium_device(device):
+            if click_type in (ClickType.DOWN, ClickType.UP):
+                # 按下/抬起: W3C actions拼自定义拖拽轨迹
+                from selenium.webdriver.common.action_chains import ActionChains
+
+                actions = ActionChains(device)
+                pointer = actions.w3c_actions.add_pointer_input("touch", "finger1")
+                pointer.create_pointer_move(x=int(x), y=int(y), duration=0)
+                if click_type == ClickType.DOWN:
+                    pointer.create_pointer_down(button=0)
+                else:
+                    pointer.create_pointer_up(button=0)
+                actions.perform()
+                return
             script_map = {
                 ClickType.DOUBLE: "mobile: doubleClickGesture",
                 ClickType.LONG: "mobile: longClickGesture",
@@ -388,7 +402,11 @@ class PhoneCore:
                 args["duration"] = 1000
             device.execute_script(script_map.get(click_type, "mobile: clickGesture"), args)
             return
-        if click_type == ClickType.DOUBLE:
+        if click_type == ClickType.DOWN:
+            device.touch.down(int(x), int(y))
+        elif click_type == ClickType.UP:
+            device.touch.up(int(x), int(y))
+        elif click_type == ClickType.DOUBLE:
             device.double_click(x, y)
         elif click_type == ClickType.LONG:
             device.long_click(x, y, duration=1.0)
@@ -636,6 +654,66 @@ class PhoneCore:
                 return False
             time.sleep(0.5)
 
+    # ---------- 懒加载 ----------
+
+    @staticmethod
+    def _xpath_exists(device, xpath: str) -> bool:
+        """xpath当前是否出现在屏幕上(不等待)"""
+        try:
+            if _is_appium_device(device):
+                return bool(device.find_elements(_appium_by().XPATH, xpath))
+            return bool(device.xpath(xpath).all())
+        except Exception:
+            return False
+
+    @classmethod
+    def _locate_built_xpath(cls, conn: PhoneObject, xpath: str) -> PhoneElement:
+        """按已构建的xpath定位元素(用于懒加载命中后取元素)"""
+        device = conn.device
+        try:
+            if _is_appium_device(device):
+                el = device.find_element(_appium_by().XPATH, xpath)
+                return PhoneElement(el, locator_desc=xpath, device=device)
+            all_els = device.xpath(xpath).all()
+            if not all_els:
+                raise BaseException(PHONE_ELEMENT_NOT_FOUND_FORMAT.format(xpath), "element not found")
+            return PhoneElement(all_els[0], locator_desc=xpath, device=device)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(PHONE_ELEMENT_ERROR_FORMAT.format(str(e)), str(e))
+
+    @classmethod
+    def lazy_load(
+        cls,
+        conn: PhoneObject,
+        xpath: str,
+        direction: SwipeDirection = SwipeDirection.UP,
+        max_swipes: int = 10,
+        duration: int = 300,
+        interval: float = 0.5,
+    ) -> PhoneElement:
+        """懒加载: 反复滑动屏幕直至目标元素出现(列表分页加载场景)"""
+        import time
+
+        direction = _to_enum(direction, SwipeDirection)
+        device = conn.device
+        swipes = 0
+        try:
+            while True:
+                if cls._xpath_exists(device, xpath):
+                    return cls._locate_built_xpath(conn, xpath)
+                if max_swipes > 0 and swipes >= max_swipes:
+                    raise BaseException(PHONE_ELEMENT_NOT_FOUND_FORMAT.format(xpath), "element not found")
+                cls.swipe_screen(conn, SwipeMode.DIRECTION, direction, duration=duration)
+                swipes += 1
+                if interval > 0:
+                    time.sleep(interval)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(PHONE_ELEMENT_ERROR_FORMAT.format(str(e)), str(e))
+
     # ---------- 滑动/按键 ----------
 
     @classmethod
@@ -806,6 +884,118 @@ class PhoneCore:
             raise
         except Exception as e:
             raise BaseException(PHONE_EXECUTE_ERROR_FORMAT.format(str(e)), str(e))
+
+    # ---------- 长截屏 ----------
+
+    @staticmethod
+    def _find_overlap_rows(prev_gray, new_gray, min_overlap: int = 20) -> int:
+        """求k使 prev末尾k行 与 new开头k行 内容一致(容差), 无则0"""
+        from collections import defaultdict
+
+        import numpy as np
+
+        ph, nh = len(prev_gray), len(new_gray)
+        max_k = min(ph, nh) - 1
+        if max_k < min_overlap:
+            return 0
+        # 量化行哈希建索引(右移3位容忍轻微渲染噪声), 候选=prev某行==new首行
+        index = defaultdict(list)
+        prev_q = prev_gray >> 3
+        for i in range(ph):
+            index[prev_q[i].tobytes()].append(i)
+        new_q = new_gray >> 3
+        best = 0
+        for i in index.get(new_q[0].tobytes(), ()):
+            k = ph - i
+            if k < min_overlap or k > max_k or k <= best:
+                continue
+            probes = sorted({0, k // 4, k // 2, (3 * k) // 4, k - 1})
+            ok = True
+            for j in probes:
+                diff = np.abs(prev_gray[ph - k + j].astype(np.int16) - new_gray[j].astype(np.int16)).mean()
+                if diff > 3.0:
+                    ok = False
+                    break
+            if ok:
+                best = k
+        return best
+
+    @classmethod
+    def scroll_screenshot(
+        cls,
+        conn: PhoneObject,
+        folder: str,
+        filename: str = "",
+        direction: SwipeDirection = SwipeDirection.UP,
+        max_scrolls: int = 0,
+        duration: int = 300,
+        stabilize: float = 0.6,
+    ) -> str:
+        """滚动长截屏: 逐屏截图+滑动+重叠行拼接(次数0=滚到底自动停)"""
+        import io
+        import os
+        import time
+
+        import numpy as np
+        from PIL import Image
+
+        direction = _to_enum(direction, SwipeDirection)
+        if direction not in (SwipeDirection.UP, SwipeDirection.DOWN):
+            raise BaseException(PHONE_EXECUTE_ERROR_FORMAT.format("长截屏仅支持向上/向下滚动方向"), "bad direction")
+        try:
+            device = conn.device
+
+            def shot():
+                if _is_appium_device(device):
+                    return Image.open(io.BytesIO(device.get_screenshot_as_png())).convert("RGB")
+                return device.screenshot().convert("RGB")
+
+            first = shot()
+            stitched = np.asarray(first)
+            prev_shot_gray = cls._to_gray(first)
+
+            scrolls = 0
+            hard_cap = 50  # 无限模式兜底上限(动态内容永不静止)
+            limit = max_scrolls if max_scrolls > 0 else hard_cap
+            while scrolls < limit:
+                cls.swipe_screen(conn, SwipeMode.DIRECTION, direction, duration=duration)
+                scrolls += 1
+                if stabilize > 0:
+                    time.sleep(stabilize)
+                new_shot = shot()
+                new_gray = cls._to_gray(new_shot)
+                if np.array_equal(new_gray, prev_shot_gray):
+                    break  # 滑动后画面无变化 → 到底了
+                new_arr = np.asarray(new_shot)
+                if direction == SwipeDirection.UP:
+                    k = cls._find_overlap_rows(prev_shot_gray, new_gray)
+                    if k <= 0:
+                        break  # 找不到重叠区(页面切换/动画) → 停止拼接
+                    stitched = np.vstack([stitched, new_arr[k:]])
+                else:
+                    k = cls._find_overlap_rows(new_gray, prev_shot_gray)
+                    if k <= 0:
+                        break
+                    stitched = np.vstack([new_arr[: len(new_arr) - k], stitched])
+                prev_shot_gray = new_gray
+            os.makedirs(folder, exist_ok=True)
+            if not filename:
+                filename = "phone_scroll_{}.png".format(int(time.time() * 1000))
+            if not filename.lower().endswith(".png"):
+                filename += ".png"
+            target = os.path.join(folder, filename)
+            Image.fromarray(stitched).save(target)
+            return target
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(PHONE_EXECUTE_ERROR_FORMAT.format(str(e)), str(e))
+
+    @staticmethod
+    def _to_gray(pil_img):
+        import numpy as np
+
+        return np.asarray(pil_img.convert("L"))
 
     # ---------- App/剪贴板 ----------
 
@@ -1032,3 +1222,163 @@ class PhoneCore:
             raise
         except Exception as e:
             raise BaseException(PHONE_EXECUTE_ERROR_FORMAT.format(str(e)), str(e))
+
+    # ---------- ADB命令/文件管理 ----------
+
+    @staticmethod
+    def _adb_device(udid: str = ""):
+        """直接通过adbutils取设备(无需连接对象)"""
+        import adbutils
+
+        return adbutils.adb.device(udid) if udid else adbutils.adb.device()
+
+    @staticmethod
+    def _adb_shell(conn: PhoneObject, cmd: str) -> str:
+        """执行adb shell命令(统一u2/appium: appium优先mobile: shell, 失败回退adbutils)"""
+        device = conn.device
+        try:
+            if not _is_appium_device(device):
+                out = device.shell(cmd)
+                return out if isinstance(out, str) else (out[0] if isinstance(out, (tuple, list)) else str(out or ""))
+            try:
+                return str(device.execute_script("mobile: shell", {"command": cmd}) or "")
+            except Exception:
+                d = PhoneCore._adb_device(conn.serial)
+                return d.shell(cmd) or ""
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(PHONE_EXECUTE_ERROR_FORMAT.format("adb命令执行失败: {}".format(str(e))), str(e))
+
+    @staticmethod
+    def _q(path: str) -> str:
+        """shell路径加双引号(转义内部引号)"""
+        return '"{}"'.format(str(path).replace('"', '\\"'))
+
+    @staticmethod
+    def run_adb_command(command: str, udid: str = "") -> str:
+        """执行adb shell命令(独立于连接对象, udid空=自动选择唯一设备)"""
+        try:
+            d = PhoneCore._adb_device(udid)
+            out = d.shell(command)
+            return out if isinstance(out, str) else str(out or "")
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(PHONE_EXECUTE_ERROR_FORMAT.format("adb命令执行失败: {}".format(str(e))), str(e))
+
+    @staticmethod
+    def install_apk(conn: PhoneObject, apk_path: str):
+        """安装APK到手机(u2: app_install; appium: adbutils安装)"""
+        import os
+
+        if not apk_path or not os.path.exists(apk_path):
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("APK文件不存在: {}".format(apk_path)), "apk not found")
+        try:
+            device = conn.device
+            if not _is_appium_device(device):
+                device.app_install(apk_path)
+                return
+            try:
+                device.execute_script("mobile: installApp", {"appPath": apk_path})
+            except Exception:
+                PhoneCore._adb_device(conn.serial).install(apk_path)
+        except BaseException:
+            raise
+        except Exception as e:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("安装APK失败: {}".format(str(e))), str(e))
+
+    @classmethod
+    def delete_file(cls, conn: PhoneObject, path: str):
+        """删除手机文件"""
+        if not path:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("请填写文件路径"), "no path")
+        cls._adb_shell(conn, "rm -f {}".format(cls._q(path)))
+
+    @classmethod
+    def delete_folder(cls, conn: PhoneObject, path: str):
+        """删除手机文件夹(含内容)"""
+        if not path:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("请填写文件夹路径"), "no path")
+        cls._adb_shell(conn, "rm -rf {}".format(cls._q(path)))
+
+    @classmethod
+    def create_folder(cls, conn: PhoneObject, path: str):
+        """创建手机文件夹(递归)"""
+        if not path:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("请填写文件夹路径"), "no path")
+        cls._adb_shell(conn, "mkdir -p {}".format(cls._q(path)))
+
+    @classmethod
+    def rename_file(cls, conn: PhoneObject, old_path: str, new_path: str):
+        """重命名/移动手机文件"""
+        if not old_path or not new_path:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("请填写原路径与新路径"), "no path")
+        cls._adb_shell(conn, "mv {} {}".format(cls._q(old_path), cls._q(new_path)))
+
+    @classmethod
+    def rename_folder(cls, conn: PhoneObject, old_path: str, new_path: str):
+        """重命名/移动手机文件夹"""
+        if not old_path or not new_path:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("请填写原路径与新路径"), "no path")
+        cls._adb_shell(conn, "mv {} {}".format(cls._q(old_path), cls._q(new_path)))
+
+    @classmethod
+    def file_exists(cls, conn: PhoneObject, path: str) -> bool:
+        """手机文件是否存在"""
+        if not path:
+            return False
+        out = cls._adb_shell(conn, "[ -f {} ] && echo 1 || echo 0".format(cls._q(path)))
+        return "1" in (out or "").split()
+
+    @classmethod
+    def folder_exists(cls, conn: PhoneObject, path: str) -> bool:
+        """手机文件夹是否存在"""
+        if not path:
+            return False
+        out = cls._adb_shell(conn, "[ -d {} ] && echo 1 || echo 0".format(cls._q(path)))
+        return "1" in (out or "").split()
+
+    @staticmethod
+    def _list_entries(conn: PhoneObject, folder: str, want_dir: bool, pattern: str, sort_type) -> list:
+        """ls -1p列目录, 按类型过滤+fnmatch通配+排序"""
+        import fnmatch
+
+        from astronverse.phone.phone_core import _to_enum
+
+        if not folder:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("请填写文件夹路径"), "no path")
+        out = PhoneCore._adb_shell(conn, "ls -1p {}".format(PhoneCore._q(folder)))
+        names = []
+        for line in (out or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            is_dir = line.endswith("/")
+            if is_dir == want_dir and fnmatch.fnmatch(line.rstrip("/"), pattern or "*"):
+                names.append(line.rstrip("/"))
+        names.sort()
+        if _to_enum(sort_type, ListSortType) == ListSortType.DESC:
+            names.reverse()
+        return names
+
+    @classmethod
+    def get_file_list(cls, conn: PhoneObject, folder: str, pattern: str = "*", sort_type=ListSortType.ASC) -> list:
+        """获取手机文件夹下文件名列表(通配符过滤)"""
+        return cls._list_entries(conn, folder, False, pattern, sort_type)
+
+    @classmethod
+    def get_folder_list(cls, conn: PhoneObject, folder: str, pattern: str = "*", sort_type=ListSortType.ASC) -> list:
+        """获取手机文件夹下子文件夹名列表(通配符过滤)"""
+        return cls._list_entries(conn, folder, True, pattern, sort_type)
+
+    @classmethod
+    def refresh_file(cls, conn: PhoneObject, path: str):
+        """刷新手机文件(MEDIA_SCANNER广播, 让相册等识别新文件)"""
+        if not path:
+            raise BaseException(PHONE_FILE_ERROR_FORMAT.format("请填写文件路径"), "no path")
+        uri = "file://{}".format(str(path).replace('"', ""))
+        cls._adb_shell(
+            conn,
+            'am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "{}"'.format(uri),
+        )

@@ -22,7 +22,6 @@ class ClipBoardCore(IClipBoardCore):
         subprocess.run(
             ["xclip", "-selection", "clipboard"],
             input=file_path.encode(),
-            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )

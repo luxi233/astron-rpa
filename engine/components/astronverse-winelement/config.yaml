@@ -345,6 +345,214 @@ atomic:
         title: 等待元素出现时间（秒）
         tip: 超过该时间停止等待
     outputList: []
+  WinEle.wait_any_element:
+    title: 等待任意一个元素出现（桌面）
+    comment: 等待元素(@{pick_1}/@{pick_2}/@{pick_3}/@{pick_4}/@{pick_5})任意一个出现，最长等待 @{wait_time} 秒，命中名称保存至 @{hit_element_name}
+    icon: check-window-exists
+    helpManual: 同时等待多个桌面元素，任意一个出现即返回并输出其名称；超时返回false，常用于分支窗口的场景判断
+    inputList:
+      - key: pick_1
+        title: 元素1拾取
+        tip: 拾取第1个候选元素
+      - key: name_1
+        title: 元素1名称
+        tip: 元素1出现时输出的名称(默认"元素1")
+      - key: pick_2
+        title: 元素2拾取
+        tip: 拾取第2个候选元素(可选)
+      - key: name_2
+        title: 元素2名称
+        tip: 元素2出现时输出的名称(默认"元素2")
+      - key: pick_3
+        title: 元素3拾取
+        tip: 拾取第3个候选元素(可选)
+      - key: name_3
+        title: 元素3名称
+        tip: 元素3出现时输出的名称(默认"元素3")
+      - key: pick_4
+        title: 元素4拾取
+        tip: 拾取第4个候选元素(可选)
+      - key: name_4
+        title: 元素4名称
+        tip: 元素4出现时输出的名称(默认"元素4")
+      - key: pick_5
+        title: 元素5拾取
+        tip: 拾取第5个候选元素(可选)
+      - key: name_5
+        title: 元素5名称
+        tip: 元素5出现时输出的名称(默认"元素5")
+      - key: wait_time
+        title: 等待时间（秒）
+        tip: 在该时间内持续检测
+    outputList:
+      - key: hit_element_name
+        title: 命中元素名称保存至
+        tip: 最先出现的元素名称，超时为空字符串
+      - key: wait_result
+        title: 等待结果保存至
+        tip: true表示有元素出现，false表示超时
+  WinEle.wait_any_group:
+    title: 等待任意一组元素出现（桌面）
+    comment: 等待(@{group_a_name}或@{group_b_name})任意一组元素全部出现，最长等待 @{wait_time} 秒，命中组名保存至 @{hit_group_name}
+    icon: check-window-exists
+    helpManual: 配置两组元素(A/B)，组内全部元素出现即该组命中；常用于多元素共同标识一个窗口状态的场景
+    inputList:
+      - key: group_a_name
+        title: A组名称
+        tip: A组命中时输出的名称(默认"组A")
+      - key: pick_a_1
+        title: A组元素1拾取
+        tip: 拾取A组第1个元素
+      - key: pick_a_2
+        title: A组元素2拾取
+        tip: 拾取A组第2个元素(可选)
+      - key: pick_a_3
+        title: A组元素3拾取
+        tip: 拾取A组第3个元素(可选)
+      - key: group_b_name
+        title: B组名称
+        tip: B组命中时输出的名称(默认"组B")
+      - key: pick_b_1
+        title: B组元素1拾取
+        tip: 拾取B组第1个元素
+      - key: pick_b_2
+        title: B组元素2拾取
+        tip: 拾取B组第2个元素(可选)
+      - key: pick_b_3
+        title: B组元素3拾取
+        tip: 拾取B组第3个元素(可选)
+      - key: wait_time
+        title: 等待时间（秒）
+        tip: 在该时间内持续检测
+    outputList:
+      - key: hit_group_name
+        title: 命中组名保存至
+        tip: 最先全部出现的组名，超时为空字符串
+      - key: wait_result
+        title: 等待结果保存至
+        tip: true表示有组命中，false表示超时
+  WinEle.combine_elements:
+    title: 组合多元素（桌面）
+    comment: 将拾取的多个元素(@{pick_1}~@{pick_5})合成一个元素列表，保存至 @{picks}
+    icon: get-similar-elements-win
+    helpManual: 将最多5个拾取的桌面元素组合成元素列表(含数量)，供循环遍历或批量操作使用
+    inputList:
+      - key: pick_1
+        title: 元素1拾取
+        tip: 拾取第1个元素
+      - key: pick_2
+        title: 元素2拾取
+        tip: 拾取第2个元素(可选)
+      - key: pick_3
+        title: 元素3拾取
+        tip: 拾取第3个元素(可选)
+      - key: pick_4
+        title: 元素4拾取
+        tip: 拾取第4个元素(可选)
+      - key: pick_5
+        title: 元素5拾取
+        tip: 拾取第5个元素(可选)
+    outputList:
+      - key: picks
+        title: 元素列表保存至
+        tip: 组合后的桌面元素对象列表
+      - key: pick_count
+        title: 元素数量保存至
+        tip: 列表中的元素个数
+  WinEle.get_all_attributes:
+    title: 获取元素全部属性（桌面）
+    comment: 采集元素 @{pick} 的全部常用属性，以字典保存至 @{attributes}
+    icon: get-element-text-win
+    helpManual: 采集元素常用UIA属性(Name/ClassName/ControlTypeName/AutomationId/位置矩形/值等)为字典，便于调试和属性名查找
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: 拾取目标元素
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: attributes
+        title: 属性字典保存至
+        tip: 元素全部常用属性的字典
+      - key: attribute_count
+        title: 属性数量保存至
+        tip: 字典中的属性个数
+  WinEle.get_all_text:
+    title: 获取元素所有文本（桌面）
+    comment: 递归收集元素 @{pick} 及其子孙的全部文本，合并保存至 @{all_text}
+    icon: get-element-text-win
+    helpManual: 递归遍历元素及其全部子孙元素，收集非空文本；输出合并文本(可设分隔符)、文本列表和数量
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: 拾取目标元素(通常拾取容器)
+      - key: separator
+        title: 合并分隔符
+        tip: 合并文本时使用的分隔符，默认换行
+      - key: include_self
+        title: 包含元素自身文本
+        tip: 是否包含拾取元素自身的文本
+      - key: max_depth
+        title: 最大递归深度
+        tip: 子孙遍历最大层级，默认20
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: all_text
+        title: 合并文本保存至
+        tip: 按分隔符合并的全部文本
+      - key: text_list
+        title: 文本列表保存至
+        tip: 各元素文本组成的列表
+      - key: text_count
+        title: 文本数量保存至
+        tip: 文本列表的项数
+  WinEle.batch_scrape:
+    title: 批量数据抓取（桌面）
+    comment: 按相似元素 @{pick} 逐行抓取子孙文本，二维列表保存至 @{data_table}
+    icon: get-similar-elements-win
+    helpManual: 拾取一行数据作为模板(相似元素)，每个命中元素为一行，行内递归抓取子孙文本为列，输出二维列表；适用于列表/表格类界面数据采集
+    inputList:
+      - key: pick
+        title: 行模板元素拾取
+        tip: 拾取一行数据作为模板(相似元素)
+      - key: include_self_text
+        title: 行包含自身文本
+        tip: 行数据是否包含模板元素自身的文本
+      - key: max_depth
+        title: 最大递归深度
+        tip: 行内子孙遍历最大层级，默认10
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: data_table
+        title: 数据二维列表保存至
+        tip: 每行为一个相似元素的子孙文本列表
+      - key: row_count
+        title: 行数保存至
+        tip: 抓取到的数据行数
+  WinEle.scroll_into_view:
+    title: 显示指定元素（桌面）
+    comment: 将元素 @{pick} 滚动到可视区域(@{auto_click})
+    icon: click-element-win
+    helpManual: 通过ScrollItemPattern将元素滚动到可视区域(逐级向上寻找可滚动祖先)；可选滚动后自动点击元素
+    inputList:
+      - key: pick
+        title: 元素拾取
+        tip: 拾取需要显示的目标元素
+      - key: auto_click
+        title: 自动点击
+        tip: 滚动显示后是否自动点击该元素
+      - key: max_ancestor
+        title: 最大向上查找层数
+        tip: 向上寻找可滚动祖先的最大层级，默认10
+      - key: wait_time
+        title: 等待元素出现时间（秒）
+        tip: 超过该时间停止等待
+    outputList: []
 options:
   MouseClickButton:
     - value: left

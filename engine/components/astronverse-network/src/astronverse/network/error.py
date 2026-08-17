@@ -7,6 +7,8 @@ MSG_EMPTY_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("消息为空") + ":
 HTTP_DOWNLOAD_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("HTTP下载失败，错误：{}"))
 HTTP_REQUEST_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("HTTP请求失败，错误：{}"))
 SFTP_ERROR_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("SFTP操作失败，错误：{}"))
+SSH_TUNNEL_OPEN_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("SSH隧道创建失败，错误：{}"))
+SSH_TUNNEL_CLOSE_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("SSH隧道关闭失败，错误：{}"))
 
 FTP_CONNECTION_FORMAT: ErrorCode = ErrorCode(
     BizCode.LocalErr, _("连接到FTP服务器失败，请检查服务器地址：{}及端口号：{}")

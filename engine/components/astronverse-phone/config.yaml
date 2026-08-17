@@ -501,6 +501,278 @@ atomic:
       - key: ui_tree
         title: 保存UI树至
         tip: XML结构字符串
+  Phone.run_adb_command:
+    title: 运行ADB命令
+    comment: 执行ADB命令(@{command})结果保存至(@{result})
+    icon: phone-adb
+    helpManual: 直接执行adb shell命令并返回输出内容; 无需先连接手机, 多台设备时填写手机serial
+    inputList:
+      - key: command
+        title: 命令内容
+        tip: adb shell命令, 如 dumpsys battery
+      - key: udid
+        title: 手机serial
+        tip: 留空自动选择唯一已连接设备
+    outputList:
+      - key: result
+        title: 保存命令结果至
+        tip: 命令标准输出内容
+  Phone.lazy_load:
+    title: 手机懒加载
+    comment: 滑动屏幕直至出现元素(@{value})
+    icon: phone-lazyload
+    helpManual: 反复滑动手机屏幕直至目标元素出现(适用于列表分页懒加载场景), 找到后返回元素对象
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: by
+        title: 定位方式
+        tip: id/text/text_contains/description/xpath/selector/class
+      - key: value
+        title: 元素特征
+        tip: 定位方式对应的值
+      - key: direction
+        title: 滑动方向
+        tip: 默认向上滑动加载更多
+      - key: max_swipes
+        title: 最大滑动次数
+        tip: 超出次数仍未找到则报错
+      - key: duration
+        title: 每次滑动时间(毫秒)
+        tip: 滑动持续时间
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 执行完成后等待时间
+    outputList:
+      - key: element
+        title: 保存元素对象至
+        tip: 找到的目标元素对象
+  Phone.lazy_load_xpath:
+    title: 手机懒加载_xpath
+    comment: 滑动屏幕直至出现xpath(@{xpath})元素
+    icon: phone-lazyload-xpath
+    helpManual: 通过xpath表达式反复滑动手机屏幕直至目标元素出现, 找到后返回元素对象
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: xpath
+        title: xpath表达式
+        tip: 如 //*[@text="加载更多"]
+      - key: direction
+        title: 滑动方向
+        tip: 默认向上滑动加载更多
+      - key: max_swipes
+        title: 最大滑动次数
+        tip: 超出次数仍未找到则报错
+      - key: duration
+        title: 每次滑动时间(毫秒)
+        tip: 滑动持续时间
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 执行完成后等待时间
+    outputList:
+      - key: element
+        title: 保存元素对象至
+        tip: 找到的目标元素对象
+  Phone.scroll_screenshot:
+    title: 手机滚动长截屏
+    comment: 滚动截屏拼接长图保存至(@{file_path})
+    icon: phone-scroll-shot
+    helpManual: 自动滚动屏幕逐屏截图并按重叠内容拼接为一张长图; 滚动次数填0表示滚动到底部自动停止
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: folder_path
+        title: 保存文件夹
+        tip: 长图保存的本地文件夹
+      - key: direction
+        title: 滚动方向
+        tip: 向上/向下
+      - key: max_scrolls
+        title: 最大滚动次数
+        tip: 0表示滚动到底自动停止
+      - key: duration
+        title: 每次滑动时间(毫秒)
+        tip: 滑动持续时间
+      - key: filename
+        title: 文件名
+        tip: 留空自动按时间命名
+      - key: after_delay
+        title: 执行后延迟(秒)
+        tip: 执行完成后等待时间
+    outputList:
+      - key: file_path
+        title: 保存长图路径至
+        tip: 拼接长图的本地文件路径
+  Phone.install_apk:
+    title: 安装APK到手机
+    comment: 安装APK(@{apk_path})到手机
+    icon: phone-install
+    helpManual: 将本地APK文件安装到已连接的手机
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: apk_path
+        title: 本地APK文件
+        tip: 待安装的APK文件路径
+  Phone.delete_file:
+    title: 删除手机文件
+    comment: 删除手机文件(@{path})
+    icon: phone-file-delete
+    helpManual: 删除手机中指定路径的文件
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: path
+        title: 文件路径
+        tip: 如 /sdcard/dcim/旧图.png
+  Phone.delete_folder:
+    title: 删除手机文件夹
+    comment: 删除手机文件夹(@{path})
+    icon: phone-folder-delete
+    helpManual: 删除手机中指定文件夹及其全部内容
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: path
+        title: 文件夹路径
+        tip: 文件夹及其内容将被全部删除
+  Phone.create_folder:
+    title: 创建手机文件夹
+    comment: 创建手机文件夹(@{path})
+    icon: phone-folder-create
+    helpManual: 在手机中创建指定文件夹, 多级路径不存在时自动递归创建
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: path
+        title: 文件夹路径
+        tip: 如 /sdcard/DCIM/新目录
+  Phone.rename_file:
+    title: 重命名手机文件
+    comment: 重命名手机文件(@{old_path})为(@{new_path})
+    icon: phone-file-rename
+    helpManual: 重命名手机文件; 新路径在不同目录时即移动文件
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: old_path
+        title: 原文件路径
+        tip: 手机中的原文件路径
+      - key: new_path
+        title: 新文件路径
+        tip: 重命名或移动后的路径
+  Phone.rename_folder:
+    title: 重命名手机文件夹
+    comment: 重命名手机文件夹(@{old_path})为(@{new_path})
+    icon: phone-folder-rename
+    helpManual: 重命名手机文件夹; 新路径在不同父目录时即移动文件夹
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: old_path
+        title: 原文件夹路径
+        tip: 手机中的原文件夹路径
+      - key: new_path
+        title: 新文件夹路径
+        tip: 重命名或移动后的路径
+  Phone.file_exists:
+    title: 手机文件是否存在
+    comment: 检查手机文件(@{path})是否存在保存至(@{exists})
+    icon: phone-file-exists
+    helpManual: 检查手机中指定路径的文件是否存在
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: path
+        title: 文件路径
+        tip: 手机中的文件路径
+    outputList:
+      - key: exists
+        title: 保存结果至
+        tip: 存在为True 不存在为False
+  Phone.folder_exists:
+    title: 手机文件夹是否存在
+    comment: 检查手机文件夹(@{path})是否存在保存至(@{exists})
+    icon: phone-folder-exists
+    helpManual: 检查手机中指定路径的文件夹是否存在
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: path
+        title: 文件夹路径
+        tip: 手机中的文件夹路径
+    outputList:
+      - key: exists
+        title: 保存结果至
+        tip: 存在为True 不存在为False
+  Phone.get_file_list:
+    title: 获取手机文件列表
+    comment: 获取手机文件夹(@{folder})文件列表保存至(@{file_list})
+    icon: phone-file-list
+    helpManual: 获取手机指定文件夹下的文件名列表, 支持通配符过滤与排序
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: folder
+        title: 文件夹路径
+        tip: 如 /sdcard/DCIM/Camera
+      - key: pattern
+        title: 文件名通配符
+        tip: 如 *.png, 留空为全部文件
+      - key: sort_type
+        title: 排序方式
+        tip: 名称升序/名称降序
+    outputList:
+      - key: file_list
+        title: 保存文件列表至
+        tip: 文件名列表
+  Phone.get_folder_list:
+    title: 获取手机文件夹列表
+    comment: 获取手机文件夹(@{folder})子文件夹列表保存至(@{folder_list})
+    icon: phone-folder-list
+    helpManual: 获取手机指定文件夹下的子文件夹名列表, 支持通配符过滤与排序
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: folder
+        title: 文件夹路径
+        tip: 如 /sdcard/DCIM
+      - key: pattern
+        title: 文件夹名通配符
+        tip: 如 Camera*, 留空为全部子文件夹
+      - key: sort_type
+        title: 排序方式
+        tip: 名称升序/名称降序
+    outputList:
+      - key: folder_list
+        title: 保存文件夹列表至
+        tip: 子文件夹名列表
+  Phone.refresh_file:
+    title: 刷新手机文件
+    comment: 刷新手机文件(@{path})
+    icon: phone-file-refresh
+    helpManual: 对手机指定文件发送媒体扫描广播, 让相册/文件管理器等应用识别新增或变动的文件
+    inputList:
+      - key: conn
+        title: 手机连接对象
+        tip: 选择通过【连接手机】创建的连接对象
+      - key: path
+        title: 文件路径
+        tip: 如 /sdcard/DCIM/Camera/新图.png
 options:
   ConnectMode:
     - value: uiautomator2
@@ -528,6 +800,10 @@ options:
       label: 双击
     - value: long
       label: 长按
+    - value: down
+      label: 按下
+    - value: up
+      label: 抬起
   PositionType:
     - value: coord
       label: 通过坐标指定
@@ -613,3 +889,8 @@ options:
       label: 在整个屏幕中
     - value: element
       label: 在指定元素中
+  ListSortType:
+    - value: asc
+      label: 名称升序
+    - value: desc
+      label: 名称降序

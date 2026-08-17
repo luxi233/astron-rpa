@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import tempfile
 import unittest
@@ -19,6 +20,7 @@ class TestSystem(TestCase):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_full_screen_success(self):
         """测试屏幕截图 - 全屏截图成功"""
         # 执行全屏截图
@@ -34,6 +36,7 @@ class TestSystem(TestCase):
         self.assertEqual(os.path.basename(result), self.test_png_name)
         self.assertTrue(result.endswith(".png"))
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_region_success(self):
         """测试屏幕截图 - 区域截图成功"""
         # 执行区域截图（使用较小的区域避免超出屏幕范围）
@@ -53,6 +56,7 @@ class TestSystem(TestCase):
         self.assertEqual(os.path.basename(result), self.test_png_name)
         self.assertTrue(result.endswith(".png"))
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_region_invalid_coordinates(self):
         """测试屏幕截图 - 无效坐标"""
         # 使用无效的坐标（负数）
@@ -68,6 +72,7 @@ class TestSystem(TestCase):
                 bottom_right_y=400,
             )
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_folder_not_exists_error(self):
         """测试屏幕截图 - 文件夹不存在且设置为错误"""
         non_existent_dir = os.path.join(self.temp_dir, "non_existent")
@@ -79,6 +84,7 @@ class TestSystem(TestCase):
                 png_name=self.test_png_name,
             )
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_folder_not_exists_create(self):
         """测试屏幕截图 - 文件夹不存在但自动创建"""
         new_dir = os.path.join(self.temp_dir, "new_dir")
@@ -91,6 +97,7 @@ class TestSystem(TestCase):
         self.assertTrue(os.path.exists(new_dir))
         self.assertEqual(os.path.basename(result), self.test_png_name)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_auto_extension(self):
         """测试屏幕截图 - 自动添加扩展名"""
         name_without_ext = "test_screenshot"
@@ -107,6 +114,7 @@ class TestSystem(TestCase):
         self.assertTrue(os.path.exists(result))
         self.assertEqual(os.path.basename(result), expected_name)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_with_jpg_extension(self):
         """测试屏幕截图 - 使用jpg扩展名"""
         jpg_name = "test_screenshot.jpg"
@@ -119,6 +127,7 @@ class TestSystem(TestCase):
         self.assertEqual(os.path.basename(result), jpg_name)
         self.assertTrue(result.endswith(".jpg"))
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_multiple_screenshots(self):
         """测试屏幕截图 - 多次截图"""
         # 执行多次截图
@@ -137,6 +146,7 @@ class TestSystem(TestCase):
             self.assertTrue(os.path.exists(screenshot))
             self.assertTrue(screenshot.endswith(".png"))
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_file_size_verification(self):
         """测试屏幕截图 - 验证文件大小"""
         # 执行截图
@@ -151,6 +161,7 @@ class TestSystem(TestCase):
         file_size = os.path.getsize(result)
         self.assertGreater(file_size, 0)
 
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
     def test_screen_shot_different_regions(self):
         """测试屏幕截图 - 不同区域"""
         regions = [(50, 50, 150, 100), (200, 100, 400, 200), (100, 200, 300, 300)]

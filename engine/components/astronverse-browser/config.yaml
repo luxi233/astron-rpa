@@ -1291,6 +1291,741 @@ atomic:
       - key: response_data
         title: 响应结果保存至
         tip: 包含status(状态码)、headers(响应头)、body(响应体)的字典
+  Assert.assert_element:
+    title: 元素断言
+    comment: 断言网页元素出现，等待(@{wait_time})秒，失败时中断流程
+    icon: browser-check
+    helpManual: 等待网页元素出现，超时未出现时抛出异常并中断流程；常用于流程关键节点校验页面加载状态
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: element_data
+        title: 网页元素
+        tip: 选择待断言的网页元素
+      - key: wait_time
+        title: 等待时间(秒)
+        tip: 等待元素出现的超时时间
+      - key: error_message
+        title: 自定义错误信息
+        tip: 断言失败时抛出的错误信息(不填使用默认信息)
+  BrowserElement.wait_any_element:
+    title: 等待任意一个元素出现（web）
+    comment: 在浏览器对象 @{browser_obj} 中等待元素(@{element_1}/@{element_2}/@{element_3}/@{element_4}/@{element_5})任意一个出现，最长等待 @{element_timeout} 秒，命中名称保存至 @{hit_element_name}
+    icon: wait-element-web
+    helpManual: 同时等待多个网页元素，任意一个出现即返回并输出其名称；超时返回false，常用于分支页面(如弹窗/登录页/首页)的场景判断
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: element_1
+        title: 元素1拾取
+        tip: 拾取第1个候选元素
+      - key: name_1
+        title: 元素1名称
+        tip: 元素1出现时输出的名称(默认"元素1")
+      - key: element_2
+        title: 元素2拾取
+        tip: 拾取第2个候选元素(可选)
+      - key: name_2
+        title: 元素2名称
+        tip: 元素2出现时输出的名称(默认"元素2")
+      - key: element_3
+        title: 元素3拾取
+        tip: 拾取第3个候选元素(可选)
+      - key: name_3
+        title: 元素3名称
+        tip: 元素3出现时输出的名称(默认"元素3")
+      - key: element_4
+        title: 元素4拾取
+        tip: 拾取第4个候选元素(可选)
+      - key: name_4
+        title: 元素4名称
+        tip: 元素4出现时输出的名称(默认"元素4")
+      - key: element_5
+        title: 元素5拾取
+        tip: 拾取第5个候选元素(可选)
+      - key: name_5
+        title: 元素5名称
+        tip: 元素5出现时输出的名称(默认"元素5")
+      - key: element_timeout
+        title: 等待时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: hit_element_name
+        title: 命中元素名称保存至
+        tip: 最先出现的元素名称，超时为空字符串
+      - key: wait_result
+        title: 等待结果保存至
+        tip: true表示有元素出现，false表示超时
+  BrowserElement.wait_any_group:
+    title: 等待任意一组元素出现（web）
+    comment: 在浏览器对象 @{browser_obj} 中等待(@{group_a_name}或@{group_b_name})任意一组元素全部出现，最长等待 @{element_timeout} 秒，命中组名保存至 @{hit_group_name}
+    icon: wait-element-web
+    helpManual: 配置两组元素(A/B)，组内全部元素出现即该组命中；常用于多元素共同标识一个页面状态的场景(如表单页同时有标题和提交按钮)
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: group_a_name
+        title: A组名称
+        tip: A组命中时输出的名称(默认"组A")
+      - key: element_a_1
+        title: A组元素1拾取
+        tip: 拾取A组第1个元素
+      - key: element_a_2
+        title: A组元素2拾取
+        tip: 拾取A组第2个元素(可选)
+      - key: element_a_3
+        title: A组元素3拾取
+        tip: 拾取A组第3个元素(可选)
+      - key: group_b_name
+        title: B组名称
+        tip: B组命中时输出的名称(默认"组B")
+      - key: element_b_1
+        title: B组元素1拾取
+        tip: 拾取B组第1个元素
+      - key: element_b_2
+        title: B组元素2拾取
+        tip: 拾取B组第2个元素(可选)
+      - key: element_b_3
+        title: B组元素3拾取
+        tip: 拾取B组第3个元素(可选)
+      - key: element_timeout
+        title: 等待时间（秒）
+        tip: 超过该时间停止等待
+    outputList:
+      - key: hit_group_name
+        title: 命中组名保存至
+        tip: 最先全部出现的组名，超时为空字符串
+      - key: wait_result
+        title: 等待结果保存至
+        tip: true表示有组命中，false表示超时
+  BrowserElement.combine_elements:
+    title: 组合多元素（web）
+    comment: 将拾取的多个元素(@{element_1}~@{element_5})合成一个元素列表，保存至 @{elements}
+    icon: get-similar-elements-web
+    helpManual: 将最多5个拾取的网页元素组合成元素列表(含数量)，供循环遍历或批量操作使用
+    inputList:
+      - key: element_1
+        title: 元素1拾取
+        tip: 拾取第1个元素
+      - key: element_2
+        title: 元素2拾取
+        tip: 拾取第2个元素(可选)
+      - key: element_3
+        title: 元素3拾取
+        tip: 拾取第3个元素(可选)
+      - key: element_4
+        title: 元素4拾取
+        tip: 拾取第4个元素(可选)
+      - key: element_5
+        title: 元素5拾取
+        tip: 拾取第5个元素(可选)
+    outputList:
+      - key: elements
+        title: 元素列表保存至
+        tip: 组合后的网页元素对象列表
+      - key: element_count
+        title: 元素数量保存至
+        tip: 列表中的元素个数
+  BrowserElement.get_similar_lazy:
+    title: 获取相似元素列表-懒加载（web）
+    comment: 滚动加载浏览器对象 @{browser_obj} 中元素 @{element_data} 的全部相似元素，保存至 @{lazy_elements}
+    icon: get-similar-elements-web
+    helpManual: 自动滚动页面触发懒加载，持续收集相似元素直到数量不再增长(连续stable_rounds轮不增)或达到上限；适用于无限滚动的长列表页面
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: element_data
+        title: 相似元素拾取
+        tip: 拾取一个相似元素作为模板
+      - key: max_rounds
+        title: 最大滚动轮数
+        tip: 最多滚动次数，默认20
+      - key: stable_rounds
+        title: 停止判定轮数
+        tip: 连续N轮数量不增长即停止，默认2
+      - key: wait_load
+        title: 每轮等待加载（秒）
+        tip: 每次滚动后等待新内容加载的时间，默认1秒
+      - key: max_count
+        title: 数量上限
+        tip: 达到该数量提前停止，0表示不限
+      - key: element_timeout
+        title: 等待元素时间（秒）
+        tip: 初始等待元素出现的超时时间
+    outputList:
+      - key: lazy_elements
+        title: 元素列表保存至
+        tip: 懒加载收集到的全部相似元素对象列表
+      - key: lazy_count
+        title: 元素数量保存至
+        tip: 列表中的元素个数
+  BrowserElement.get_similar_lazy_xpath:
+    title: 懒加载-XPath版（web）
+    comment: 按XPath(@{xpath})滚动加载浏览器对象 @{browser_obj} 中的全部元素，文本保存至 @{texts}
+    icon: get-similar-elements-web
+    helpManual: 按XPath表达式自动滚动加载全部元素，输出每个元素的文本列表；适用于无法拾取但可用XPath描述的无限滚动列表
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="item"]
+      - key: max_rounds
+        title: 最大滚动轮数
+        tip: 最多滚动次数，默认20
+      - key: stable_rounds
+        title: 停止判定轮数
+        tip: 连续N轮数量不增长即停止，默认2
+      - key: wait_load
+        title: 每轮等待加载（秒）
+        tip: 每次滚动后等待新内容加载的时间，默认1秒
+      - key: max_count
+        title: 数量上限
+        tip: 达到该数量提前停止，0表示不限
+      - key: element_timeout
+        title: 等待元素时间（秒）
+        tip: 初始等待元素出现的超时时间
+    outputList:
+      - key: texts
+        title: 文本列表保存至
+        tip: 每个命中元素的文本内容列表
+      - key: lazy_count
+        title: 元素数量保存至
+        tip: 文本列表的项数
+  BrowserElement.paginator:
+    title: 翻页器-XPath（web）
+    comment: 循环浏览器对象 @{browser_obj} 的分页，自动点击下一页(@{next_xpath})，每页文本(@{item_xpath})保存至 @{page_texts}
+    icon: get-similar-elements-web
+    helpManual: 自动翻页循环指令：每页输出页码与条目文本列表，页体处理完成后自动点击下一页按钮，直到无下一页或达到最大页数；适用于分页列表数据采集
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: next_xpath
+        title: 下一页按钮XPath
+        tip: 如 //a[@class="next"]
+      - key: item_xpath
+        title: 条目XPath
+        tip: 每页数据条目的XPath，如 //ul[@class="list"]/li(可选)
+      - key: max_pages
+        title: 最大页数
+        tip: 最多翻到第几页，0表示不限直到无下一页
+      - key: wait_load
+        title: 翻页等待（秒）
+        tip: 点击下一页后等待页面加载的时间，默认1秒
+      - key: element_timeout
+        title: 等待元素时间（秒）
+        tip: 初始等待超时时间
+    outputList:
+      - key: page_no
+        title: 当前页码保存至
+        tip: 从1开始的页码
+      - key: page_texts
+        title: 本页文本列表保存至
+        tip: 当前页条目文本列表(未配置条目XPath时为空列表)
+  BrowserElement.get_text_nodes:
+    title: 获取文本节点内容（web）
+    comment: 获取浏览器对象 @{browser_obj} 中元素(@{xpath})的全部文本节点，保存至 @{text_nodes}
+    icon: get-element-text-web
+    helpManual: 按XPath定位元素并遍历其内部全部文本节点，输出非空文本列表；适用于一个元素内含多段文本需要分别提取的场景
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="item"]
+    outputList:
+      - key: text_nodes
+        title: 文本节点列表保存至
+        tip: 元素内全部非空文本节点内容列表
+  BrowserElement.universal_set_select:
+    title: 通用设置下拉框（web）
+    comment: 点击浏览器对象 @{browser_obj} 中的下拉触发元素(@{xpath})后，按文本(@{option_text})点击选项
+    icon: set-select-web
+    helpManual: 兼容非select标签的自定义下拉框：先点击触发元素展开选项，再轮询查找并点击匹配文本的选项(li/[role=option]/常见组件库选项类名)；纯select标签请使用常规设置下拉框指令
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: 触发元素XPath
+        tip: 点击后展开选项的元素，如 //div[@class="trigger"]
+      - key: option_text
+        title: 选项文本
+        tip: 要选择的选项完整或部分文本
+      - key: wait_timeout
+        title: 等待选项超时（秒）
+        tip: 等待选项出现的最长时间，默认5秒
+    outputList:
+      - key: select_result
+        title: 选择结果
+        tip: 成功选中文本返回true，超时未找到返回false
+  BrowserElement.get_font_color:
+    title: 获取元素字体颜色（web）
+    comment: 获取浏览器对象 @{browser_obj} 中元素(@{xpath})的字体颜色，保存至 @{font_color}
+    icon: get-element-text-web
+    helpManual: 按XPath定位元素并读取计算样式color值(如rgb(51, 51, 51))；常用于状态颜色校验
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //span[@class="status"]
+    outputList:
+      - key: font_color
+        title: 字体颜色保存至
+        tip: 计算样式color值，如rgb(255, 0, 0)
+  BrowserElement.get_background_color:
+    title: 获取元素背景颜色（web）
+    comment: 获取浏览器对象 @{browser_obj} 中元素(@{xpath})的背景颜色，保存至 @{background_color}
+    icon: get-element-text-web
+    helpManual: 按XPath定位元素并读取计算样式backgroundColor值(如rgba(0, 0, 0, 0))；常用于状态标识校验
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="card"]
+    outputList:
+      - key: background_color
+        title: 背景颜色保存至
+        tip: 计算样式backgroundColor值，如rgb(255, 255, 255)
+  BrowserElement.get_background_image:
+    title: 获取元素背景图片（web）
+    comment: 获取浏览器对象 @{browser_obj} 中元素(@{xpath})的背景图片URL，保存至 @{background_image}
+    icon: get-element-text-web
+    helpManual: 按XPath定位元素并从计算样式backgroundImage中提取url地址；无背景图返回空字符串
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="banner"]
+    outputList:
+      - key: background_image
+        title: 背景图片URL保存至
+        tip: 背景图地址，无背景图返回空字符串
+  BrowserElement.element_add_border:
+    title: 元素增加边框（web）
+    comment: 为浏览器对象 @{browser_obj} 中的元素(@{xpath})添加 @{border_width}px @{border_style:样式} @{border_color} 边框
+    icon: set-element-web
+    helpManual: 通过outline为元素添加高亮边框，不影响页面布局；常用于元素定位调试与结果可视化标注
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="target"]
+      - key: border_width
+        title: 边框宽度（px）
+        tip: 默认2
+      - key: border_style
+        title: 边框样式
+        tip: 实线/虚线/点线等
+      - key: border_color
+        title: 边框颜色
+        tip: CSS颜色值，默认red
+    outputList:
+      - key: border_result
+        title: 添加结果
+        tip: 成功添加返回true
+  BrowserElement.element_show:
+    title: 显示元素（web）
+    comment: 恢复浏览器对象 @{browser_obj} 中元素(@{xpath})的显示状态
+    icon: set-element-web
+    helpManual: 清除元素内联display样式使其恢复显示；与隐藏元素指令配合使用
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="panel"]
+    outputList:
+      - key: show_result
+        title: 显示结果
+        tip: 成功执行返回true
+  BrowserElement.element_hide:
+    title: 隐藏元素（web）
+    comment: 隐藏浏览器对象 @{browser_obj} 中的元素(@{xpath})
+    icon: set-element-web
+    helpManual: 设置元素内联display=none隐藏元素；常用于关闭弹窗遮罩、屏蔽干扰元素
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="mask"]
+    outputList:
+      - key: hide_result
+        title: 隐藏结果
+        tip: 成功执行返回true
+  BrowserElement.element_remove:
+    title: 删除元素（web）
+    comment: 从浏览器对象 @{browser_obj} 页面中删除元素(@{xpath})
+    icon: set-element-web
+    helpManual: 将元素从DOM中彻底移除，操作不可恢复(刷新页面可还原)；常用于移除弹窗、广告等干扰元素
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@class="ad"]
+    outputList:
+      - key: remove_result
+        title: 删除结果
+        tip: 成功删除返回true
+  BrowserElement.element_long_screenshot:
+    title: 元素长截图（web）
+    comment: 滚动截取浏览器对象 @{browser_obj} 中元素(@{xpath})的完整图像，保存至 @{image_path}/@{image_name}
+    icon: screenshot-web
+    helpManual: 自动滚动页面分段截取超出视口的元素并拼接为完整长图，完成后恢复原滚动位置；适用于长表格、长列表取证
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: xpath
+        title: XPath表达式
+        tip: 如 //div[@id="table"]
+      - key: image_path
+        title: 保存目录
+        tip: 截图保存的文件夹路径
+      - key: image_name
+        title: 图片名称
+        tip: 含扩展名，如table.png
+    outputList:
+      - key: long_screenshot_path
+        title: 截图路径保存至
+        tip: 拼接完成的图片完整保存路径
+  BrowserSoftware.get_session_storage:
+    title: 获取会话存储（web）
+    comment: 获取浏览器对象 @{browser_obj} 当前页面的全部sessionStorage，保存至 @{session_storage}
+    icon: get-cookies-web
+    helpManual: 读取当前页面会话存储的全量键值字典；会话存储在标签页关闭后清空
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+    outputList:
+      - key: session_storage
+        title: 会话存储字典保存至
+        tip: 全部键值对组成的字典
+  BrowserSoftware.get_local_storage:
+    title: 获取本地存储（web）
+    comment: 获取浏览器对象 @{browser_obj} 当前页面的全部localStorage，保存至 @{local_storage}
+    icon: get-cookies-web
+    helpManual: 读取当前页面本地存储的全量键值字典；本地存储持久保存直至被清除
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+    outputList:
+      - key: local_storage
+        title: 本地存储字典保存至
+        tip: 全部键值对组成的字典
+  BrowserSoftware.cancel_html_zoom:
+    title: 取消HTML缩放（web）
+    comment: 恢复浏览器对象 @{browser_obj} 页面的缩放设置（zoom/transform/viewport）
+    icon: set-web
+    helpManual: 清除html/body的zoom与transform缩放并重置viewport缩放为1；用于自动化前恢复被缩放页面，保证坐标操作准确
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+    outputList:
+      - key: cancel_zoom_result
+        title: 恢复结果
+        tip: 成功执行返回true
+  BrowserSoftware.close_other_tabs:
+    title: 关闭其他网页（web）
+    comment: 关闭浏览器对象 @{browser_obj} 中除指定网页(@{keep_url})外的其他标签页
+    icon: close-web
+    helpManual: 保留指定URL(留空保留当前页)的标签页，关闭同浏览器实例的其他全部标签页，返回关闭数量
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+      - key: keep_url
+        title: 保留网页URL
+        tip: 要保留的标签页URL，留空保留当前网页
+    outputList:
+      - key: closed_count
+        title: 关闭数量保存至
+        tip: 实际关闭的标签页个数
+  BrowserSoftware.force_close_web:
+    title: 强制关闭网页（web）
+    comment: 忽略对话框提示强制关闭浏览器对象 @{browser_obj} 中的网页(@{url})
+    icon: close-web
+    helpManual: 页面存在未关闭的对话框(如beforeunload确认)导致常规关闭失效时，优先尝试扩展通道关闭，失败后回退window.close强制关闭；留空关闭当前标签页
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+      - key: url
+        title: 网页URL
+        tip: 要关闭的标签页URL，留空关闭当前网页
+    outputList:
+      - key: close_result
+        title: 关闭结果
+        tip: 成功关闭返回true
+  BrowserSoftware.get_browser_type:
+    title: 获取网页对象类型（web）
+    comment: 获取浏览器对象 @{browser_obj} 的类型，保存至 @{browser_type_name}
+    icon: get-current-obj-web
+    helpManual: 输出浏览器类型字符串(chrome/edge/360se/360ChromeX/firefox/chromium)；用于多浏览器流程分支判断
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+    outputList:
+      - key: browser_type_name
+        title: 浏览器类型保存至
+        tip: chrome/edge/firefox等类型字符串
+  BrowserSoftware.import_js_library:
+    title: 导入JS库（web）
+    comment: 以 @{import_type:URL/脚本文本} 方式向浏览器对象 @{browser_obj} 页面导入JS库
+    icon: exec-js-web
+    helpManual: 向页面注入script标签加载外部JS资源：URL方式按地址加载，脚本文本方式直接注入代码内容；用于增强页面能力(如注入工具库)
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+      - key: import_type
+        title: 导入方式
+        tip: URL或脚本文本
+      - key: url
+        title: JS库URL
+        tip: 外部JS文件地址，如 https://cdn.example.com/lib.js
+      - key: js_content
+        title: 脚本内容
+        tip: 直接注入的JavaScript代码文本
+    outputList:
+      - key: import_result
+        title: 导入结果
+        tip: 成功注入返回true
+  BrowserSoftware.import_common_js_library:
+    title: 导入常用JS库（web）
+    comment: 向浏览器对象 @{browser_obj} 页面导入常用JS库(@{lib_name:jquery/lodash/dayjs/axios/html2canvas})
+    icon: exec-js-web
+    helpManual: 内置常用库CDN地址一键导入：jquery/lodash/dayjs/axios/html2canvas；导入后可在执行JS指令中直接调用
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象
+      - key: lib_name
+        title: JS库名称
+        tip: 选择要导入的常用库
+    outputList:
+      - key: import_result
+        title: 导入结果
+        tip: 成功注入返回true
+  BrowserIframe.init_iframe:
+    title: 初始化iframe（web）
+    comment: 在浏览器对象 @{browser_obj} 中以(@{locate_mode:序号/名称/XPath})定位iframe，frame标识保存至 @{frame}
+    icon: get-current-obj-web
+    helpManual: 按序号/名称/XPath定位页面iframe并生成frame标识对象(含iframeXpath路由信息)；支持parent_frame参数在已定位frame内继续定位嵌套子iframe；跨域iframe同样支持
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: locate_mode
+        title: 定位方式
+        tip: 按序号/名称/XPath定位iframe
+      - key: index
+        title: iframe序号
+        tip: 页面中iframe的序号，从0开始
+      - key: name
+        title: iframe名称
+        tip: iframe标签的name属性值
+      - key: xpath
+        title: XPath表达式
+        tip: iframe元素的XPath，如 //iframe[@id="frame1"]
+      - key: parent_frame
+        title: 父frame对象
+        tip: 留空在主文档定位，传入则在该frame内定位嵌套子iframe
+    outputList:
+      - key: frame
+        title: frame标识保存至
+        tip: iframe标识对象，供其他iframe指令使用
+  BrowserIframe.switch_iframe:
+    title: 切换iframe（web）
+    comment: 切换浏览器对象 @{browser_obj} 的活动frame上下文至 @{frame}，当前frame保存至 @{current_frame}
+    icon: switch-window
+    helpManual: 传入init_iframe获取的frame对象切换活动上下文，后续iframe指令可不传frame参数直接沿用；留空切换回主文档；切换时会探测目标frame可达性
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空切换回主文档
+    outputList:
+      - key: current_frame
+        title: 当前frame保存至
+        tip: 切换后的活动frame对象(主文档时isFrame为false)
+  BrowserIframe.iframe_get_element_text:
+    title: 获取iframe内元素文本（web）
+    comment: 获取浏览器对象 @{browser_obj} 中frame(@{frame})内元素(@{xpath})的文本，保存至 @{text}
+    icon: get-element-text-web
+    helpManual: 在目标frame(含跨域iframe)内按XPath定位元素并提取其文本内容；frame留空则使用switch_iframe设置的活动frame，主文档可直接用获取元素文本指令
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空使用当前活动frame
+      - key: xpath
+        title: XPath表达式
+        tip: frame内元素的XPath，如 //div[@class="msg"]
+    outputList:
+      - key: text
+        title: 文本保存至
+        tip: 元素文本内容
+  BrowserIframe.iframe_click_element:
+    title: 点击iframe内元素（web）
+    comment: 点击浏览器对象 @{browser_obj} 中frame(@{frame})内的元素(@{xpath})
+    icon: click-element-web
+    helpManual: 在目标frame(含跨域iframe)内按XPath定位元素，滚动至可见后依次派发mousedown/mouseup/click事件完成点击；元素不存在时抛出异常
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空使用当前活动frame
+      - key: xpath
+        title: XPath表达式
+        tip: frame内要点击元素的XPath
+    outputList:
+      - key: clicked
+        title: 点击结果
+        tip: 点击成功返回true
+  BrowserIframe.iframe_input_text:
+    title: 向iframe内输入文本（web）
+    comment: 向浏览器对象 @{browser_obj} 中frame(@{frame})内元素(@{xpath})输入文本(@{input_text})
+    icon: fill-input-web
+    helpManual: 在目标frame(含跨域iframe)内按XPath定位输入框/文本元素并输入文本；覆盖模式先清空再输入，追加模式在原内容后拼接；输入后派发input/change事件
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空使用当前活动frame
+      - key: xpath
+        title: XPath表达式
+        tip: frame内输入框元素的XPath
+      - key: input_text
+        title: 输入内容
+        tip: 要输入的文本
+      - key: overwrite
+        title: 覆盖输入
+        tip: true先清空原内容再输入，false追加至末尾
+    outputList:
+      - key: input_done
+        title: 输入结果
+        tip: 输入成功返回true
+  BrowserIframe.iframe_get_similar_list:
+    title: 获取iframe内相似元素列表（web）
+    comment: 获取浏览器对象 @{browser_obj} 中frame(@{frame})内相似元素(@{xpath})的(@{attribute_name:文本/属性})列表，保存至 @{similar_list}
+    icon: get-element-text-web
+    helpManual: 在目标frame内按XPath快照匹配全部相似元素，逐个提取文本或指定属性(attribute_name留空或text取文本，html取innerHTML，其他取同名属性)
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空使用当前活动frame
+      - key: xpath
+        title: XPath表达式
+        tip: 相似元素的XPath，匹配全部结果
+      - key: attribute_name
+        title: 提取内容
+        tip: 留空或text取文本，html取innerHTML，其他为属性名
+    outputList:
+      - key: similar_list
+        title: 列表保存至
+        tip: 相似元素文本/属性值列表
+  BrowserIframe.iframe_wait_element:
+    title: 等待iframe内元素（web）
+    comment: 等待浏览器对象 @{browser_obj} 中frame(@{frame})内元素(@{xpath})(@{wait_status:出现/消失})，结果保存至 @{wait_result}
+    icon: wait-element-web
+    helpManual: 在目标frame内轮询(200ms间隔)等待元素出现或消失，超时(默认10秒)返回false不抛异常；等待期间不阻塞浏览器其他标签页
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空使用当前活动frame
+      - key: xpath
+        title: XPath表达式
+        tip: frame内要等待元素的XPath
+      - key: timeout
+        title: 等待时间（秒）
+        tip: 超过该时间停止等待，默认10秒
+      - key: wait_status
+        title: 等待类型
+        tip: 等待元素出现或者消失
+    outputList:
+      - key: wait_result
+        title: 等待结果
+        tip: 出现/消失为true，超时为false
+  BrowserIframe.iframe_get_attribute:
+    title: 获取iframe内元素属性（web）
+    comment: 获取浏览器对象 @{browser_obj} 中frame(@{frame})内元素(@{xpath})的属性(@{attr_name})，保存至 @{attr_value}
+    icon: get-element-text-web
+    helpManual: 在目标frame内按XPath定位元素读取属性值；attr_name支持text(文本)/html(innerHTML)/任意属性名(如href/value/class)，属性不存在返回空串
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空使用当前活动frame
+      - key: xpath
+        title: XPath表达式
+        tip: frame内元素的XPath
+      - key: attr_name
+        title: 属性名
+        tip: text取文本，html取innerHTML，或任意属性名
+    outputList:
+      - key: attr_value
+        title: 属性值保存至
+        tip: 属性值文本，不存在为空串
+  BrowserIframe.iframe_get_element_info:
+    title: 获取iframe内元素信息（web）
+    comment: 获取浏览器对象 @{browser_obj} 中frame(@{frame})内元素(@{xpath})的完整信息，保存至 @{element_info}
+    icon: get-element-text-web
+    helpManual: 在目标frame内按XPath定位元素，返回标签名/文本/全部属性字典/位置尺寸(x,y,width,height)/可见性；元素不存在时抛出异常
+    inputList:
+      - key: browser_obj
+        title: 浏览器对象
+        tip: 选择浏览器对象(不选则使用已打开的浏览器)
+      - key: frame
+        title: frame对象
+        tip: init_iframe输出的frame标识；留空使用当前活动frame
+      - key: xpath
+        title: XPath表达式
+        tip: frame内元素的XPath
+    outputList:
+      - key: element_info
+        title: 元素信息保存至
+        tip: 含tag/text/attributes/rect/visible的字典
 options:
   WebRequestTypeFlag:
     - value: get
@@ -1554,3 +2289,40 @@ options:
       label: 点击下载
     - value: link
       label: 链接下载
+  JsImportType:
+    - value: url
+      label: URL
+    - value: text
+      label: 脚本文本
+  CommonJsLibType:
+    - value: jquery
+      label: jQuery
+    - value: lodash
+      label: Lodash
+    - value: dayjs
+      label: Day.js
+    - value: axios
+      label: Axios
+    - value: html2canvas
+      label: html2canvas
+  BorderStyleType:
+    - value: solid
+      label: 实线
+    - value: dashed
+      label: 虚线
+    - value: dotted
+      label: 点线
+    - value: double
+      label: 双线
+  FrameLocateType:
+    - value: index
+      label: 序号
+    - value: name
+      label: 名称
+    - value: xpath
+      label: XPath
+  FrameWaitStatusTypeFlag:
+    - value: appear
+      label: 等待出现
+    - value: disappear
+      label: 等待消失

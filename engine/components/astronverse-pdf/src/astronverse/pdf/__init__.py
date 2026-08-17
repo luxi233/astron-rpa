@@ -49,3 +49,32 @@ class TextSaveType(Enum):
 class ImageLayoutType(Enum):
     SINGLE_PAGE = "single_page"
     MULTIPLE_PAGES = "multiple_pages"
+
+
+class RegionType(Enum):
+    """PDF 区域类型枚举。"""
+
+    TEXT_BLOCK = "text_block"
+    IMAGE = "image"
+    TABLE = "table"
+
+
+class RotateDirection(Enum):
+    """PDF 页面旋转方向枚举。"""
+
+    CLOCKWISE = "clockwise"
+    COUNTER_CLOCKWISE = "counter_clockwise"
+
+
+class SplitModeType(Enum):
+    """PDF 分割模式枚举。"""
+
+    SINGLE_PAGES = "single_pages"
+    AT_POSITION = "at_position"
+
+
+class WatermarkLayoutType(Enum):
+    """水印布局枚举。"""
+
+    TILE = "tile"
+    SINGLE = "single"

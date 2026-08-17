@@ -12,6 +12,28 @@ class ExistType(Enum):
     NOT_EXIST = "not_exist"  # 不存在
 
 
+class AssertOperator(Enum):
+    EQ = "eq"  # 等于
+    NEQ = "neq"  # 不等于
+    GT = "gt"  # 大于
+    GTE = "gte"  # 大于等于
+    LT = "lt"  # 小于
+    LTE = "lte"  # 小于等于
+    CONTAINS = "contains"  # 包含
+    NOT_CONTAINS = "not_contains"  # 不包含
+
+
+class AssertEmptyMode(Enum):
+    NOT_EMPTY = "not_empty"  # 断言不为空
+    EMPTY = "empty"  # 断言为空
+
+
+class AssertTargetType(Enum):
+    FILE = "file"  # 文件
+    FOLDER = "folder"  # 文件夹
+    ANY = "any"  # 文件或文件夹
+
+
 class OptionType(Enum):
     OVERWRITE = "overwrite"  # 覆盖
     SKIP = "skip"  # 跳过
@@ -77,6 +99,15 @@ class InfoType(Enum):
     EXTENSION = "extension"
     C_TIME = "c_time"
     M_TIME = "m_time"
+
+
+class FileSizeUnitType(Enum):
+    """文件大小单位枚举。"""
+
+    B = "b"  # 字节
+    KB = "kb"  # KB(1024字节)
+    MB = "mb"  # MB
+    GB = "gb"  # GB
 
 
 class OutputType(Enum):

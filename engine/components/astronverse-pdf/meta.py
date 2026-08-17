@@ -2,6 +2,7 @@ from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.config import config
 from astronverse.baseline.config.config import load_config
 from astronverse.pdf.pdf import PDF
+from astronverse.pdf.pdf_ext import PDFExt
 
 
 def get_version():
@@ -12,4 +13,5 @@ def get_version():
 if __name__ == "__main__":
     config.set_config_file("config.yaml")
     atomicMg.register(PDF, version=get_version())
+    atomicMg.register(PDFExt, version=get_version())
     atomicMg.meta()

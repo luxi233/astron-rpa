@@ -27,13 +27,91 @@ atomic:
       - key: sql
         title: 数据库查询语句
         tip: 输入待执行的SQL语句
+      - key: params
+        title: SQL参数
+        tip: 参数化查询的参数列表(SQL中用?占位)，如 ['张三', 18]
+      - key: time_out
+        title: 超时秒数
+        tip: 设置数据库操作超时时间
+      - key: return_format
+        title: 查询结果格式
+        tip: 二维列表(第一行为列名)或字典列表(每行一个字典)
+    outputList:
+      - key: result
+        title: 保存查询结果至
+        tip: '结果为字符串的列表的列表(list<list>)或字典列表'
+  Database.upsert:
+    title: 更新插入数据
+    comment: 更新插入(@{data})到表(@{table_name})，主键冲突时更新
+    icon: database-batch-insert
+    helpManual: 将数据更新插入到数据库表中；每行先按冲突判定列UPDATE，无匹配行则INSERT，整体使用事务保证全部正确或全部失败
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接数据库】创建的连接对象
+      - key: conn_str
+        title: 数据库连接字符串
+        tip: 未选择连接对象时，直接填写连接字符串执行(执行后自动关闭)
+      - key: table_name
+        title: 表名
+        tip: 待更新插入数据的表名，如 users
+      - key: columns
+        title: 列名列表
+        tip: 列名列表，如 ['id','name','age']
+      - key: key_columns
+        title: 冲突判定列
+        tip: 主键或唯一键列名列表，如 ['id']
+      - key: data
+        title: 待插入数据
+        tip: 仅支持二维列表，列数需与列名数一致，如 [[1,'张三',18]]
+    outputList:
+      - key: affected_rows
+        title: 受影响行数保存至
+        tip: 输出更新插入受影响的总行数
+  Database.execute_transaction:
+    title: 执行数据库事务
+    comment: 对连接(@{conn})执行(@{action})事务操作
+    icon: database-execute
+    helpManual: 对数据库连接对象执行事务操作(开始/提交/回滚)；开始事务后执行的SQL均在事务内，提交后生效，回滚则撤销全部变更
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接数据库】创建的连接对象
+      - key: action
+        title: 事务操作
+        tip: 开始事务/提交事务/回滚事务
+    outputList:
+      - key: success
+        title: 执行结果保存至
+        tip: 事务操作是否执行成功
+  Database.run_procedure:
+    title: 运行存储过程
+    comment: 运行存储过程(@{procedure_name})，输出参数保存至(@{output_values})
+    icon: database-execute
+    helpManual: 调用数据库存储过程；输入参数按顺序传入(存储过程内用?占位)，输出参数类型列表依次对应OUTPUT参数，结果集以二维列表返回
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接数据库】创建的连接对象
+      - key: procedure_name
+        title: 存储过程名称
+        tip: 待调用的存储过程名称
+      - key: input_params
+        title: 输入参数
+        tip: 输入参数列表，按存储过程参数顺序排列，如 ['张三', 18]
+      - key: output_types
+        title: 输出参数类型
+        tip: 输出参数类型列表(整数/字符串/浮点数)，依次对应OUTPUT参数
       - key: time_out
         title: 超时秒数
         tip: 设置数据库操作超时时间
     outputList:
-      - key: result
-        title: 保存查询结果至
-        tip: '结果为字符串的列表的列表(list<list>)'
+      - key: output_values
+        title: 输出参数值保存至
+        tip: 存储过程OUTPUT参数的返回值列表
+      - key: result_sets
+        title: 结果集保存至
+        tip: 存储过程返回的结果集列表(每个结果集第一行为列名)
   Database.batch_insert:
     title: 数据库批量插入数据
     comment: 批量插入(@{data})到数据库表，结果为全部正确或全部失败
@@ -65,4 +143,240 @@ atomic:
       - key: conn
         title: 数据库连接对象
         tip: 选择要关闭的数据库连接对象
-options: {}
+  Sqlite.connect:
+    title: 连接Sqlite3数据库
+    comment: 连接Sqlite3数据库文件(@{db_path})，输出为(@{conn})
+    icon: database-connect
+    helpManual: 连接本地Sqlite3数据库文件并返回连接对象；文件不存在时将自动创建新数据库；支持内存数据库(:memory:)
+    inputList:
+      - key: db_path
+        title: 数据库文件路径
+        tip: Sqlite3数据库文件路径，如 C:/data/test.db
+    outputList:
+      - key: conn
+        title: 保存数据库连接对象至
+        tip: 将Sqlite3连接对象保存至指定变量中
+  Sqlite.execute_sql:
+    title: 执行Sqlite3语句
+    comment: 执行Sqlite3语句(@{sql})，受影响行数保存至(@{affected_rows})
+    icon: database-execute
+    helpManual: 在Sqlite3数据库中执行Insert/Update/Delete/Create Table等语句，返回受影响行数
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接Sqlite3数据库】创建的连接对象
+      - key: sql
+        title: Sqlite3语句
+        tip: 输入待执行的SQL语句
+    outputList:
+      - key: affected_rows
+        title: 受影响行数保存至
+        tip: 输出受影响的行数
+  Sqlite.query_table:
+    title: 查询Sqlite3数据表
+    comment: 查询(@{sql})，结果保存至(@{result})
+    icon: database-execute
+    helpManual: 执行SELECT查询语句并返回全部数据；结果第一行为列名，之后每行为一条记录
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接Sqlite3数据库】创建的连接对象
+      - key: sql
+        title: 查询语句
+        tip: 输入SELECT查询语句
+    outputList:
+      - key: result
+        title: 保存查询结果至
+        tip: '结果为列表的列表(list<list>)，第一行为列名'
+  Sqlite.batch_insert:
+    title: Sqlite3批量插入数据
+    comment: 批量插入(@{data})到表(@{table_name})，事务保证全部成功或全部失败
+    icon: database-batch-insert
+    helpManual: 将多组数据一次性插入到Sqlite3表中，自动拼接INSERT语句并使用事务保证全部正确或全部失败
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接Sqlite3数据库】创建的连接对象
+      - key: table_name
+        title: 表名
+        tip: 待插入数据的表名，如 users
+      - key: columns
+        title: 列名列表
+        tip: 列名列表，如 ['name','age']
+      - key: data
+        title: 待插入数据
+        tip: 仅支持二维列表，如 [['张三',18],['李四',20]]
+    outputList:
+      - key: affected_rows
+        title: 受影响行数保存至
+        tip: 输出批量插入受影响的行数
+  Sqlite.export_to_csv:
+    title: 导出Sqlite3数据至CSV
+    comment: 将查询(@{sql})的结果保存至(@{csv_path})
+    icon: database-execute
+    helpManual: 执行SELECT查询并将结果集导出为CSV文件，第一行为列名
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接Sqlite3数据库】创建的连接对象
+      - key: sql
+        title: 查询语句
+        tip: 输入SELECT查询语句
+      - key: csv_path
+        title: CSV文件保存路径
+        tip: 导出的CSV文件完整路径
+      - key: file_encoding
+        title: 文件编码
+        tip: 导出CSV文件的编码格式
+  Sqlite.close:
+    title: 关闭Sqlite3数据库
+    comment: 关闭Sqlite3数据库连接对象(@{conn})
+    icon: database-close
+    helpManual: 关闭通过【连接Sqlite3数据库】创建的连接对象，释放连接资源
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择要关闭的Sqlite3连接对象
+  Postgres.connect:
+    title: 连接PostgreSQL数据库
+    comment: 连接PostgreSQL数据库(@{host})，输出为(@{conn})
+    icon: database-connect
+    helpManual: 通过主机地址/端口/账号/密码/库名连接PostgreSQL数据库并返回连接对象
+    inputList:
+      - key: host
+        title: 主机地址
+        tip: PostgreSQL服务器地址，如 127.0.0.1
+      - key: port
+        title: 端口号
+        tip: PostgreSQL端口，默认5432
+      - key: user
+        title: 用户名
+        tip: 数据库用户名
+      - key: password
+        title: 密码
+        tip: 数据库密码
+      - key: dbname
+        title: 数据库名
+        tip: 待连接的数据库名称
+    outputList:
+      - key: conn
+        title: 保存数据库连接对象至
+        tip: 将PostgreSQL连接对象保存至指定变量中
+  Postgres.execute_sql:
+    title: 执行PostgreSQL语句
+    comment: 执行PostgreSQL语句(@{sql})，受影响行数保存至(@{affected_rows})
+    icon: database-execute
+    helpManual: 在PostgreSQL数据库中执行Insert/Update/Delete/Create Table等非查询语句，返回受影响行数
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接PostgreSQL数据库】创建的连接对象
+      - key: sql
+        title: PostgreSQL语句
+        tip: 输入待执行的非查询SQL语句
+    outputList:
+      - key: affected_rows
+        title: 受影响行数保存至
+        tip: 输出受影响的行数
+  Postgres.query_table:
+    title: 查询PostgreSQL数据表
+    comment: 查询表(@{table_name})中字段(@{fields})满足条件(@{where})的数据，结果保存至(@{result})
+    icon: database-execute
+    helpManual: 按表名+字段列表+where条件式查询PostgreSQL数据；结果第一行为列名，之后每行为一条记录；字段为空查询全部字段，条件为空查询全部数据
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接PostgreSQL数据库】创建的连接对象
+      - key: table_name
+        title: 表名
+        tip: 待查询的表名，如 users
+      - key: fields
+        title: 字段列表
+        tip: 字段名列表，如 ['name','age']；为空时查询全部字段
+      - key: where
+        title: 查询条件
+        tip: WHERE后的条件式，如 age > 18；为空时查询全部
+    outputList:
+      - key: result
+        title: 保存查询结果至
+        tip: '结果为列表的列表(list<list>)，第一行为列名'
+  Postgres.insert_dict:
+    title: PostgreSQL添加数据记录
+    comment: 将字典数据(@{data})插入表(@{table_name})，受影响行数保存至(@{affected_rows})
+    icon: database-batch-insert
+    helpManual: 以字典方式向PostgreSQL表插入一条记录，字典的键为列名、值为插入内容
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接PostgreSQL数据库】创建的连接对象
+      - key: table_name
+        title: 表名
+        tip: 待插入数据的表名，如 users
+      - key: data
+        title: 插入数据
+        tip: 字典数据，如 {'name':'张三','age':18}
+    outputList:
+      - key: affected_rows
+        title: 受影响行数保存至
+        tip: 输出插入受影响的行数
+  Postgres.batch_insert:
+    title: PostgreSQL批量添加记录
+    comment: 批量插入(@{data})到表(@{table_name})，每批(@{batch_size})条提交，受影响行数保存至(@{affected_rows})
+    icon: database-batch-insert
+    helpManual: 将二维列表数据分批插入到PostgreSQL表中，按单次执行上限分批提交，全部成功或当前批全部失败
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择通过【连接PostgreSQL数据库】创建的连接对象
+      - key: table_name
+        title: 表名
+        tip: 待插入数据的表名，如 users
+      - key: columns
+        title: 列名列表
+        tip: 列名列表，如 ['name','age']
+      - key: data
+        title: 待插入数据
+        tip: 仅支持二维列表，如 [['张三',18],['李四',20]]
+      - key: batch_size
+        title: 单次执行上限
+        tip: 每批插入并提交的行数上限，默认1000
+    outputList:
+      - key: affected_rows
+        title: 受影响行数保存至
+        tip: 输出批量插入受影响的行数
+  Postgres.close:
+    title: 关闭PostgreSQL数据库
+    comment: 关闭PostgreSQL数据库连接对象(@{conn})
+    icon: database-close
+    helpManual: 关闭通过【连接PostgreSQL数据库】创建的连接对象，释放连接资源
+    inputList:
+      - key: conn
+        title: 数据库连接对象
+        tip: 选择要关闭的PostgreSQL连接对象
+options:
+  SqlResultFormatFlag:
+    - value: list
+      label: 二维列表
+    - value: dicts
+      label: 字典列表
+  TransactionActionFlag:
+    - value: begin
+      label: 开始事务
+    - value: commit
+      label: 提交事务
+    - value: rollback
+      label: 回滚事务
+  ProcedureParamTypeFlag:
+    - value: integer
+      label: 整数
+    - value: varchar
+      label: 字符串
+    - value: float
+      label: 浮点数
+  SqliteCsvEncoding:
+    - value: utf8
+      label: UTF-8
+    - value: utf8_bom
+      label: 带有BOM的UTF-8
+    - value: gbk
+      label: GBK(ANSI)

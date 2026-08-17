@@ -8,3 +8,4 @@ WINDOW_SCROLL_ERROR_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("窗口滚
 ELEMENT_NO_FOUND: ErrorCode = ErrorCode(BizCode.LocalErr, _("未找到元素"))
 PATH_ERROR: ErrorCode = ErrorCode(BizCode.LocalErr, _("拾取或保存路径有误"))
 UNPICKABLE: ErrorCode = ErrorCode(BizCode.LocalErr, _("拾取元素不支持该拾取类型"))
+PARAMETER_INVALID_FORMAT: ErrorCode = ErrorCode(BizCode.LocalErr, _("参数异常") + ": {}")

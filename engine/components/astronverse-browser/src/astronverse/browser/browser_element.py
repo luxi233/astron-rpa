@@ -1,6 +1,8 @@
 import base64
+import json
 import os
 import time
+
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, AtomicLevel, DynamicsItem
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.humansim import human_sim
@@ -9,6 +11,7 @@ from astronverse.baseline.logger.logger import logger
 from astronverse.browser import *
 from astronverse.browser.browser import Browser
 from astronverse.browser.browser_script import eval_js_code
+from astronverse.browser.core.core_win import BrowserCore
 from astronverse.browser.error import *
 from astronverse.browser.utils.table_filter import (
     DataFilter,
@@ -16,7 +19,6 @@ from astronverse.browser.utils.table_filter import (
     table_df_to_out,
     table_json_merge_values,
 )
-from astronverse.browser.core.core_win import BrowserCore
 from astronverse.locator import smooth_move
 from astronverse.locator.locator import locator
 
@@ -1866,3 +1868,902 @@ class BrowserElement:
             time.sleep(0.3)
             wait_time = wait_time - (time.time() - start)
         return False
+
+    @staticmethod
+    def _probe_element(browser_obj: Browser, element_data: WebPick) -> bool:
+        """探测单个网页元素是否出现（不抛异常）"""
+        if not element_data:
+            return False
+        try:
+            return bool(
+                browser_obj.send_browser_extension(
+                    browser_type=browser_obj.browser_type.value,
+                    key="elementIsReady",
+                    data=element_data["elementData"]["path"],
+                )
+            )
+        except Exception:
+            return False
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "element_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_1", types="Str", required=False),
+            atomicMg.param(
+                "element_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_2", types="Str", required=False),
+            atomicMg.param(
+                "element_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_3", types="Str", required=False),
+            atomicMg.param(
+                "element_4",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_4", types="Str", required=False),
+            atomicMg.param(
+                "element_5",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("name_5", types="Str", required=False),
+            atomicMg.param("element_timeout", types="Int"),
+        ],
+        outputList=[
+            atomicMg.param("hit_element_name", types="Str"),
+            atomicMg.param("wait_result", types="Bool"),
+        ],
+    )
+    def wait_any_element(
+        browser_obj: Browser = None,
+        element_1: WebPick = None,
+        name_1: str = "元素1",
+        element_2: WebPick = None,
+        name_2: str = "元素2",
+        element_3: WebPick = None,
+        name_3: str = "元素3",
+        element_4: WebPick = None,
+        name_4: str = "元素4",
+        element_5: WebPick = None,
+        name_5: str = "元素5",
+        element_timeout: int = 10,
+    ):
+        """等待任意一个元素出现（web）：轮询多个元素，任意一个出现即返回其名称"""
+        candidates = [
+            (element_i, name_i)
+            for element_i, name_i in [
+                (element_1, name_1),
+                (element_2, name_2),
+                (element_3, name_3),
+                (element_4, name_4),
+                (element_5, name_5),
+            ]
+            if element_i
+        ]
+        if not candidates:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "至少需要拾取一个元素")
+
+        if not browser_obj:
+            browser_obj = get_default_browser()
+
+        wait_time = max(0, int(element_timeout))
+        while wait_time >= 0:
+            start = time.time()
+            for element_i, name_i in candidates:
+                if BrowserElement._probe_element(browser_obj, element_i):
+                    return str(name_i), True
+            if time.time() - start >= wait_time:
+                break
+            time.sleep(0.3)
+            wait_time = wait_time - (time.time() - start)
+        return "", False
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param("group_a_name", types="Str", required=False),
+            atomicMg.param(
+                "element_a_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_a_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_a_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("group_b_name", types="Str", required=False),
+            atomicMg.param(
+                "element_b_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_b_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_b_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param("element_timeout", types="Int"),
+        ],
+        outputList=[
+            atomicMg.param("hit_group_name", types="Str"),
+            atomicMg.param("wait_result", types="Bool"),
+        ],
+    )
+    def wait_any_group(
+        browser_obj: Browser = None,
+        group_a_name: str = "组A",
+        element_a_1: WebPick = None,
+        element_a_2: WebPick = None,
+        element_a_3: WebPick = None,
+        group_b_name: str = "组B",
+        element_b_1: WebPick = None,
+        element_b_2: WebPick = None,
+        element_b_3: WebPick = None,
+        element_timeout: int = 10,
+    ):
+        """等待任意一组元素出现（web）：组内全部元素出现即该组命中，返回命中组名"""
+        groups = []
+        group_a = [e for e in [element_a_1, element_a_2, element_a_3] if e]
+        if group_a:
+            groups.append((str(group_a_name), group_a))
+        group_b = [e for e in [element_b_1, element_b_2, element_b_3] if e]
+        if group_b:
+            groups.append((str(group_b_name), group_b))
+        if not groups:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "至少需要配置一组元素")
+
+        if not browser_obj:
+            browser_obj = get_default_browser()
+
+        wait_time = max(0, int(element_timeout))
+        while wait_time >= 0:
+            start = time.time()
+            for group_name, group_elements in groups:
+                if all(BrowserElement._probe_element(browser_obj, e) for e in group_elements):
+                    return group_name, True
+            if time.time() - start >= wait_time:
+                break
+            time.sleep(0.3)
+            wait_time = wait_time - (time.time() - start)
+        return "", False
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param(
+                "element_1",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_2",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_3",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_4",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+            atomicMg.param(
+                "element_5",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+                required=False,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("elements", types="List"),
+            atomicMg.param("element_count", types="Int"),
+        ],
+    )
+    def combine_elements(
+        element_1: WebPick = None,
+        element_2: WebPick = None,
+        element_3: WebPick = None,
+        element_4: WebPick = None,
+        element_5: WebPick = None,
+    ):
+        """组合多元素（web）：将拾取的多个元素合成一个元素列表"""
+        elements = [e for e in [element_1, element_2, element_3, element_4, element_5] if e]
+        if not elements:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "至少需要拾取一个元素")
+        return elements, len(elements)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "element_data",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.PICK.value, params={"use": "ELEMENT"}),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("lazy_elements", types="List"),
+            atomicMg.param("lazy_count", types="Int"),
+        ],
+    )
+    def get_similar_lazy(
+        browser_obj: Browser = None,
+        element_data: WebPick = None,
+        max_rounds: int = 20,
+        stable_rounds: int = 2,
+        wait_load: float = 1.0,
+        max_count: int = 0,
+        element_timeout: int = 10,
+    ):
+        """获取相似元素列表-懒加载（web）：滚动加载全部相似元素直到数量不再增长"""
+        browser_obj = check_element(browser_obj, element_data, element_timeout)
+        scroll_js = "function main(){ window.scrollTo(0, document.body.scrollHeight); return true; }" + eval_js_code(
+            False
+        )
+
+        def query():
+            data = browser_obj.send_browser_extension(
+                browser_type=browser_obj.browser_type.value,
+                key="elementFromSelect",
+                data=element_data["elementData"]["path"],
+            )
+            return data or []
+
+        elements = query()
+        stable = 0
+        rounds = 0
+        while rounds < max(1, int(max_rounds)):
+            prev = len(elements)
+            browser_obj.send_browser_extension(
+                browser_type=browser_obj.browser_type.value,
+                key="runJS",
+                data={"code": scroll_js},
+            )
+            time.sleep(max(0.1, float(wait_load)))
+            elements = query()
+            if int(max_count) > 0 and len(elements) >= int(max_count):
+                break
+            if len(elements) == prev:
+                stable += 1
+                if stable >= max(1, int(stable_rounds)):
+                    break
+            else:
+                stable = 0
+            rounds += 1
+
+        res_list = []
+        for di in elements:
+            res_list.append(
+                {
+                    "elementData": {
+                        "version": element_data["elementData"]["version"],
+                        "type": element_data["elementData"]["type"],
+                        "app": element_data["elementData"]["app"],
+                        "picker_type": "ELEMENT",
+                        "path": di,
+                    }
+                }
+            )
+        return res_list, len(res_list)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("texts", types="List"),
+            atomicMg.param("lazy_count", types="Int"),
+        ],
+    )
+    def get_similar_lazy_xpath(
+        browser_obj: Browser = None,
+        xpath: str = "",
+        max_rounds: int = 20,
+        stable_rounds: int = 2,
+        wait_load: float = 1.0,
+        max_count: int = 0,
+        element_timeout: int = 10,
+    ):
+        """懒加载-XPath版（web）：按XPath滚动加载全部元素并输出文本列表"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        if not browser_obj:
+            browser_obj = get_default_browser()
+
+        xpath_literal = json.dumps(str(xpath), ensure_ascii=False)
+        scroll_and_count_js = (
+            "function main(){ var xp="
+            + xpath_literal
+            + "; var snap=document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null); var n=snap.snapshotLength; window.scrollTo(0, document.body.scrollHeight); return n; }"
+            + eval_js_code(False)
+        )
+        collect_js = (
+            "function main(){ var xp="
+            + xpath_literal
+            + "; var snap=document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null); var out=[]; for(var i=0;i<snap.snapshotLength;i++){ var node=snap.snapshotItem(i); out.push(node.innerText||node.textContent||node.value||''); } return out; }"
+            + eval_js_code(False)
+        )
+
+        def run_js(js_code):
+            try:
+                return browser_obj.send_browser_extension(
+                    browser_type=browser_obj.browser_type.value,
+                    key="runJS",
+                    data={"code": js_code},
+                )
+            except Exception:
+                return None
+
+        count = int(run_js(scroll_and_count_js) or 0)
+        stable = 0
+        rounds = 0
+        while rounds < max(1, int(max_rounds)):
+            prev = count
+            time.sleep(max(0.1, float(wait_load)))
+            count = int(run_js(scroll_and_count_js) or 0)
+            if int(max_count) > 0 and count >= int(max_count):
+                break
+            if count == prev:
+                stable += 1
+                if stable >= max(1, int(stable_rounds)):
+                    break
+            else:
+                stable = 0
+            rounds += 1
+
+        texts = run_js(collect_js) or []
+        return texts, len(texts)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        noAdvanced=True,
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "next_xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "item_xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=False,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("page_no", types="Int"),
+            atomicMg.param("page_texts", types="List"),
+        ],
+    )
+    def paginator(
+        browser_obj: Browser = None,
+        next_xpath: str = "",
+        item_xpath: str = "",
+        max_pages: int = 0,
+        wait_load: float = 1.0,
+        element_timeout: int = 10,
+    ):
+        """翻页器-XPath（web）：循环自动翻页，每页输出页码与条目文本列表"""
+        if not next_xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "下一页XPath不能为空")
+        if not browser_obj:
+            browser_obj = get_default_browser()
+
+        next_literal = json.dumps(str(next_xpath), ensure_ascii=False)
+        item_literal = json.dumps(str(item_xpath or ""), ensure_ascii=False)
+        click_next_js = (
+            "function main(){ var xp="
+            + next_literal
+            + "; var snap=document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null); var btn=snap.singleNodeValue; if(!btn){ return false; } btn.click(); return true; }"
+            + eval_js_code(False)
+        )
+        collect_js = (
+            "function main(){ var xp="
+            + item_literal
+            + "; var out=[]; if(xp){ var snap=document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null); for(var i=0;i<snap.snapshotLength;i++){ var node=snap.snapshotItem(i); out.push(node.innerText||node.textContent||node.value||''); } } return out; }"
+            + eval_js_code(False)
+        )
+
+        def run_js(js_code):
+            try:
+                return browser_obj.send_browser_extension(
+                    browser_type=browser_obj.browser_type.value,
+                    key="runJS",
+                    data={"code": js_code},
+                )
+            except Exception:
+                return None
+
+        def get_iterator():
+            page = 0
+            while True:
+                page += 1
+                texts = run_js(collect_js) or []
+                yield page, texts
+                # 迭代恢复后再点击下一页(确保当前页处理完成)
+                if int(max_pages) > 0 and page >= int(max_pages):
+                    return
+                if not run_js(click_next_js):
+                    return
+                time.sleep(max(0.1, float(wait_load)))
+
+        return get_iterator()
+
+    # ---------------- P3-1 Web 增强（M9） ----------------
+
+    @staticmethod
+    def _xpath_js(xpath: str, action_js: str) -> str:
+        """生成 runJS 代码: 按XPath定位首个元素后执行动作JS; 元素不存在返回null"""
+        xpath_literal = json.dumps(str(xpath), ensure_ascii=False)
+        return (
+            "function main(){ var xp="
+            + xpath_literal
+            + "; var snap=document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
+            " var el=snap.singleNodeValue; if(!el){ return null; } " + action_js + " }" + eval_js_code(False)
+        )
+
+    @staticmethod
+    def _run_js(browser_obj: Browser, js_code: str, time_out: float = 30):
+        return browser_obj.send_browser_extension(
+            browser_type=browser_obj.browser_type.value,
+            key="runJS",
+            data={"code": js_code},
+            timeout=float(time_out),
+        )
+
+    @staticmethod
+    def _get_default_browser_or_raise(browser_obj):
+        if not browser_obj:
+            browser_obj = get_default_browser()
+        if not browser_obj:
+            raise BaseException(WEB_GET_BROWSER_ERROR, "未找到可用浏览器，请先打开或获取浏览器对象")
+        return browser_obj
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("text_nodes", types="List"),
+        ],
+    )
+    def get_text_nodes(browser_obj: Browser = None, xpath: str = ""):
+        """获取文本节点内容(XPath定位元素的文本节点列表)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        xpath_literal = json.dumps(str(xpath), ensure_ascii=False)
+        js_code = (
+            "function main(){ var xp="
+            + xpath_literal
+            + "; var snap=document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);"
+            " var out=[]; for(var i=0;i<snap.snapshotLength;i++){ var el=snap.snapshotItem(i);"
+            " var w=document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false); var n;"
+            " while((n=w.nextNode())){ var t=(n.textContent||'').trim(); if(t){ out.push(t); } } } return out; }"
+            + eval_js_code(False)
+        )
+        data = BrowserElement._run_js(browser_obj, js_code)
+        return data if isinstance(data, list) else []
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param("option_text", types="Str"),
+            atomicMg.param("wait_timeout", types="Int", required=False),
+        ],
+        outputList=[
+            atomicMg.param("select_result", types="Bool"),
+        ],
+    )
+    def universal_set_select(
+        browser_obj: Browser = None,
+        xpath: str = "",
+        option_text: str = "",
+        wait_timeout: int = 5,
+    ):
+        """通用设置下拉框(非select标签: 点击触发元素+按文本点击选项)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "触发元素XPath不能为空")
+        if not option_text:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "选项文本不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        wait_timeout = max(1, int(wait_timeout or 5))
+        xpath_literal = json.dumps(str(xpath), ensure_ascii=False)
+        text_literal = json.dumps(str(option_text), ensure_ascii=False)
+        js_code = (
+            "async function main(){ var xp="
+            + xpath_literal
+            + "; var snap=document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
+            " var el=snap.singleNodeValue; if(!el){ return false; } el.click();"
+            " var txt=" + text_literal + "; var t0=Date.now();"
+            " while(Date.now()-t0<__TIMEOUT_MS__){"
+            ' var cands=document.querySelectorAll(\'li,[role="option"],.el-select-dropdown__item,.ant-select-item-option,.dropdown-menu li,.select-option,[class*="option"]\');'
+            " var hit=null; var j;"
+            " for(j=0;j<cands.length;j++){ if((cands[j].innerText||'').trim()===txt){ hit=cands[j]; break; } }"
+            " if(!hit){ for(j=0;j<cands.length;j++){ if(((cands[j].innerText||'')+'').indexOf(txt)>=0){ hit=cands[j]; break; } } }"
+            " if(hit){ hit.click(); return true; }"
+            " await new Promise(function(r){ setTimeout(r, 300); }); } return false; }"
+        ).replace("__TIMEOUT_MS__", str(wait_timeout * 1000)) + eval_js_code(True)
+        return bool(BrowserElement._run_js(browser_obj, js_code, time_out=wait_timeout + 10))
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("font_color", types="Str"),
+        ],
+    )
+    def get_font_color(browser_obj: Browser = None, xpath: str = ""):
+        """获取元素字体颜色(computedStyle color)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        js_code = BrowserElement._xpath_js(xpath, "return getComputedStyle(el).color;")
+        res = BrowserElement._run_js(browser_obj, js_code)
+        if res is None:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        return str(res)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("background_color", types="Str"),
+        ],
+    )
+    def get_background_color(browser_obj: Browser = None, xpath: str = ""):
+        """获取元素背景颜色(computedStyle backgroundColor)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        js_code = BrowserElement._xpath_js(xpath, "return getComputedStyle(el).backgroundColor;")
+        res = BrowserElement._run_js(browser_obj, js_code)
+        if res is None:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        return str(res)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("background_image", types="Str"),
+        ],
+    )
+    def get_background_image(browser_obj: Browser = None, xpath: str = ""):
+        """获取元素背景图片(backgroundImage url提取, 无图返回空串)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        action_js = (
+            "var bi=getComputedStyle(el).backgroundImage||''; var m=bi.match(/url\\([\"']?([^\"')]*)[\"']?\\)/);"
+            " return m ? m[1] : '';"
+        )
+        js_code = BrowserElement._xpath_js(xpath, action_js)
+        res = BrowserElement._run_js(browser_obj, js_code)
+        if res is None:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        return str(res)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param("border_width", types="Int", required=False),
+            atomicMg.param("border_style", required=False),
+            atomicMg.param("border_color", types="Str", required=False),
+        ],
+        outputList=[
+            atomicMg.param("border_result", types="Bool"),
+        ],
+    )
+    def element_add_border(
+        browser_obj: Browser = None,
+        xpath: str = "",
+        border_width: int = 2,
+        border_style: BorderStyleType = BorderStyleType.Solid,
+        border_color: str = "red",
+    ):
+        """元素增加边框(outline实现, 不影响页面布局, 调试辅助)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        try:
+            border_width = max(1, int(border_width or 2))
+        except (TypeError, ValueError):
+            border_width = 2
+        border_literal = json.dumps("{}px {} {}".format(border_width, border_style.value, border_color))
+        action_js = "el.style.outline=__BORDER__; return true;".replace("__BORDER__", border_literal)
+        js_code = BrowserElement._xpath_js(xpath, action_js)
+        res = BrowserElement._run_js(browser_obj, js_code)
+        if res is None:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        return bool(res)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("show_result", types="Bool"),
+        ],
+    )
+    def element_show(browser_obj: Browser = None, xpath: str = ""):
+        """显示元素(恢复style.display)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        js_code = BrowserElement._xpath_js(xpath, "el.style.display=''; return true;")
+        res = BrowserElement._run_js(browser_obj, js_code)
+        if res is None:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        return bool(res)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("hide_result", types="Bool"),
+        ],
+    )
+    def element_hide(browser_obj: Browser = None, xpath: str = ""):
+        """隐藏元素(style.display=none)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        js_code = BrowserElement._xpath_js(xpath, "el.style.display='none'; return true;")
+        res = BrowserElement._run_js(browser_obj, js_code)
+        if res is None:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        return bool(res)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+        ],
+        outputList=[
+            atomicMg.param("remove_result", types="Bool"),
+        ],
+    )
+    def element_remove(browser_obj: Browser = None, xpath: str = ""):
+        """删除元素(从DOM移除, 不可恢复)"""
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        js_code = BrowserElement._xpath_js(xpath, "el.remove(); return true;")
+        res = BrowserElement._run_js(browser_obj, js_code)
+        if res is None:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        return bool(res)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "BrowserElement",
+        inputList=[
+            atomicMg.param("browser_obj"),
+            atomicMg.param(
+                "xpath",
+                types="Str",
+                formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                required=True,
+            ),
+            atomicMg.param(
+                "image_path",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,
+                    params={"filters": [], "file_type": "folder"},
+                ),
+            ),
+            atomicMg.param("image_name", types="Str"),
+        ],
+        outputList=[
+            atomicMg.param("long_screenshot_path", types="Str"),
+        ],
+    )
+    def element_long_screenshot(
+        browser_obj: Browser = None,
+        xpath: str = "",
+        image_path: str = "",
+        image_name: str = "",
+        scroll_step: float = 0.8,
+    ):
+        """元素长截图(滚动分段截取并拼接完整元素图像)"""
+        import base64 as base64_module
+
+        from PIL import Image
+
+        if not xpath:
+            raise BaseException(PARAMETER_INVALID_FORMAT.format(""), "XPath不能为空")
+        browser_obj = BrowserElement._get_default_browser_or_raise(browser_obj)
+        if not image_name:
+            image_name = "element_long_screenshot"
+        if not image_name.endswith((".png", ".jpg", ".jpeg")):
+            image_name += ".png"
+        dest_path = os.path.join(image_path, image_name)
+
+        # 元素在文档中的位置与尺寸
+        info_js = BrowserElement._xpath_js(
+            xpath,
+            "var r=el.getBoundingClientRect(); return {top:r.top+window.scrollY, left:r.left+window.scrollX,"
+            " width:r.width, height:r.height, vw:window.innerWidth, vh:window.innerHeight,"
+            " sy:window.scrollY};",
+        )
+        info = BrowserElement._run_js(browser_obj, info_js)
+        if not isinstance(info, dict):
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素未找到")
+        elem_top = float(info.get("top", 0))
+        elem_left = float(info.get("left", 0))
+        elem_w = float(info.get("width", 0))
+        elem_h = float(info.get("height", 0))
+        vh = max(100.0, float(info.get("vh", 800)))
+        if elem_h <= 0 or elem_w <= 0:
+            raise BaseException(WEB_GET_ELE_ERROR.format(xpath), "元素尺寸无效")
+
+        step = max(100.0, vh * max(0.2, min(1.0, float(scroll_step or 0.8))))
+        origin_y = float(info.get("sy", 0))
+        pieces = []
+        y = elem_top
+        try:
+            while y < elem_top + elem_h:
+                scroll_js = "function main(){ window.scrollTo(0, __Y__); return true; }".replace(
+                    "__Y__", str(int(y))
+                ) + eval_js_code(False)
+                BrowserElement._run_js(browser_obj, scroll_js)
+                time.sleep(0.25)
+                data = browser_obj.send_browser_extension(
+                    browser_type=browser_obj.browser_type.value,
+                    key="captureScreen",
+                    data={"": ""},
+                )
+                if not data:
+                    raise BaseException(BROWSER_EXTENSION_ERROR_FORMAT.format("截图返回数据为空"), "元素长截图失败")
+                data = str(data).replace("data:image/jpeg;base64,", "").replace("data:image/png;base64,", "")
+                img = Image.open(__import__("io").BytesIO(base64_module.b64decode(data)))
+                # 本段负责的元素区间: [y, y+min(step, 剩余高度)], 截图顶部=当前视口顶
+                scroll_y = y
+                seg_bottom = min(float(img.height), elem_top + elem_h - scroll_y, step)
+                if seg_bottom < 1:
+                    y += step
+                    continue
+                crop_box = (
+                    int(max(0, elem_left)),
+                    0,
+                    int(min(float(img.width), elem_left + elem_w)),
+                    int(seg_bottom),
+                )
+                pieces.append(img.crop(crop_box))
+                y += step
+            if not pieces:
+                raise BaseException(BROWSER_EXTENSION_ERROR_FORMAT.format("未截取到元素内容"), "元素长截图失败")
+            total_h = sum(p.height for p in pieces)
+            merged = Image.new("RGB", (int(elem_w), total_h))
+            offset = 0
+            for p in pieces:
+                merged.paste(p, (0, offset))
+                offset += p.height
+            merged.save(dest_path)
+        finally:
+            # 回滚原始滚动位置
+            restore_js = "function main(){ window.scrollTo(0, __Y__); return true; }".replace(
+                "__Y__", str(int(origin_y))
+            ) + eval_js_code(False)
+            try:
+                BrowserElement._run_js(browser_obj, restore_js)
+            except Exception:
+                pass
+        return dest_path

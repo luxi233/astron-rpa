@@ -244,6 +244,298 @@ atomic:
       - key: pdf_file_path
         title: PDF文件路径
         tip: ''
+  PDFExt.extract_table_spacing:
+    title: 提取PDF表格(按文本间距)
+    comment: 按文本间距启发式提取路径为 @{file_path} 的PDF表格（无线框表格），输出至变量 @{tables}
+    icon: atom-default
+    helpManual: 适合无线框表格；输出为二维列表的列表（每个表格为多行多列）；页码范围格式为1,3,5-7，负数表示倒数（-1为最后一页）
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: page_range
+        title: 页码范围
+        tip: 留空为全部页面，格式为1,3,5-7
+    outputList:
+      - key: tables
+        title: 表格内容列表
+        tip: 二维列表的列表，每个表格为多行多列
+  PDFExt.extract_table_lines:
+    title: 提取PDF表格(按表格线)
+    comment: 按表格线提取路径为 @{file_path} 的PDF表格（有线框/横线的表格），输出至变量 @{tables}
+    icon: atom-default
+    helpManual: 适合有线框或横线的表格；输出为二维列表的列表；页码范围格式为1,3,5-7，负数表示倒数
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: page_range
+        title: 页码范围
+        tip: 留空为全部页面，格式为1,3,5-7
+    outputList:
+      - key: tables
+        title: 表格内容列表
+        tip: 二维列表的列表，每个表格为多行多列
+  PDFExt.get_pdf_table:
+    title: 获取PDF表格(自动)
+    comment: 自动提取路径为 @{file_path} 的PDF表格（优先按表格线，无线时按文本间距），输出至变量 @{tables}
+    icon: atom-default
+    helpManual: 自动策略先按线提取，提取不到时回退文本间距启发式；页码范围格式为1,3,5-7，负数表示倒数（-1为最后一页）
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: page_range
+        title: 页码范围
+        tip: 留空为全部页面，格式为1,3,5-7
+    outputList:
+      - key: tables
+        title: 表格内容列表
+        tip: 二维列表的列表，每个表格为多行多列
+  PDFExt.extract_region_text:
+    title: 提取PDF区域文本
+    comment: 提取路径为 @{file_path} 第 @{page_number} 页区域(左 @{x0} 上 @{top} 右 @{x1} 下 @{bottom})内的文字，输出至变量 @{region_text}
+    icon: atom-default
+    helpManual: 坐标为pt磅、以页面左上角为原点；可用"获取PDF页面尺寸"原子取得页面宽高辅助定位
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: x0
+        title: 左边界x(pt)
+        tip: 区域左上角x坐标
+      - key: top
+        title: 上边界y(pt)
+        tip: 区域左上角y坐标
+      - key: x1
+        title: 右边界x(pt)
+        tip: 区域右下角x坐标
+      - key: bottom
+        title: 下边界y(pt)
+        tip: 区域右下角y坐标
+      - key: page_number
+        title: 页码
+        tip: 默认第1页
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+    outputList:
+      - key: region_text
+        title: 区域文本
+        tip: 区域内提取的文本
+  PDFExt.get_typed_regions:
+    title: 获取PDF区域列表
+    comment: 获取路径为 @{file_path} 中类型为 @{region_type} 的区域列表，输出至变量 @{regions}
+    icon: atom-default
+    helpManual: 每项含页码、bbox坐标(x0,y0,x1,y1，左上原点pt)与内容；文本块含text、图片含name、表格含cells单元格数
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: region_type
+        title: 区域类型
+        tip: ''
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: page_range
+        title: 页码范围
+        tip: 留空为全部页面，格式为1,3,5-7
+    outputList:
+      - key: regions
+        title: 区域列表
+        tip: 每项含页码/bbox坐标/内容
+  PDFExt.encrypt_pdf:
+    title: 加密PDF文件
+    comment: 为路径为 @{file_path} 的PDF设置打开密码 @{password}，保存至 @{save_path}，输出新文件路径 @{pdf_path_out}
+    icon: atom-default
+    helpManual: 保存路径留空时在源文件同目录生成 原名_encrypted 文件；密码不能为空
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: password
+        title: 打开密码
+        tip: ''
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: pdf_path_out
+        title: 新文件路径
+        tip: ''
+  PDFExt.rotate_pdf:
+    title: 旋转PDF页面
+    comment: 将路径为 @{file_path} 的PDF @{direction} 旋转90度，保存至 @{save_path}，输出新文件路径 @{pdf_path_out}
+    icon: atom-default
+    helpManual: 页码范围留空为全部页面，格式为1,3,5-7；保存路径留空时源文件同目录生成 原名_rotated 文件
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: direction
+        title: 旋转方向
+        tip: ''
+      - key: page_range
+        title: 页码范围
+        tip: 留空为全部页面，格式为1,3,5-7
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: pdf_path_out
+        title: 新文件路径
+        tip: ''
+  PDFExt.get_page_size:
+    title: 获取PDF页面尺寸
+    comment: 获取路径为 @{file_path} 第 @{page_number} 页的宽 @{width} 高 @{height}（pt磅）
+    icon: atom-default
+    helpManual: A4竖版约为宽595.28 x 高841.89磅；配合"提取PDF区域文本"原子使用
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: page_number
+        title: 页码
+        tip: 默认第1页
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+    outputList:
+      - key: width
+        title: 页面宽(pt)
+        tip: ''
+      - key: height
+        title: 页面高(pt)
+        tip: ''
+  PDFExt.split_pdf:
+    title: 分割PDF文件
+    comment: 将路径为 @{file_path} 的PDF按 @{split_mode} 分割，保存至 @{save_dir} 文件夹，输出文件路径列表 @{pdf_paths_out}
+    icon: atom-default
+    helpManual: '每页一个文件：每一页拆为独立PDF；在指定位置分割：从第N页处分成前后两个文件'
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: split_mode
+        title: 分割模式
+        tip: ''
+      - key: position
+        title: 分割位置(页码)
+        tip: 在指定位置分割时有效，从该页前分割
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: save_dir
+        title: 保存文件夹
+        tip: 留空时源文件同目录
+    outputList:
+      - key: pdf_paths_out
+        title: 文件路径列表
+        tip: 分割后的PDF文件路径
+  PDFExt.delete_pdf_pages:
+    title: 删除PDF页面
+    comment: 删除路径为 @{file_path} 的PDF中页码为 @{page_range} 的页面，保存至 @{save_path}，输出新文件路径 @{pdf_path_out}
+    icon: atom-default
+    helpManual: 页码范围格式为1,3,5-7，负数表示倒数（-1为最后一页）；不能删除全部页面；保存路径留空时源文件同目录生成 原名_deleted 文件
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: page_range
+        title: 删除页码范围
+        tip: 格式为1,3,5-7
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: pdf_path_out
+        title: 新文件路径
+        tip: ''
+  PDFExt.images_to_pdf:
+    title: 图片合并为PDF
+    comment: 将图片列表 @{image_files} 合并为一个PDF文件（每页一图），保存至 @{save_path}，输出PDF文件路径 @{pdf_path_out}
+    icon: atom-default
+    helpManual: 支持JPEG/PNG/BMP等常见格式；按EXIF方向信息自动纠正拍照方向；保存路径留空时存到第一张图片所在目录
+    inputList:
+      - key: image_files
+        title: 图片路径列表
+        tip: 多个图片路径，逗号分隔或列表
+      - key: save_path
+        title: 保存路径
+        tip: 留空时存到第一张图片所在目录
+    outputList:
+      - key: pdf_path_out
+        title: PDF文件路径
+        tip: ''
+  PDFExt.create_watermark_pdf:
+    title: 生成水印PDF文件
+    comment: 生成文字为 @{text} 的水印PDF（布局 @{layout} 字号 @{font_size} 透明度 @{opacity}% 旋转 @{rotation} 度），保存至 @{save_path}，输出 @{watermark_path}
+    icon: atom-default
+    helpManual: '生成A4单页水印文件，配合"添加PDF水印"原子叠加到目标文档；透明度1-100，旋转0-359，颜色支持#RRGGBB格式'
+    inputList:
+      - key: text
+        title: 水印文字
+        tip: ''
+      - key: save_path
+        title: 保存路径
+        tip: 留空时保存到工作目录 astron/ 下
+      - key: layout
+        title: 水印布局
+        tip: ''
+      - key: font_size
+        title: 字号
+        tip: 默认36
+      - key: opacity
+        title: 透明度(%)
+        tip: 1-100，默认20
+      - key: rotation
+        title: 旋转角度
+        tip: 0-359，默认45
+      - key: color
+        title: 颜色
+        tip: '#RRGGBB格式，默认#808080灰色'
+    outputList:
+      - key: watermark_path
+        title: 水印文件路径
+        tip: ''
+  PDFExt.add_pdf_watermark:
+    title: 添加PDF水印
+    comment: 将水印文件 @{watermark_path} 叠加到路径为 @{file_path} 的PDF每一页，保存至 @{save_path}，输出新文件路径 @{pdf_path_out}
+    icon: atom-default
+    helpManual: 水印文件可用"生成水印PDF文件"原子创建；保存路径留空时源文件同目录生成 原名_watermarked 文件
+    inputList:
+      - key: file_path
+        title: PDF文件路径
+        tip: ''
+      - key: watermark_path
+        title: 水印PDF路径
+        tip: 用"生成水印PDF文件"原子创建
+      - key: password
+        title: PDF文件密码
+        tip: 无密码则留空
+      - key: save_path
+        title: 保存路径
+        tip: 留空时源文件同目录自动命名
+    outputList:
+      - key: pdf_path_out
+        title: 新文件路径
+        tip: ''
 options:
   SelectRangeType:
     - value: all
@@ -281,6 +573,28 @@ options:
       label: 一页一张图片
     - value: multiple_pages
       label: 一页多张图片
+  RegionType:
+    - value: text_block
+      label: 文本块
+    - value: image
+      label: 图片
+    - value: table
+      label: 表格
+  RotateDirection:
+    - value: clockwise
+      label: 顺时针90度
+    - value: counter_clockwise
+      label: 逆时针90度
+  SplitModeType:
+    - value: single_pages
+      label: 每页一个文件
+    - value: at_position
+      label: 在指定位置分割
+  WatermarkLayoutType:
+    - value: tile
+      label: 平铺
+    - value: single
+      label: 居中单个
   Bool:
     - value: true
       label: 是

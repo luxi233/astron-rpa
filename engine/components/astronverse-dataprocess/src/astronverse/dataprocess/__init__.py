@@ -127,6 +127,20 @@ class NoKeyOptionType(Enum):
     RETURN_DEFAULT = "return_default"
 
 
+class PercentConvertType(Enum):
+    """数字与百分比转换类型枚举。"""
+
+    TO_PERCENT = "to_percent"  # 数字转百分比
+    TO_NUMBER = "to_number"  # 百分比转数字
+
+
+class ChineseNumberType(Enum):
+    """数字汉字转换模式枚举。"""
+
+    NORMAL = "normal"  # 普通(一二三)
+    AMOUNT = "amount"  # 大写金额(壹贰叁元整)
+
+
 class JSONConvertType(Enum):
     """JSON 转换类型枚举。"""
 
@@ -209,6 +223,13 @@ class ParseTimeType(Enum):
 
     AUTO = "auto"
     CUSTOM = "custom"
+
+
+class DateListOutputType(Enum):
+    """日期时间列表输出类型枚举。"""
+
+    DATETIME = "datetime"
+    TEXT = "text"
 
 
 class ExtremumType(Enum):

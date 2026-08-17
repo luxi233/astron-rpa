@@ -298,10 +298,45 @@ class LocateType(Enum):
 
 
 class ElementCreateReturnType(Enum):
-    """创建元素对象返回类型"""
+    """创建元素对象返回类型枚举"""
 
     SINGLE = "single"  # 单个元素对象
     LIST = "list"  # 元素对象列表
+
+
+class JsImportType(Enum):
+    """JS库导入来源枚举"""
+
+    Url = "url"  # URL来源
+    Text = "text"  # 脚本文本来源
+
+
+class CommonJsLibType(Enum):
+    """常用JS库枚举"""
+
+    Jquery = "jquery"
+    Lodash = "lodash"
+    Dayjs = "dayjs"
+    Axios = "axios"
+    Html2Canvas = "html2canvas"
+
+
+COMMON_JS_LIB_URLS = {
+    "jquery": "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js",
+    "lodash": "https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js",
+    "dayjs": "https://cdn.jsdelivr.net/npm/dayjs@1.11.13/dayjs.min.js",
+    "axios": "https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js",
+    "html2canvas": "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
+}
+
+
+class BorderStyleType(Enum):
+    """边框样式枚举"""
+
+    Solid = "solid"
+    Dashed = "dashed"
+    Dotted = "dotted"
+    Double = "double"
 
 
 class RelativeType(Enum):
@@ -361,3 +396,18 @@ class WebRequestTypeFlag(Enum):
     PATCH = "patch"  # PATCH
     DELETE = "delete"  # DELETE
     HEAD = "head"  # HEAD
+
+
+class FrameLocateType(Enum):
+    """iframe定位方式枚举"""
+
+    Index = "index"  # 序号
+    Name = "name"  # 名称
+    Xpath = "xpath"  # XPath
+
+
+class FrameWaitStatusTypeFlag(Enum):
+    """iframe元素等待状态枚举"""
+
+    Appear = "appear"  # 等待出现
+    Disappear = "disappear"  # 等待消失

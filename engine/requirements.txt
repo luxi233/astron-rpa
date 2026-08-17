@@ -14,6 +14,7 @@ astronverse-encrypt
 astronverse-enterprise
 astronverse-excel
 astronverse-executor
+astronverse-image
 astronverse-input
 astronverse-locator
 astronverse-network

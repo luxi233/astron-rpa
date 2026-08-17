@@ -14,7 +14,7 @@ from astronverse.actionlib import (
 )
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.utils import FileExistenceType, handle_existence
-from astronverse.encrypt import Base64CodeType, EncryptCaseType, MD5bitsType, SHAType
+from astronverse.encrypt import Base64CodeType, EncryptCaseType, MD5bitsType, SHAType, UrlEncodingType
 from astronverse.encrypt.core import EncryptCore
 
 
@@ -201,3 +201,41 @@ class Encrypt:  # pylint: disable=too-few-public-methods
             new_file_path,
         )
         return decoded_string
+
+    # --------------URL编解码-----------------
+    @staticmethod
+    @atomicMg.atomic(
+        "Encrypt",
+        inputList=[
+            atomicMg.param("source_str", types="Str"),
+            atomicMg.param("safe_chars", types="Str", required=False),
+        ],
+        outputList=[atomicMg.param("encoded_url", types="Str")],
+    )
+    def url_encode(source_str: str, safe_chars: str = "") -> str:
+        """URL 编码（百分号编码）。
+
+        参数:
+            source_str: 待编码文本。
+            safe_chars: 保留字符集，其中的字符不被转义（如 /:?&=）。
+        返回: 编码后的文本（中文/空格等被转为 %XX 形式）。
+        """
+        return EncryptCore.url_encode(source_str, safe_chars)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Encrypt",
+        inputList=[
+            atomicMg.param("source_str", types="Str"),
+        ],
+        outputList=[atomicMg.param("decoded_url", types="Str")],
+    )
+    def url_decode(source_str: str, encoding: UrlEncodingType = UrlEncodingType.UTF8) -> str:
+        """URL 解码（百分号解码）。
+
+        参数:
+            source_str: 待解码文本（含 %XX 转义）。
+            encoding: 解码字符集（UTF-8 / GBK）。
+        返回: 还原后的文本。
+        """
+        return EncryptCore.url_decode(source_str, encoding)

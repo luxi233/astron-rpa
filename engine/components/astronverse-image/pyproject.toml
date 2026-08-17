@@ -1,0 +1,29 @@
+[project]
+name = "astronverse-image"
+version = "1.0.0"
+description = "astronverse-image."
+requires-python = ">=3.13"
+
+dependencies = [
+    "astronverse-actionlib",
+    "numpy==2.3.4",
+    "pillow==12.1.0",
+    "python-barcode==0.15.1",
+    "pyzbar==0.1.9",
+    "qrcode==8.2",
+]
+
+[tool.uv.sources]
+astronverse-actionlib = {path = "../../shared/astronverse-actionlib", editable = true}
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/astronverse"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]

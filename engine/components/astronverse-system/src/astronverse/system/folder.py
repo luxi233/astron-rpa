@@ -603,6 +603,35 @@ class Folder:
                 raise BaseException(SYSTEM_FOLDER_GET_ERROR_FORMAT.format(folder_key, str(e)), str(e))
         return path
 
+    @staticmethod
+    @atomicMg.atomic(
+        "Folder",
+        inputList=[
+            atomicMg.param(
+                "folder_path",
+                formType=AtomicFormTypeMeta(
+                    AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value,
+                    params={"filters": [], "file_type": "folder"},
+                ),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("is_empty", types="Bool"),
+        ],
+    )
+    def is_empty_folder(folder_path: str = "") -> bool:
+        """
+        判断文件夹是否为空
+        :param folder_path: 文件夹路径
+        :return: 文件夹是否为空(不存在也视为空)
+        """
+        if not folder_is_exists(folder_path):
+            raise BaseException(
+                FOLDER_PATH_ERROR_FORMAT.format(folder_path),
+                "文件夹不存在，请检查路径信息",
+            )
+        return len(os.listdir(folder_path)) == 0
+
 
 def _get_windows_known_folder(folder_key: str):
     """通过SHGetKnownFolderPath获取Windows已知文件夹路径，失败返回None"""

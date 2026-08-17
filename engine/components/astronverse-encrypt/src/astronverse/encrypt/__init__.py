@@ -10,7 +10,15 @@ __all__ = [
     "EncryptCaseType",
     "MD5bitsType",
     "SHAType",
+    "UrlEncodingType",
 ]
+
+
+class UrlEncodingType(Enum):
+    """URL 解码字符集枚举。"""
+
+    UTF8 = "utf-8"
+    GBK = "gbk"
 
 
 class MD5bitsType(Enum):

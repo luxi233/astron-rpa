@@ -101,6 +101,8 @@ ignore = [
     "E712",    # true-false-comparison
     "E721",    # type-comparison
     "E722",    # bare-except
+    "F403",    # undefined-names-with-import-star: `from xxx.error import *` 是 29 组件统一的错误码导出架构, 禁止清理 (TEST_PLAN §13.3)
+    "F405",    # undefined-local-with-import-star-usage: 同上
     "F821",    # undefined-name
     "F841",    # unused-variable
     "FURB113", # repeated-append

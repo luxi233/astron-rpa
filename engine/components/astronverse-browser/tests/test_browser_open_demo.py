@@ -1,5 +1,11 @@
-from astronverse.browser.browser_software import BrowserSoftware
-from astronverse.browser import CommonForBrowserType, CommonForTimeoutHandleType
+import pytest
+
+# demo 手动验证脚本: 真实打开浏览器访问 baidu, 非自动化单测;
+# 且 macOS 下 software 剪贴板平台守卫会在 import 期抛错, 故模块级跳过
+pytest.skip("browser_open demo 需真实浏览器环境, 请手动运行", allow_module_level=True)
+
+from astronverse.browser.browser_software import BrowserSoftware  # noqa: E402
+from astronverse.browser import CommonForBrowserType, CommonForTimeoutHandleType  # noqa: E402
 
 
 def test_browser_open_demo():

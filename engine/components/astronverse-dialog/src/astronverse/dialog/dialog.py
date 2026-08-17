@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+import uuid
 from collections.abc import Callable
 from typing import Optional
 
@@ -785,3 +786,159 @@ class Dialog:
             raise Exception(res_e)
 
         return res.get("data_table"), res.get("result_button")
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Dialog",
+        inputList=[
+            atomicMg.param(
+                "iterable",
+                types="List",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+            atomicMg.param(
+                "title",
+                types="Str",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT.value),
+                required=False,
+                limitLength=[-1, 50],
+            ),
+            atomicMg.param(
+                "task_name",
+                types="Str",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT.value),
+                required=False,
+                limitLength=[-1, 100],
+            ),
+        ],
+        outputList=[atomicMg.param("progress_bar", types="List")],
+    )
+    def init_progress_bar(
+        iterable: list = None,
+        title: str = "任务进度",
+        task_name: str = "",
+    ):
+        """
+        初始化进度条：包装可迭代对象输出进度条对象，配合循环节点使用，每次迭代自动推送进度到前端
+        """
+        return ProgressBar(iterable if iterable is not None else [], title, task_name)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Dialog",
+        inputList=[
+            atomicMg.param(
+                "progress_bar",
+                types="Any",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+            atomicMg.param(
+                "percent",
+                types="Int",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+        ],
+        outputList=[],
+    )
+    def update_progress(progress_bar=None, percent: int = 0):
+        """
+        更新进度条进度（0-100）
+        """
+        if not isinstance(progress_bar, ProgressBar):
+            raise ValueError("进度条对象无效,请使用「初始化进度条」的输出")
+        progress_bar.update(percent)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Dialog",
+        inputList=[
+            atomicMg.param(
+                "progress_bar",
+                types="Any",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+            atomicMg.param(
+                "description",
+                types="Str",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+                limitLength=[-1, 200],
+            ),
+        ],
+        outputList=[],
+    )
+    def set_progress_description(progress_bar=None, description: str = ""):
+        """
+        设置进度条当前任务描述
+        """
+        if not isinstance(progress_bar, ProgressBar):
+            raise ValueError("进度条对象无效,请使用「初始化进度条」的输出")
+        progress_bar.set_description(description)
+
+
+class ProgressBar:
+    """进度条对象：包装可迭代对象，每次迭代自动推送进度到前端（ws 断连不阻断流程）"""
+
+    def __init__(self, items, title: str = "任务进度", task_name: str = ""):
+        self._iterator = iter(items)
+        self.progress_id = uuid.uuid4().hex
+        self.title = title or "任务进度"
+        self.task_name = task_name or ""
+        self.description = task_name or ""
+        try:
+            self.total = len(items)
+        except TypeError:
+            self.total = 0  # 生成器等无长度对象：未知总数模式
+        self.current = 0
+        self._push("open", 0)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            item = next(self._iterator)
+        except StopIteration:
+            self._push("close", 100)
+            raise
+        self.current += 1
+        self._push("update", self._auto_percent())
+        return item
+
+    def _auto_percent(self):
+        if not self.total:
+            return None
+        return round(self.current * 100.0 / self.total)
+
+    def update(self, percent):
+        """手动更新进度（0-100，越界自动收敛）"""
+        try:
+            percent = int(percent)
+        except (TypeError, ValueError):
+            percent = 0
+        percent = max(0, min(100, percent))
+        self._push("update", percent)
+
+    def set_description(self, description: str):
+        """更新任务描述并刷新进度条"""
+        self.description = description or ""
+        self._push("update", self._auto_percent())
+
+    def _push(self, operate: str, percent=None):
+        payload = {
+            "key": "Dialog.init_progress_bar",
+            "operate": operate,
+            "progress_id": self.progress_id,
+            "title": self.title,
+            "task_name": self.description or self.task_name,
+            "percent": percent,
+            "current": self.current,
+            "total": self.total,
+        }
+        try:
+            ws = atomicMg.cfg().get("WS", None)
+            if ws:
+                send_notification = getattr(ws, "send_notification", None)
+                if send_notification:
+                    send_notification({"data": {"name": "progress", "option": payload}})
+        except Exception:
+            pass  # ws 断连不阻断流程

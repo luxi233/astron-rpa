@@ -1,6 +1,9 @@
 import unittest
 
-from astronverse.dataprocess import *
+# 注意: 不可用 `from astronverse.dataprocess import *` —— pytest 按字母序先收集 test_list 时
+# 会 import dataprocess.list 子模块，使包对象挂上 list 属性（模块对象），
+# 星号导入会把它带入本模块并遮蔽内建 list，导致 assertIsInstance(result, list) 崩溃
+from astronverse.dataprocess import AddSubType, MathOperatorType, MathRoundType, NumberType
 from astronverse.dataprocess.error import *
 from astronverse.dataprocess.math import MathProcess
 

@@ -8,6 +8,8 @@ from astronverse.system.process import Process
 
 
 class TestProcess(TestCase):
+    @unittest.skipIf(sys.platform != "win32", "依赖 Windows 平台/工具(xclip/test.exe/scrot), macOS 跳过")
+
     def setUp(self):
         """测试前的准备工作"""
         self.test_command = os.path.join(os.path.dirname(__file__), "test.exe")

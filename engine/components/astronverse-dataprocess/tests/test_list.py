@@ -26,12 +26,12 @@ class TestListProcess(unittest.TestCase):
     def test_create_new_list_user_defined(self):
         """测试创建用户自定义列表"""
         custom_list = [1, 2, 3, 4, 5]
-        result = ListProcess.create_new_list(list_type=ListType.USER_DEFINED, value=custom_list)
+        result = ListProcess.create_new_list(list_type=ListType.USER_DEFINED, custom_list=custom_list)
         self.assertEqual(result, custom_list)
 
     def test_create_new_list_with_string_format(self):
         """测试使用字符串格式创建列表"""
-        result = ListProcess.create_new_list(list_type=ListType.USER_DEFINED, value="[1, 2, 3, 4, 5]")
+        result = ListProcess.create_new_list(list_type=ListType.USER_DEFINED, custom_list="[1, 2, 3, 4, 5]")
         self.assertEqual(result, [1, 2, 3, 4, 5])
 
     def test_clear_list(self):

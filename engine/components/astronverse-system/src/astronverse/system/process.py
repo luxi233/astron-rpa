@@ -103,7 +103,7 @@ class Process:
             atomicMg.param(
                 "process_name",
                 formType=AtomicFormTypeMeta(AtomicFormType.INPUT_VARIABLE_PYTHON.value),
-                required=True,
+                required=False,
             ),
             atomicMg.param("search_type", required=False),
             atomicMg.param("pid_type", required=False),
@@ -119,14 +119,13 @@ class Process:
     ):
         """
         获取与输入名称匹配的进程PID,并保存至输出变量
+        :param process_name: 进程名称, 为空时返回全部进程(每项为[进程名, PID]二元组)
         """
         import psutil
 
         if not process_name:
-            raise BaseException(
-                MSG_EMPTY_FORMAT.format(process_name),
-                "待匹配名称输入为空，请检查输入信息！",
-            )
+            # 空名称: 返回全部进程 [进程名, PID] 列表
+            return [[proc.info["name"], proc.pid] for proc in ProcessCore.get_pid_list()]
         match_proces_pid = []
         for proc in ProcessCore.get_pid_list():
             try:

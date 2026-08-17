@@ -54,3 +54,8 @@ class FtpServerType(Enum):
 class SftpLoginMode(Enum):
     PASSWORD = "password"  # 密码连接
     KEY = "key"  # 密钥连接
+
+
+class SshLoginMode(Enum):
+    PASSWORD = "password"  # 密码连接
+    KEY = "key"  # 密钥连接

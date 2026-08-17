@@ -160,6 +160,98 @@ atomic:
       - key: get_dict_values
         title: 值列表
         tip: ''
+  DictProcess.merge_dict:
+    title: 合并字典
+    comment: 将被合并字典 @{merge_dict_data} 的键值对更新到字典 @{dict_data}（同名键后者覆盖），返回合并后的字典 @{merged_dict_data}
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: dict_data
+        title: 目标字典
+        tip: 合并到此字典，就地修改
+      - key: merge_dict_data
+        title: 被合并字典
+        tip: 其键值对将更新到目标字典，同名键覆盖原值
+    outputList:
+      - key: merged_dict_data
+        title: 合并后的字典
+        tip: ''
+  DictProcess.clear_dict:
+    title: 清空字典
+    comment: 清空字典 @{dict_data} 的全部键值对，返回清空后的字典 @{cleared_dict_data}
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: dict_data
+        title: 字典数据
+        tip: 就地清空
+    outputList:
+      - key: cleared_dict_data
+        title: 清空后的字典
+        tip: ''
+  DictProcess.strip_dict_keys:
+    title: 删除字典键两端空格
+    comment: 删除字典 @{dict_data} 中字符串键两端的空格（非字符串键保持原样），返回处理后的字典 @{stripped_keys_dict_data}
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: dict_data
+        title: 字典数据
+        tip: 仅处理一级键，不递归嵌套字典
+    outputList:
+      - key: stripped_keys_dict_data
+        title: 处理后的字典
+        tip: ''
+  DictProcess.strip_dict_values:
+    title: 删除字典值两端空格
+    comment: 删除字典 @{dict_data} 中字符串值两端的空格（非字符串值保持原样），返回处理后的字典 @{stripped_values_dict_data}
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: dict_data
+        title: 字典数据
+        tip: 仅处理一级值，不递归嵌套字典
+    outputList:
+      - key: stripped_values_dict_data
+        title: 处理后的字典
+        tip: ''
+  DictProcess.dict_key_exist:
+    title: 判断字典键是否存在
+    comment: 判断字典 @{dict_data} 中是否存在键 @{dict_key}，输出布尔值 @{key_exist}
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: dict_data
+        title: 字典数据
+        tip: ''
+      - key: dict_key
+        title: 键（key）
+        tip: ''
+    outputList:
+      - key: key_exist
+        title: 是否存在
+        tip: true表示存在，false表示不存在
+  DictProcess.dict_to_text:
+    title: 字典格式化为文本
+    comment: >-
+      将字典 @{dict_data} 格式化为文本，键值之间用连接符 @{kv_connect} 拼接，项之间用
+      @{item_connect} 拼接，输出文本 @{dict_text}
+    icon: atom-default
+    helpManual: ''
+    inputList:
+      - key: dict_data
+        title: 字典数据
+        tip: ''
+      - key: item_connect
+        title: 项连接符
+        tip: 各键值对之间的连接符，默认换行
+      - key: kv_connect
+        title: 键值连接符
+        tip: 键与值之间的连接符，默认冒号
+    outputList:
+      - key: dict_text
+        title: 文本
+        tip: ''
   ListProcess.create_new_list:
     title: 创建新列表
     comment: 创建一个 @{list_type} 类型的列表，返回创建的列表 @{created_list_data}
@@ -917,6 +1009,193 @@ atomic:
       - key: calculation_number
         title: 计算结果
         tip: ''
+  MathProcess.get_ceil:
+    title: 大于取整
+    comment: 对(@{number})向上取整，结果保存至(@{ceil_number})
+    icon: math-calculation
+    helpManual: 向上取整(朝正无穷方向)，如4.1→5、-4.9→-4
+    inputList:
+      - key: number
+        title: 待取整数值
+        tip: 支持数字或数字字符串
+    outputList:
+      - key: ceil_number
+        title: 取整结果保存至
+        tip: 输出向上取整后的整数
+  MathProcess.get_floor:
+    title: 小于取整
+    comment: 对(@{number})向下取整，结果保存至(@{floor_number})
+    icon: math-calculation
+    helpManual: 向下取整(朝负无穷方向)，如4.9→4、-4.1→-5
+    inputList:
+      - key: number
+        title: 待取整数值
+        tip: 支持数字或数字字符串
+    outputList:
+      - key: floor_number
+        title: 取整结果保存至
+        tip: 输出向下取整后的整数
+  MathProcess.get_trunc:
+    title: 舍去取整
+    comment: 对(@{number})舍去小数部分取整，结果保存至(@{trunc_number})
+    icon: math-calculation
+    helpManual: 向零取整(舍去小数部分)，如4.9→4、-4.9→-4
+    inputList:
+      - key: number
+        title: 待取整数值
+        tip: 支持数字或数字字符串
+    outputList:
+      - key: trunc_number
+        title: 取整结果保存至
+        tip: 输出舍去取整后的整数
+  MathProcess.get_remainder:
+    title: 取余
+    comment: (@{number1})对(@{number2})取余，结果保存至(@{remainder})
+    icon: math-calculation
+    helpManual: 取余运算，如7对2取余=1；勾选浮点数取余后结果符号跟随被除数(-7对3取余=-1)
+    inputList:
+      - key: number1
+        title: 被除数
+        tip: 支持数字或数字字符串
+      - key: number2
+        title: 除数
+        tip: 不能为0
+      - key: float_mode
+        title: 浮点数取余
+        tip: 勾选后结果符号跟随被除数
+    outputList:
+      - key: remainder
+        title: 取余结果保存至
+        tip: 输出取余结果
+  MathProcess.get_floor_div:
+    title: 取整除
+    comment: (@{number1})除以(@{number2})取整商，结果保存至(@{floor_div_number})
+    icon: math-calculation
+    helpManual: 取整除运算(商向下取整)，如7除以2=3、-7除以2=-4
+    inputList:
+      - key: number1
+        title: 被除数
+        tip: 支持数字或数字字符串
+      - key: number2
+        title: 除数
+        tip: 不能为0
+    outputList:
+      - key: floor_div_number
+        title: 取整除结果保存至
+        tip: 输出取整后的商
+  MathProcess.get_gcd:
+    title: 获取公约数
+    comment: (@{number1})和(@{number2})的最大公约数保存至(@{gcd_number})
+    icon: math-calculation
+    helpManual: 获取两个整数的最大公约数，如12和18的公约数=6
+    inputList:
+      - key: number1
+        title: 整数1
+        tip: 仅支持整数
+      - key: number2
+        title: 整数2
+        tip: 仅支持整数
+    outputList:
+      - key: gcd_number
+        title: 公约数保存至
+        tip: 输出最大公约数
+  MathProcess.get_log:
+    title: 获取对数
+    comment: (@{number})以(@{base})为底的对数保存至(@{log_number})
+    icon: math-calculation
+    helpManual: 获取对数；不填底数时为自然对数(以e为底)，如以2为底8的对数=3
+    inputList:
+      - key: number
+        title: 真数
+        tip: 必须大于0
+      - key: base
+        title: 底数
+        tip: 不填为自然对数e；必须大于0且不等于1
+    outputList:
+      - key: log_number
+        title: 对数结果保存至
+        tip: 输出对数结果
+  MathProcess.get_log10:
+    title: 获取log10
+    comment: (@{number})以10为底的对数保存至(@{log10_number})
+    icon: math-calculation
+    helpManual: 获取以10为底的对数，如100的log10=2
+    inputList:
+      - key: number
+        title: 真数
+        tip: 必须大于0
+    outputList:
+      - key: log10_number
+        title: 对数结果保存至
+        tip: 输出以10为底的对数
+  MathProcess.get_power:
+    title: 获取x的y次方
+    comment: (@{number})的(@{exponent})次方保存至(@{power_number})
+    icon: math-calculation
+    helpManual: 幂运算，如2的10次方=1024
+    inputList:
+      - key: number
+        title: 底数x
+        tip: 支持数字或数字字符串
+      - key: exponent
+        title: 指数y
+        tip: 支持数字或数字字符串
+    outputList:
+      - key: power_number
+        title: 幂运算结果保存至
+        tip: 输出x的y次方
+  MathProcess.get_sqrt:
+    title: 获取平方根
+    comment: (@{number})的平方根保存至(@{sqrt_number})
+    icon: math-calculation
+    helpManual: 平方根运算，如9的平方根=3
+    inputList:
+      - key: number
+        title: 待开方数值
+        tip: 不能为负数
+    outputList:
+      - key: sqrt_number
+        title: 平方根保存至
+        tip: 输出平方根结果
+  MathProcess.get_exp:
+    title: 获取e的x次方
+    comment: e的(@{number})次方保存至(@{exp_number})
+    icon: math-calculation
+    helpManual: 自然常数e(约2.718)的x次方运算，如e的1次方约等于2.718
+    inputList:
+      - key: number
+        title: 指数x
+        tip: 支持数字或数字字符串
+    outputList:
+      - key: exp_number
+        title: 结果保存至
+        tip: 输出e的x次方
+  MathProcess.get_factorial:
+    title: 获取阶乘
+    comment: (@{number})的阶乘保存至(@{factorial_number})
+    icon: math-calculation
+    helpManual: 阶乘运算，如5的阶乘=5×4×3×2×1=120；仅支持非负整数
+    inputList:
+      - key: number
+        title: 非负整数
+        tip: 仅支持非负整数
+    outputList:
+      - key: factorial_number
+        title: 阶乘结果保存至
+        tip: 输出阶乘结果
+  MathProcess.get_random_item:
+    title: 获取随机元素
+    comment: 从(@{data})中随机取一个元素保存至(@{random_item})
+    icon: math-calculation
+    helpManual: 从列表或字符串中随机取出一个元素，如['a','b','c']随机取出'b'
+    inputList:
+      - key: data
+        title: 列表或字符串
+        tip: 如['a','b','c']或'abc'
+    outputList:
+      - key: random_item
+        title: 随机元素保存至
+        tip: 输出随机取出的元素
   StringProcess.extract_content_from_string:
     title: 文本提取内容
     comment: 从文本 @{text} 中提取 @{extract_type} 类型的内容
@@ -1121,6 +1400,223 @@ atomic:
       - key: string_length
         title: 文本长度
         tip: ''
+  StringProcess.generate_random_string:
+    title: 生成随机字符串
+    comment: 生成长度 @{length} 的随机字符串 @{random_string}
+    icon: generate-random-string
+    helpManual: 支持勾选包含汉字/大写字母/小写字母/数字/特殊字符，至少勾选一种
+    inputList:
+      - key: length
+        title: 字符串长度
+        tip: 生成的字符串长度，需大于0
+      - key: include_chinese
+        title: 包含汉字
+        tip: ''
+      - key: include_upper
+        title: 包含大写字母
+        tip: ''
+      - key: include_lower
+        title: 包含小写字母
+        tip: ''
+      - key: include_digit
+        title: 包含数字
+        tip: ''
+      - key: include_special
+        title: 包含特殊字符
+        tip: '!@#$%^&*()-_=+[]{};:,.?~'
+    outputList:
+      - key: random_string
+        title: 生成的随机字符串
+        tip: ''
+  StringProcess.convert_percent:
+    title: 转换数字和百分比
+    comment: '按 @{convert_type} 方式转换 @{value} ，保留 @{precision} 位小数，结果保存至 @{convert_result}'
+    icon: convert-percent
+    helpManual: 数字转百分比(0.1234→12.34%)或百分比转数字(12.34%→0.1234)
+    inputList:
+      - key: value
+        title: 待转换的值
+        tip: 数字(如0.1234)或百分比字符串(如12.34%)
+      - key: convert_type
+        title: 转换类型
+        tip: ''
+      - key: precision
+        title: 保留小数位数
+        tip: 默认2位
+    outputList:
+      - key: convert_result
+        title: 转换结果
+        tip: 数字转百分比返回字符串，百分比转数字返回数值
+  StringProcess.split_address:
+    title: 切分省市区地址
+    comment: 切分地址 @{address} ，返回列表 @{address_parts}
+    icon: split-address
+    helpManual: 切分出省/市/区县，含详细地址时为第4项，如 广东省深圳市南山区科技园路1号 → [广东省, 深圳市, 南山区, 科技园路1号]
+    inputList:
+      - key: address
+        title: 地址
+        tip: 中国大陆地址字符串
+    outputList:
+      - key: address_parts
+        title: 地址切分结果
+        tip: '[省, 市, 区县, 详细地址(如有)]'
+  StringProcess.match_similar_text:
+    title: 相似文本匹配
+    comment: 在样本列表中找出与 @{source_text} 相似度不低于 @{threshold} 的文本，最相似为 @{best_match}
+    icon: match-similar-text
+    helpManual: 基于文本相似度算法，从样本列表中筛选并返回最相似文本及相似度
+    inputList:
+      - key: source_text
+        title: 原文本
+        tip: ''
+      - key: samples
+        title: 样本列表
+        tip: 如 ['苹果手机','华为手机']
+      - key: threshold
+        title: 相似度阈值
+        tip: 0-1之间，默认0.6，低于阈值的样本被过滤
+    outputList:
+      - key: match_list
+        title: 匹配的文本列表
+        tip: 相似度不低于阈值的样本
+      - key: best_match
+        title: 最相似的文本
+        tip: ''
+      - key: best_ratio
+        title: 最相似度
+        tip: 0-1之间
+  StringProcess.compare_text_similarity:
+    title: 比较文本相似度
+    comment: 比较文本 @{text1} 与 @{text2} 的相似度 @{similarity}
+    icon: compare-text-similarity
+    helpManual: 返回0-100的相似度百分比
+    inputList:
+      - key: text1
+        title: 文本1
+        tip: ''
+      - key: text2
+        title: 文本2
+        tip: ''
+    outputList:
+      - key: similarity
+        title: 相似度
+        tip: 0-100的百分比数值
+  StringProcess.full_to_half:
+    title: 全角转半角
+    comment: 将文本 @{text} 中的全角字符转为半角 @{half_width_text}
+    icon: full-to-half
+    helpManual: 如 ＡＢＣ１２３ → ABC123，全角空格转普通空格
+    inputList:
+      - key: text
+        title: 文本数据
+        tip: ''
+    outputList:
+      - key: half_width_text
+        title: 转换后的文本
+        tip: ''
+  StringProcess.cn_symbol_to_en:
+    title: 中文符号转英文
+    comment: 将文本 @{text} 中的中文符号转为英文符号 @{converted_text}
+    icon: cn-symbol-to-en
+    helpManual: '如 【】→[]、，→,、：→:'
+    inputList:
+      - key: text
+        title: 文本数据
+        tip: ''
+    outputList:
+      - key: converted_text
+        title: 转换后的文本
+        tip: ''
+  StringProcess.en_symbol_to_cn:
+    title: 英文符号转中文
+    comment: 将文本 @{text} 中的英文符号转为中文符号 @{converted_text}
+    icon: en-symbol-to-cn
+    helpManual: 如 []→【】、,→，、:→：
+    inputList:
+      - key: text
+        title: 文本数据
+        tip: ''
+    outputList:
+      - key: converted_text
+        title: 转换后的文本
+        tip: ''
+  StringProcess.remove_blank_lines:
+    title: 去除空白行
+    comment: 去除文本 @{text} 中的空白行 @{cleaned_text}
+    icon: remove-blank-lines
+    helpManual: 删除仅包含空格/制表符等的空白行
+    inputList:
+      - key: text
+        title: 文本数据
+        tip: 多行文本
+    outputList:
+      - key: cleaned_text
+        title: 处理后的文本
+        tip: ''
+  StringProcess.merge_lines_to_one:
+    title: 多行合并成一行
+    comment: 将文本 @{text} 的多行以 @{separator} 连接合并为一行 @{merged_text}
+    icon: merge-lines
+    helpManual: 将多行文本合并为单行，可指定分隔符并选择是否去除空白行
+    inputList:
+      - key: text
+        title: 文本数据
+        tip: 多行文本
+      - key: separator
+        title: 分隔符
+        tip: 默认空格
+      - key: remove_blank
+        title: 去除空白行
+        tip: ''
+    outputList:
+      - key: merged_text
+        title: 合并后的文本
+        tip: ''
+  StringProcess.chinese_to_number:
+    title: 汉字转数字
+    comment: 将汉字数字 @{chinese_number} 转为阿拉伯数字 @{number}
+    icon: chinese-to-number
+    helpManual: 如 一千二百三十→1230、三百零五→305，支持两/拾/佰等异体字
+    inputList:
+      - key: chinese_number
+        title: 汉字数字
+        tip: 如 一千零二十三
+    outputList:
+      - key: number
+        title: 阿拉伯数字
+        tip: ''
+  StringProcess.number_to_chinese:
+    title: 数字转汉字
+    comment: 将数字 @{number} 按 @{case_type} 模式转为汉字 @{chinese_text}
+    icon: number-to-chinese
+    helpManual: 普通模式如 123→一百二十三；大写金额模式如 123→壹佰贰拾叁元整
+    inputList:
+      - key: number
+        title: 数字
+        tip: 整数或数字字符串
+      - key: case_type
+        title: 转换模式
+        tip: ''
+    outputList:
+      - key: chinese_text
+        title: 汉字文本
+        tip: ''
+  StringProcess.generate_uuid:
+    title: 生成UUID
+    comment: 生成唯一标识符 @{uuid_string}
+    icon: generate-uuid
+    helpManual: 生成随机UUID，可选大写输出与是否保留连字符
+    inputList:
+      - key: upper
+        title: 输出大写
+        tip: ''
+      - key: with_hyphen
+        title: 保留连字符
+        tip: 默认保留，如 550e8400-e29b-41d4-a716-446655440000
+    outputList:
+      - key: uuid_string
+        title: UUID字符串
+        tip: ''
   TimeProcess.get_current_time:
     title: 获取当前时间
     comment: 获取当前时间，格式为 @{time_format}，返回当前时间对象 @{current_time}
@@ -1223,7 +1719,9 @@ atomic:
         tip: ''
   TimeProcess.format_datetime:
     title: 输出指定格式时间文本
-    comment: 将时间对象 @{time} 按照指定格式 @{format_type} 输出文本 @{format_datetime}
+    comment: >-
+      将时间对象 @{time} 按照指定格式 @{format_type} 输出文本 @{format_datetime}；自定义格式
+      @{custom_format} 非空时优先，勾选@{without_zeros}去除前导零
     icon: output-formatted-time
     helpManual: ''
     inputList:
@@ -1233,6 +1731,12 @@ atomic:
       - key: format_type
         title: 时间格式
         tip: ''
+      - key: custom_format
+        title: 自定义格式
+        tip: 'Python格式串，如 %Y-%m-%d %H:%M:%S，非空时优先于时间格式'
+      - key: without_zeros
+        title: 去零
+        tip: 去除月/日/时/分/秒的前导零，如2023-05-01→2023-5-1
     outputList:
       - key: format_datetime
         title: 时间文本
@@ -1269,6 +1773,99 @@ atomic:
       - key: datetime_info
         title: 时间详细信息
         tip: 返回包含年月日时分秒、星期、当月最后一天、当年第几周、当年第几天的字典
+  TimeProcess.date_to_chinese:
+    title: 汉字表示日期
+    comment: 将时间对象 @{time} 的日期转换为汉字表示，输出文本 @{chinese_date}，如二零二三年五月一日
+    icon: output-formatted-time
+    helpManual: 年份按位逐字读（2023→二零二三），月份/日期按数值读（10→十、21→二十一）
+    inputList:
+      - key: time
+        title: 时间对象
+        tip: ''
+    outputList:
+      - key: chinese_date
+        title: 汉字日期文本
+        tip: ''
+  TimeProcess.get_datetime_list:
+    title: 获取日期时间列表
+    comment: >-
+      按开始时间 @{start_time} 至结束时间 @{end_time}、间隔@{interval}@{interval_unit}枚举日期时间列表
+      @{datetime_list}，输出类型 @{output_type}
+    icon: output-formatted-time
+    helpManual: 月/年步进自动处理月末（1月31日+1个月=2月28日）；文本输出可勾选去零，勾选倒序则从结束时间往前排列
+    inputList:
+      - key: start_time
+        title: 开始时间
+        tip: ''
+      - key: end_time
+        title: 结束时间
+        tip: ''
+      - key: interval
+        title: 间隔
+        tip: 间隔数量，须大于0
+      - key: interval_unit
+        title: 间隔单位
+        tip: 秒/分/时/天/月/年
+      - key: output_type
+        title: 输出类型
+        tip: 时间对象列表或文本列表
+      - key: without_zeros
+        title: 去零
+        tip: 仅文本输出时生效，去除前导零
+      - key: reverse
+        title: 倒序
+        tip: 勾选后按从结束时间到开始时间排列
+    outputList:
+      - key: datetime_list
+        title: 日期时间列表
+        tip: ''
+  TimeProcess.modify_datetime:
+    title: 修改日期时间
+    comment: 替换时间对象 @{time} 的年/月/日/时/分/秒域（未填写的域保持原值），输出修改后的时间对象 @{modified_datetime}
+    icon: output-formatted-time
+    helpManual: '本指令是"替换"指定域，与"时间增减"（在原值上偏移）语义不同；如把5月20日的月份替换为6月→6月20日'
+    inputList:
+      - key: time
+        title: 时间对象
+        tip: ''
+      - key: year
+        title: 年
+        tip: 不填保持原值
+      - key: month
+        title: 月
+        tip: 不填保持原值
+      - key: day
+        title: 日
+        tip: 不填保持原值
+      - key: hour
+        title: 时
+        tip: 不填保持原值
+      - key: minute
+        title: 分
+        tip: 不填保持原值
+      - key: second
+        title: 秒
+        tip: 不填保持原值
+    outputList:
+      - key: modified_datetime
+        title: 修改后的时间对象
+        tip: ''
+  DataConvertProcess.extract_json_key:
+    title: JSON数据提取
+    comment: 递归提取JSON数据 @{input_data} 中键为 @{extract_key} 的所有值，输出值列表 @{extracted_values}
+    icon: atom-default
+    helpManual: 遍历嵌套字典/列表收集所有同名键的值；输入为字符串时先按JSON解析；未匹配返回空列表
+    inputList:
+      - key: input_data
+        title: JSON数据
+        tip: 字典/列表对象或JSON字符串
+      - key: extract_key
+        title: 提取的键名
+        tip: ''
+    outputList:
+      - key: extracted_values
+        title: 值列表
+        tip: 未匹配返回空列表
 options:
   VariableType:
     - value: str
@@ -1502,3 +2099,18 @@ options:
       label: 自动识别
     - value: custom
       label: 自定义格式
+  DateListOutputType:
+    - value: datetime
+      label: 时间对象列表
+    - value: text
+      label: 文本列表
+  PercentConvertType:
+    - value: to_percent
+      label: 数字转百分比
+    - value: to_number
+      label: 百分比转数字
+  ChineseNumberType:
+    - value: normal
+      label: 普通（一二三）
+    - value: amount
+      label: 大写金额（壹贰叁元整）

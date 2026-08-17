@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 
 dependencies = [
     "astronverse-actionlib",
+    "psycopg2-binary",
     "pyodbc",
 ]
 
@@ -18,3 +19,8 @@ packages = ["src/astronverse"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
