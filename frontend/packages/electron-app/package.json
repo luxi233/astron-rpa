@@ -1,6 +1,6 @@
 {
   "name": "astron-rpa",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "homepage": "https://www.iflyrpa.com",
   "main": "./out/main/index.js",
   "scripts": {
