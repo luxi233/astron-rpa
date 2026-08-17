@@ -34,6 +34,8 @@ catalogs:
       specifier: ^4.5.1
       version: 4.6.4
 
+packageExtensionsChecksum: sha256-9kB00ZzQz9tWsoqSNxzIYPYQJ3hsmGsu0ajsLlZ0Zxs=
+
 importers:
 
   .:
@@ -8894,8 +8896,8 @@ packages:
       react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
       react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
 
-  sortable-dnd@0.7.2:
-    resolution: {integrity: sha512-C2NzDohclZLj8h8i2l369GZArkWZdEFFqL66a9ttwLHLn6voaAKIzkHxPbEh8rBptXJQpc37r30pAh2xdabatA==}
+  sortable-dnd@0.7.3:
+    resolution: {integrity: sha512-/XnxYXuWW8q9GNkeDQEcYNLiUTvyALcpsQDyeWUq+BoBEC+PImMO08IGe2PJd3IB/g/dL4Xq6tkZUOtFsQ10CA==}
 
   sortablejs@1.14.0:
     resolution: {integrity: sha512-pBXvQCs5/33fdN1/39pPL0NZF20LeRbLQ5jtnheIPN9JQAaufGjKdWduZn4U7wCtVuzKhmRkI0DFYHYRbB2H1w==}
@@ -20084,7 +20086,7 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  sortable-dnd@0.7.2: {}
+  sortable-dnd@0.7.3: {}
 
   sortablejs@1.14.0: {}
 
@@ -21209,7 +21211,7 @@ snapshots:
 
   vue-virtual-draglist@3.3.2:
     dependencies:
-      sortable-dnd: 0.7.2
+      sortable-dnd: 0.7.3
 
   vue-virtual-scroller@2.0.1(vue@3.5.35(typescript@5.9.3)):
     dependencies:

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -24,7 +25,11 @@ import { ModalReplacementResolver } from './src/plugins/component-resolver'
 
 const baseSrc = fileURLToPath(new URL('./src', import.meta.url))
 const basePublic = fileURLToPath(new URL('../../public', import.meta.url))
-const nodeModules = fileURLToPath(new URL('./node_modules', import.meta.url))
+// pnpm nodeLinker:hoisted 时三方包提升到 workspace 根 node_modules, 本地仅剩 workspace 软链;
+// 按存在性回退, 兼容 symlink 与 hoisted 两种安装形态
+const localNodeModules = fileURLToPath(new URL('./node_modules', import.meta.url))
+const rootNodeModules = fileURLToPath(new URL('../../node_modules', import.meta.url))
+const nodeModules = existsSync(resolve(localNodeModules, 'ant-design-vue')) ? localNodeModules : rootNodeModules
 
 const sentryConfig: SentryVitePluginOptions = {
   authToken: process.env.SENTRY_AUTH_TOKEN,

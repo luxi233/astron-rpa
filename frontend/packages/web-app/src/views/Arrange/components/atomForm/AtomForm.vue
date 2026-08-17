@@ -190,7 +190,7 @@ onMounted(() => {
             :value="atomGuide.script"
             readonly
             class="atom-guide-script-textarea text-[#333] dark:text-[rgba(255,255,255,0.85)] bg-[#f5f5f5] dark:bg-[#2a2a2a] dark:border-[#444]"
-            @click="$event.target.select()"
+            @click="($event.target as HTMLTextAreaElement).select()"
           />
         </div>
       </div>

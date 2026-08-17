@@ -54,8 +54,10 @@ function transformToWorkbookData(rows: any[][]): Partial<ISheetWorkbookData> {
     const rowArray = rows[row] || []
     for (let col = 0; col < rowArray.length; col++) {
       const value = rowArray[col]
-      if (value == null) continue
-      if (!cellData[row]) cellData[row] = {}
+      if (value == null)
+        continue
+      if (!cellData[row])
+        cellData[row] = {}
       cellData[row][col] = { v: value }
     }
   }
@@ -102,13 +104,16 @@ const defaultValue = computed(() => transformToWorkbookData(props.item.defaultVa
 
 /** 导入 Excel：解析后用第一个 sheet 替换整个表格 */
 async function handleImport() {
-  if (importing.value || !sheetRef.value) return
+  if (importing.value || !sheetRef.value)
+    return
   importing.value = true
   try {
     const workbookData = await sheetRef.value.utils.importExcelFile()
-    if (!workbookData) return
+    if (!workbookData)
+      return
     const sheetId = workbookData.sheetOrder?.[0]
-    if (!sheetId) return
+    if (!sheetId)
+      return
     sheetRef.value.createWorkbook({
       ...workbookData,
       sheets: { [sheetId]: workbookData.sheets[sheetId] },

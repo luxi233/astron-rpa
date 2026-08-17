@@ -6,7 +6,7 @@ import { atomScrollIntoViewKey } from '@/constants/eventBusKey'
 import { useFlowStore } from '@/stores/useFlowStore'
 import { useProcessStore } from '@/stores/useProcessStore'
 import useProjectDocStore from '@/stores/useProjectDocStore'
-import { BrowserElementVisible, BrowserTextExist, Catch, CONVERT_MAP, CvImageExist, CvOcrTextExist, Else, ElseIf, ElseIfMulti, FileExist, Finally, FolderExist, ForDict, ForEnd, ForList, ForStep, Group, GroupEnd, If, IfEnd, IfMulti, Infinite, Module, Process, ProcessOld, Try, TryEnd, While, WinContainElement, WinLoopSimilar, WindowExist } from '@/views/Arrange/config/atomKeyMap'
+import { BrowserElementVisible, BrowserTextExist, Catch, CONVERT_MAP, CvImageExist, CvOcrTextExist, Else, ElseIf, ElseIfMulti, FileExist, Finally, FolderExist, ForDict, ForEnd, ForList, ForStep, Group, GroupEnd, If, IfEnd, IfMulti, Infinite, Module, Process, ProcessOld, Try, TryEnd, While, WinContainElement, WindowExist, WinLoopSimilar } from '@/views/Arrange/config/atomKeyMap'
 
 import { defaultValueText, elementTag } from '../config/flow'
 

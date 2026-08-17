@@ -18,7 +18,10 @@ export function checkDebuggerDetached(tabId: number | undefined, attempts = 10) 
         resolve(true)
       }
       else {
-        setTimeout(() => checkDebuggerDetached(tabId, attempts - 1), 500)
+        // 递归结果必须链回外层 Promise，否则外层永远 pending（attempts 耗尽时 reject 无法传导，调用方永久挂起）
+        setTimeout(() => {
+          checkDebuggerDetached(tabId, attempts - 1).then(resolve, reject)
+        }, 500)
       }
     })
   })
@@ -68,12 +71,14 @@ const Debugger = {
         throw new Error(`Failed to attach debugger: ${error.message}`)
       }
     }
+    return true
   },
   // Enable the Runtime domain to allow code execution
   enableRuntime: async (tabId: number) => {
     try {
       await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable')
       log.info('Runtime domain enabled')
+      return true
     }
     catch (error) {
       throw new Error(`Failed to enable Runtime domain: ${error.message}`)
@@ -112,6 +117,7 @@ const Debugger = {
       Debugger.pendingRequests.clear()
       Debugger.networkFilterdRequests = []
       Debugger.unregisterDebuggerListeners()
+      return true
     }
     catch (error) {
       throw new Error(`Failed to detach debugger: ${error.message}`)
@@ -158,6 +164,22 @@ const Debugger = {
     }
     else {
       throw new Error(ErrorMessage.EXECUTE_ERROR)
+    }
+  },
+  /**
+   * Get the frame tree of the specified tab (CDP Page.getFrameTree)
+   * @param tabId Tab ID
+   * @returns Frame tree containing main frame and all child frames (incl. cross-origin OOPIFs)
+   */
+  getFrameTree: async (tabId: number) => {
+    try {
+      await Debugger.attachDebugger(tabId)
+      await Debugger.enableRuntime(tabId)
+      const res = await chrome.debugger.sendCommand({ tabId }, 'Page.getFrameTree')
+      return (res && res.frameTree) || res || {}
+    }
+    catch (error) {
+      throw new Error(`Failed to get frame tree: ${error.message}`)
     }
   },
   getDomSnapshot: async (tabId: number) => {
@@ -285,7 +307,7 @@ const Debugger = {
             url: window.location.href,
             title: document.title,
             injected: true,
-            frameId: document.documentElement.dataset.astronFrameId || 0
+            frameId: document.documentElement.dataset.astronFrameId || ''
           }
         })()`,
         returnByValue: true,
@@ -293,9 +315,14 @@ const Debugger = {
       if (res.exceptionDetails) {
         throw new Error(`Error evaluating code in target: ${res.result.description}`)
       }
-      if (res.result) {
+      if (res.result && res.result.value) {
         const { frameId } = res.result.value
-        Debugger.frameContextIdMap[frameId] = [{ sameOrigin: false, target: session, contextId: null }]
+        // Only map targets tagged by the content script (dataset.astronFrameId).
+        // An untagged target must NOT fall back to frameId 0, which would
+        // hijack the main document execution context.
+        if (frameId !== '' && frameId !== undefined && frameId !== null) {
+          Debugger.frameContextIdMap[frameId] = [{ sameOrigin: false, target: session, contextId: null }]
+        }
       }
     }
     catch (error) {

@@ -1,10 +1,10 @@
 /**
  * 全局运行状态的维护
  */
-import { message, notification } from 'ant-design-vue'
+import { message, notification, Progress } from 'ant-design-vue'
 import { set } from 'lodash-es'
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, h, ref, shallowRef } from 'vue'
 
 import i18next from '@/plugins/i18next'
 
@@ -52,6 +52,8 @@ export const useRunningStore = defineStore('running', () => {
   const reset = () => {
     setRunning('free')
     debugData.value = {}
+    activeProgressIds.forEach(id => notification.close(id))
+    activeProgressIds = []
     RpaExecutor?.destroy()
     dataTableListenController?.abort()
     closeDataTableListener()
@@ -113,7 +115,8 @@ export const useRunningStore = defineStore('running', () => {
     bottom_right: 'bottomRight',
   }
   const handleNotification = (option: AnyObj) => {
-    if (!option) return
+    if (!option)
+      return
     const {
       operate = 'open',
       notify_id = '',
@@ -124,7 +127,8 @@ export const useRunningStore = defineStore('running', () => {
     } = option
 
     if (operate === 'close') {
-      if (notify_id) notification.close(notify_id)
+      if (notify_id)
+        notification.close(notify_id)
       return
     }
 
@@ -137,6 +141,58 @@ export const useRunningStore = defineStore('running', () => {
       placement: NOTIFICATION_PLACEMENT[position] || 'top',
       duration: close_time, // 秒，0表示不自动关闭
       key: notify_id || `notify-${generateUUID()}`,
+    })
+  }
+
+  // 进度条（非模态toast，不阻塞流程）：打开/更新/关闭指定进度条
+  let activeProgressIds: string[] = []
+  const handleProgress = (option: AnyObj) => {
+    if (!option)
+      return
+    const {
+      operate = 'update',
+      progress_id = '',
+      title = '',
+      task_name = '',
+      percent,
+      current,
+      total,
+    } = option
+
+    if (operate === 'close') {
+      if (progress_id) {
+        notification.close(progress_id)
+        activeProgressIds = activeProgressIds.filter(it => it !== progress_id)
+      }
+      return
+    }
+
+    if (progress_id && !activeProgressIds.includes(progress_id))
+      activeProgressIds.push(progress_id)
+
+    const hasTotal = Number(total) > 0
+    const percentNum = hasTotal && (percent === null || percent === undefined)
+      ? Math.round((Number(current) || 0) * 100 / Number(total))
+      : Math.max(0, Math.min(100, Math.round(Number(percent) || 0)))
+    const statsText = hasTotal ? `${Number(current) || 0}/${Number(total)}` : ''
+
+    notification.open({
+      message: title || i18next.t('userForm.notificationTitle'),
+      description: h('div', null, [
+        h(Progress, {
+          percent: percentNum,
+          size: 'small',
+          status: percentNum >= 100 ? 'success' : 'active',
+          showInfo: true,
+        }),
+        h('div', { style: 'display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: rgba(0, 0, 0, 0.45); margin-top: 4px;' }, [
+          h('span', { style: 'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' }, task_name || ''),
+          h('span', null, statsText),
+        ]),
+      ]),
+      placement: 'bottomRight',
+      duration: 0, // 进度条不自动关闭，由 close 操作或流程结束清理
+      key: progress_id || `progress-${generateUUID()}`,
     })
   }
 
@@ -197,6 +253,11 @@ export const useRunningStore = defineStore('running', () => {
       // 消息通知（非模态toast，不阻塞流程）
       if (result.key === 'sub_window' && msg.name === 'notification') {
         handleNotification(msg.option)
+      }
+
+      // 进度条（非模态toast，不阻塞流程）
+      if (result.key === 'sub_window' && msg.name === 'progress') {
+        handleProgress(msg.option)
       }
 
       // 打开多轮对话窗口

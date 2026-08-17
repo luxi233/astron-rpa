@@ -1,7 +1,7 @@
 import { federation } from '@module-federation/vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
-import type { InlineConfig, ViteDevServer } from 'vite'
+import type { InlineConfig, PluginOption, ViteDevServer } from 'vite'
 import { build, createServer } from 'vite'
 
 import { loadRpaConfig } from '../config'
@@ -50,8 +50,9 @@ export async function createBuildServer(options: { dev?: boolean }): Promise<voi
           './index': './src/index.ts',
         },
       }),
-      vue(),
-      vueJsx(),
+      // 插件包依赖嵌套的 vite/rolldown 类型实例，结构兼容根 vite，断言对齐
+      vue() as PluginOption,
+      vueJsx() as PluginOption,
     ],
     resolve: {
       alias: {

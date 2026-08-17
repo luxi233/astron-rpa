@@ -3,13 +3,7 @@ import { Button } from 'ant-design-vue'
 import { useTranslation } from 'i18next-vue'
 import { computed } from 'vue'
 
-declare global {
-  interface Window {
-    UtilsManager?: {
-      openInBrowser: (url: string) => void
-    }
-  }
-}
+// window.UtilsManager 的全局声明见 packages/shared/src/types/global.ts
 
 interface Props {
   type?: 'show' | 'check'

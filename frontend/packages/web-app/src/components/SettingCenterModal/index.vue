@@ -17,7 +17,8 @@ const menuItems = computed(() => {
     key: item.id,
     icon: item.icon,
     name: item.title,
-    component: item.content,
+    // 插件侧 Component 来自独立 vue 类型实例，结构兼容，断言对齐
+    component: item.content as MenuItem['component'],
   }))
 
   if (isEmpty(pluginItems)) {

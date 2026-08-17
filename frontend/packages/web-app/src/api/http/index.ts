@@ -130,10 +130,11 @@ class HttpClient {
           sessionStorage.setItem('tokenValue', response.headers.token)
         }
 
-        if (response.headers['content-type'].search('image') > -1) {
+        const contentType = String(response.headers['content-type'] ?? '')
+        if (contentType.includes('image')) {
           response.data = {
             data: response.data,
-            imageType: response.headers['content-type'],
+            imageType: contentType,
           }
         }
 

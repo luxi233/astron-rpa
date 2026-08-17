@@ -117,7 +117,8 @@ async function handleRenameRequest(
               versionId: undefined,
               textEdit: {
                 range: convertRange(textEdit.range),
-                text: textEdit.newText,
+                // rename 场景下 edits 均为 TextEdit（含 newText）；联合类型中的 SnippetTextEdit 不会出现
+                text: (textEdit as { newText: string }).newText,
               },
             })
           }
@@ -328,7 +329,8 @@ export function setFileMarkers(
     const markerData: monaco.editor.IMarkerData = {
       ...convertRange(diag.range),
       severity: convertSeverity(diag.severity),
-      message: diag.message,
+      // LSP 诊断 message 可能是 MarkupContent 对象，取其 value 作为纯文本展示
+      message: typeof diag.message === 'string' ? diag.message : diag.message.value,
     }
 
     if (diag.tags) {
