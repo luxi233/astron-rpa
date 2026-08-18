@@ -51,6 +51,8 @@ declare namespace RPA {
 
   interface LogSettingMap {
     level: 'off' | 'standard' | 'debug' // 步骤日志级别: 关闭/标准/详细
-    retentionDays: number // 运行日志文件保留时限(天), 0=永久
+    runRetentionDays: number // 流程日志保留时限(天)
+    engineRetentionDays: number // 引擎日志(执行器/调度器/设计器)保留时限(天)
+    retentionDays?: number // 已废弃: 旧版统一保留时限, 仅作迁移读取
   }
 }

@@ -28,6 +28,12 @@ const Utils: UtilsManager = {
     return Promise.reject(new Error('readFile is not supported in browser environment'))
   },
   saveFile: async (fileName: string, buffer: ArrayBuffer) => {
+    // Electron SDK 为异步动态注入, platform/index.ts 在模块加载时固化引用可能拿到 web 版 fallback;
+    // 调用时刻(用户点击)原生实现必然已就绪, 转发系统保存对话框, 避免 blob 下载在 Electron 中弹出空白窗口
+    const native = window.UtilsManager
+    if (native?.saveFile)
+      return native.saveFile(fileName, buffer)
+
     const link = document.createElement('a')
 
     let blob: Blob

@@ -668,6 +668,8 @@
   "common": {
     "account": "账号",
     "all": "全部",
+    "loading": "加载中...",
+    "loadFailed": "加载失败，请检查数据表格文件是否存在",
     "totalData": "共 {{total}} 项数据",
     "createDate": "创建日期",
     "publishStatus": "发布状态",
@@ -965,7 +967,9 @@
       "levelDebug": "详细",
       "levelDesc": "标准记录步骤结果，详细附带参数与耗时",
       "retention": "保留时限",
-      "retentionDesc": "超期的日志文件将被自动清理",
+      "runRetention": "流程日志保留",
+      "engineRetention": "引擎日志保留",
+      "retentionDesc": "超期的流程日志和引擎日志将分别按各自时限自动清理",
       "days": "{{count}} 天",
       "cleanup": "清理过期日志",
       "clearAll": "清空全部",
@@ -979,7 +983,14 @@
       "action": "操作",
       "download": "下载",
       "empty": "暂无日志文件",
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "engineFileList": "引擎日志文件",
+      "engineLogDesc": "设计器、执行器、调度器自身的运行日志，用于排查组件加载失败、依赖缺失等实机环境问题",
+      "openLogDir": "打开日志目录",
+      "view": "查看",
+      "engineLogView": "引擎日志",
+      "tailLines": "读取行数",
+      "fileTooLarge": "文件过大，仅显示末尾 4MB 内容"
     },
     "voucherManage": {
       "createVoucher": "添加凭据",
@@ -1092,7 +1103,8 @@
     "fillContent": "填充内容",
     "onlyNumberTip": "只能填入数字",
     "addElementFirst": "请先添加要素",
-    "hasProcessVarCannotValidate": "存在流变量无法验证效果"
+    "hasProcessVarCannotValidate": "存在流变量无法验证效果",
+    "addCondition": "添加条件"
   },
   "variable": {
     "varNameEmpty": "变量名不能为空",

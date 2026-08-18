@@ -31,7 +31,7 @@ const useUserSettingStore = defineStore('useUserSetting', () => {
     shortcutConfig: {}, // 快捷键设置
     videoForm: DEFAULT_FORM, // 录屏设置
     msgNotifyForm: {}, // 消息通知设置
-    logSetting: { level: 'standard', retentionDays: 30 }, // 运行日志设置
+    logSetting: { level: 'standard', runRetentionDays: 30, engineRetentionDays: 7 }, // 运行日志设置
   })
 
   // 获取常规设置
@@ -40,6 +40,16 @@ const useUserSettingStore = defineStore('useUserSetting', () => {
       autoStartStatus(),
       getUserSetting(),
     ])
+
+    // 旧版 retentionDays 迁移为分类保留时限
+    const legacyDays = (setting as RPA.UserSetting)?.logSetting?.retentionDays
+    if (legacyDays && !(setting as RPA.UserSetting)?.logSetting?.runRetentionDays) {
+      setting.logSetting = {
+        ...setting.logSetting,
+        runRetentionDays: legacyDays,
+        engineRetentionDays: Math.min(legacyDays, 7),
+      }
+    }
 
     userSetting.value = deepmerge.all<RPA.UserSetting>([
       userSetting.value,

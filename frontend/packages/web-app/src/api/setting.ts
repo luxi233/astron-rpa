@@ -66,7 +66,7 @@ export async function getApis(params) {
 }
 
 /**
- * @description: 运行日志管理(scheduler)
+ * @description: 统一日志中心(scheduler): 流程日志 + 引擎日志
  */
 export interface RunLogItem {
   path: string
@@ -77,16 +77,43 @@ export interface RunLogItem {
 }
 
 export async function getRunLogList(projectId?: string) {
-  const res = await http.get<{ total: number, list: RunLogItem[] }>('/scheduler/runlog/list', { project_id: projectId || '' })
+  const res = await http.get<{ total: number, list: RunLogItem[] }>('/scheduler/logcenter/list', { category: 'run', project_id: projectId || '' })
   return res.data || { total: 0, list: [] }
 }
 
 export function clearRunLog(data: { project_id?: string, before_days?: number }) {
-  return http.post<{ removed: number }>('/scheduler/runlog/clear', data)
+  return http.post<{ removed: number }>('/scheduler/logcenter/clear', { category: 'run', ...data })
 }
 
 export function getRunLogDownloadUrl(path: string) {
-  return `${getBaseURL()}/scheduler/runlog/download?path=${encodeURIComponent(path)}`
+  return `${getBaseURL()}/scheduler/logcenter/download?category=run&path=${encodeURIComponent(path)}`
+}
+
+/**
+ * @description: 引擎日志(设计器/执行器/调度器自身日志)查看
+ */
+export interface EngineLogItem {
+  name: string
+  size: number
+  mtime: number
+}
+
+export async function getEngineLogList() {
+  const res = await http.get<{ dir: string, total: number, list: EngineLogItem[] }>('/scheduler/logcenter/list', { category: 'engine' })
+  return res.data || { dir: '', total: 0, list: [] }
+}
+
+export async function readEngineLog(data: { filename: string, tail_lines?: number }) {
+  const res = await http.post<{ filename: string, size: number, truncated: boolean, lines: string[] }>('/scheduler/logcenter/read', data)
+  return res.data || { filename: data.filename, size: 0, truncated: false, lines: [] as string[] }
+}
+
+export function clearEngineLog(data: { before_days?: number }) {
+  return http.post<{ removed: number }>('/scheduler/logcenter/clear', { category: 'engine', ...data })
+}
+
+export function getEngineLogDownloadUrl(filename: string) {
+  return `${getBaseURL()}/scheduler/logcenter/download?category=engine&path=${encodeURIComponent(filename)}`
 }
 
 /**

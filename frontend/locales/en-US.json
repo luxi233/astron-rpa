@@ -202,6 +202,8 @@
   "common": {
     "account": "Account",
     "all": "All",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load, please check the data table file",
     "attachment": "Attachment",
     "avatarBgColor": "Avatar Background Color",
     "avatarIcon": "Avatar Icon",
@@ -1341,7 +1343,9 @@
       "levelDebug": "Debug",
       "levelDesc": "Standard records step results, Debug includes parameters and duration",
       "retention": "Retention",
-      "retentionDesc": "Expired log files will be cleaned up automatically",
+      "runRetention": "Run log retention",
+      "engineRetention": "Engine log retention",
+      "retentionDesc": "Expired run logs and engine logs are cleaned up automatically per their own retention",
       "days": "{{count}} days",
       "cleanup": "Clean expired",
       "clearAll": "Clear all",
@@ -1355,7 +1359,14 @@
       "action": "Action",
       "download": "Download",
       "empty": "No log files",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "engineFileList": "Engine Log Files",
+      "engineLogDesc": "Runtime logs of the designer, executor and scheduler, for troubleshooting component load failures and missing dependencies on target machines",
+      "openLogDir": "Open Log Folder",
+      "view": "View",
+      "engineLogView": "Engine Log",
+      "tailLines": "Tail Lines",
+      "fileTooLarge": "File too large, showing last 4MB only"
     },
     "theme": {
       "auto": "Follow System",
@@ -1417,7 +1428,8 @@
     "fillContent": "Fill content",
     "onlyNumberTip": "Only numbers are allowed",
     "addElementFirst": "Please add elements first",
-    "hasProcessVarCannotValidate": "Cannot validate while process variables exist"
+    "hasProcessVarCannotValidate": "Cannot validate while process variables exist",
+    "addCondition": "Add Condition"
   },
   "variable": {
     "varNameEmpty": "Variable name cannot be empty",

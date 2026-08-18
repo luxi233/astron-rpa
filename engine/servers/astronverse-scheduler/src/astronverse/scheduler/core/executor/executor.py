@@ -385,7 +385,8 @@ class ExecutorManager:
                 log_level = "standard"
         ins.set_param("log_level", log_level)
         try:
-            retention_days = int(log_setting.get("retentionDays", 30))
+            # 流程日志保留: 优先 runRetentionDays, 兼容旧 retentionDays
+            retention_days = int(log_setting.get("runRetentionDays") or log_setting.get("retentionDays") or 30)
         except (TypeError, ValueError):
             retention_days = 30
         ins.set_param("log_retention_days", max(0, retention_days))
