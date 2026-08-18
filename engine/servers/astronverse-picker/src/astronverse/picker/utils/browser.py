@@ -86,8 +86,10 @@ class Browser:
             }
 
             if data_code in error_map and key != "getElement":
-                _, _, fallback_msg = error_map[data_code]
-                raise Exception(fallback_msg)
+                _, fallback_code, _ = error_map[data_code]
+                # 优先透传插件返回的具体错误(如"该元素不是相似元素"), 为空才用兜底文案,
+                # 避免把可定位的原因笼统替换成"网页元素查找失败"误导排查
+                raise Exception(f"[{browser_type}] {data_msg or fallback_code.message}")
 
             return res_data.get("data", "")
 

@@ -1,6 +1,23 @@
 import { Utils } from '../common/utils'
 
 /**
+ * 计算两条元素路径自尾部(元素自身)向上的最长公共 tag 后缀长度。
+ * 后缀内 tag 逐层相同即停止于首个不匹配层。
+ */
+function commonSuffixLength(prePathDirs: Array<ElementDirectory>, currentPathDirs: Array<ElementDirectory>) {
+  let i = 0
+  while (i < prePathDirs.length && i < currentPathDirs.length) {
+    const preDir = prePathDirs[prePathDirs.length - 1 - i]
+    const curDir = currentPathDirs[currentPathDirs.length - 1 - i]
+    if (preDir.tag !== curDir.tag) {
+      break
+    }
+    i++
+  }
+  return i
+}
+
+/**
  * Determine whether elements are similar based on the element information.
  * If they are similar, return the information of similar elements
  */
@@ -10,6 +27,9 @@ export function getSimilarElement(preElementInfo: ElementInfo, currentElementInf
   }
 
   const pathDirs = generateSimilarPathDirs(preElementInfo.pathDirs, currentElementInfo.pathDirs)
+  if (!pathDirs) {
+    return false
+  }
   const xpath = Utils.generateXPath(pathDirs)
   let cssSelector = ''
   if (!preElementInfo.shadowRoot) {
@@ -24,13 +44,16 @@ export function getSimilarElement(preElementInfo: ElementInfo, currentElementInf
 }
 
 /**
- * Determines whether two elements are considered similar based on their XPath, CSS selector, path directories, and URL.
+ * 判定两个元素是否相似(对齐影刀的宽松语义)。
  *
- * The function compares the following properties of the provided `ElementInfo` objects:
- * - `url`: Must be identical.
- * - `xpath`: Must have the same number of segments, and each segment's tag name must match (wildcards '*' are allowed).
- * - `cssSelector`: Must have the same number of segments.
- * - `pathDirs`: Must have the same length.
+ * 必要条件:
+ * - `url`: 页面一致。
+ * - `shadowRoot` / `isFrame`: 所属文档环境一致。
+ *
+ * 结构条件(放宽): 不再要求 DOM 深度与每层 tag 完全一致,
+ * 只要求自元素自身向上的最长公共 tag 后缀 ≥ 1(即两元素自身 tag 相同)。
+ * 结构差异通过 {@link generateSimilarPathDirs} 丢弃非公共祖先层来泛化,
+ * 生成的 xpath 为 `//` 后代匹配, 可命中全部相似元素。
  *
  * @param preElementInfo - The reference element information.
  * @param currentElementInfo - The element information to compare against the reference.
@@ -52,19 +75,8 @@ function isSimilarElement(preElementInfo: ElementInfo, currentElementInfo: Eleme
     return false
   }
 
-  if (pathDirs.length !== currentPathDirs.length) {
-    return false
-  }
-
-  if (pathDirs.length === currentPathDirs.length) {
-    for (let i = 0; i < pathDirs.length; i++) {
-      if (pathDirs[i].tag !== currentPathDirs[i].tag) {
-        return false
-      }
-    }
-  }
-
-  return true
+  // 自身 tag 不同(公共后缀为 0)才判定不相似; 深度/中间层差异交由泛化处理
+  return commonSuffixLength(pathDirs, currentPathDirs) >= 1
 }
 
 /**
@@ -102,20 +114,31 @@ function generateSimilarSelector(preSelector: string, currentSelector: string) {
 }
 
 /**
- * Compares two arrays of `ElementDirectory` objects (`prePathDirs` and `currentPathDirs`) and updates the attributes of `prePathDirs`
- * based on the corresponding attributes in `currentPathDirs`. For each attribute in `prePathDirs`, if a matching attribute is not found
- * in `currentPathDirs`, its value is cleared and its `checked` property is set to `false`. If a matching attribute is found, the function
- * compares their types and values, updating the `checked` property accordingly. Special handling is applied for attributes named 'innertext'
- * or 'text', which are always unchecked and cleared. The function returns the modified `prePathDirs` array.
+ * 生成相似元素的泛化路径目录(对齐影刀语义)。
  *
- * @param prePathDirs - The array of `ElementDirectory` objects to be updated.
- * @param currentPathDirs - The array of `ElementDirectory` objects used as the reference for comparison.
- * @returns The updated array of `ElementDirectory` objects (`prePathDirs`).
+ * 仅保留两条路径自尾部向上的公共 tag 后缀层(共同结构),
+ * 非公共祖先层直接丢弃 —— 生成的 xpath 以 `//` 后代匹配命中全部相似元素。
+ * 公共后缀层内, 按属性值差异泛化:
+ * - 参照元素独有或值不同的属性: `checked` 置 false(不参与匹配)
+ * - 值与类型均相同的属性: 保留双方均勾选的匹配
+ * - `innertext`/`text` 属性: 恒不参与匹配(相似元素文本通常不同)
+ *
+ * 两元素结构完全一致时, 公共后缀即全路径, 行为与旧版精确泛化保持一致。
+ *
+ * @param prePathDirs - The path directories of the reference element.
+ * @param currentPathDirs - The path directories of the element to compare against.
+ * @returns The generalized tail-aligned `ElementDirectory` array, or `null` if no common suffix.
  */
 function generateSimilarPathDirs(prePathDirs: Array<ElementDirectory>, currentPathDirs: Array<ElementDirectory>) {
-  for (let i = prePathDirs.length - 1; i >= 0; i--) {
-    const prePathDir = prePathDirs[i]
-    const currentPathDir = currentPathDirs[i]
+  const suffixLen = commonSuffixLength(prePathDirs, currentPathDirs)
+  if (suffixLen < 1) {
+    return null
+  }
+  const tailDirs = prePathDirs.slice(-suffixLen)
+  const currentTailDirs = currentPathDirs.slice(-suffixLen)
+  for (let i = tailDirs.length - 1; i >= 0; i--) {
+    const prePathDir = tailDirs[i]
+    const currentPathDir = currentTailDirs[i]
     if (prePathDir.checked !== currentPathDir.checked) {
       prePathDir.checked = true
     }
@@ -144,7 +167,7 @@ function generateSimilarPathDirs(prePathDirs: Array<ElementDirectory>, currentPa
       }
     })
   }
-  return prePathDirs
+  return tailDirs
 }
 
 /**

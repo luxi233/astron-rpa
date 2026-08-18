@@ -427,7 +427,8 @@ const ContentHandler = {
     similarElement: async (data: ElementInfo) => {
       try {
         const eles = await ContentHandler.ele.getElement(data)
-        return Utils.success({ similarCount: eles.length })
+        // 泛化规则在当前页面可能命中 0 个元素, 空值保护避免 TypeError 掩盖真实状态
+        return Utils.success({ similarCount: eles?.length || 0 })
       }
       catch (error) {
         return Utils.fail(error.toString(), StatusCode.EXECUTE_ERROR)
