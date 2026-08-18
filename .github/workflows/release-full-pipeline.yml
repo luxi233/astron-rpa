@@ -291,6 +291,9 @@ jobs:
     timeout-minutes: 15
     needs: build-client
     if: needs.build-client.result == 'success'
+    permissions:
+      contents: write
+      actions: write
     steps:
       - name: Resolve parameters (auto prerelease, default title)
         id: params
@@ -454,6 +457,19 @@ jobs:
             dist/*.exe dist/wps_read_sheet.js \
             "dist/server-snapshot-${TAG}.tar.gz" dist/SERVER-DEPLOY.txt
 
+      # ---- 3.6b Dispatch backend docker image build ----
+      # Releases created with GITHUB_TOKEN never fire `release: published`
+      # (GitHub mechanism), so build-push-backend.yml must be dispatched
+      # explicitly. workflow_dispatch is the documented GITHUB_TOKEN exception.
+      - name: Dispatch backend docker image build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.params.outputs.tag }}
+        run: |
+          set -e
+          gh workflow run build-push-backend.yml --ref "$TAG" -f push_images=true
+          echo "🐳 Backend docker image build dispatched for $TAG"
+
       # ---- 3.7 Success summary ----
       - name: 🎉 Release Pipeline Complete
         if: success()
@@ -475,5 +491,5 @@ jobs:
           echo "    🚀 Publish:        success"
           echo ""
           echo "  🔄 Auto follow-ups:"
-          echo "    - build-push-backend.yml triggers on release:published → builds 5 Docker images"
+          echo "    - build-push-backend.yml dispatched above → builds 5 Docker images for $TAG"
           echo "=================================================================="
