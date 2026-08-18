@@ -22,6 +22,7 @@ import CvPickBtn from '../cvPick/CvPickBtn.vue'
 
 import AIWorkFlow from './AIWorkFlow.vue'
 import AtomContractElement from './AtomContractElement.vue'
+import AtomMultiCondition from './AtomMultiCondition.vue'
 import AtomGrid from './AtomGrid.vue'
 import AtomKeyboard from './AtomKeyboard.vue'
 import AtomOptions from './AtomOptions.vue'
@@ -253,7 +254,7 @@ inputListListener(itemData, itemType)
   <a-radio-group
     v-if="itemType === ATOM_FORM_TYPE.RADIO"
     v-model:value="selectValue"
-    class="flex"
+    class="flex flex-wrap gap-x-4 gap-y-1"
     :options="itemData.options"
   />
   <!-- 多选框 -->
@@ -406,6 +407,11 @@ inputListListener(itemData, itemType)
     :params="itemData"
     @refresh="handleSetFormDataNF"
   />
+  <!-- 动态多条件行(任意数量, 添加/删除) -->
+  <AtomMultiCondition
+    v-if="itemType === ATOM_FORM_TYPE.MULTICONDITION"
+    :form-item="itemData"
+  />
 </template>
 
 <style lang="scss" scoped>
@@ -432,6 +438,7 @@ inputListListener(itemData, itemType)
 
 :deep(.ant-radio-wrapper) {
   font-size: 12px;
+  white-space: nowrap; // 防止窄面板下label被压缩逐字换行成竖排
 }
 
 :deep(.ant-select-selector) {

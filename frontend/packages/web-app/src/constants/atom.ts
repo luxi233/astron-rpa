@@ -36,6 +36,7 @@ export enum ATOM_FORM_TYPE {
   REMOTEPARAMS = 'REMOTEPARAMS', // 远程参数
   REMOTEFOLDERS = 'REMOTEFOLDERS', // 远程文件夹选择
   AIWORKFLOW = 'AIWORKFLOW', // 选择AI工作流
+  MULTICONDITION = 'MULTICONDITION', // 动态多条件行
 }
 
 // 保存到py端的类型

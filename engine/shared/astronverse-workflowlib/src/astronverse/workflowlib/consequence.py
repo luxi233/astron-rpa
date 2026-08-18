@@ -17,6 +17,14 @@ class CondType(Enum):
     C_NOT_IN = "notin"
     C_EQ = "=="
     C_NE = "!="
+    C_IS_NONE = "isnone"
+    C_NOT_NONE = "notnone"
+    C_EMPTY_STR = "emptystr"
+    C_NOT_EMPTY_STR = "notemptystr"
+    C_STARTSWITH = "startswith"
+    C_NOT_STARTSWITH = "notstartswith"
+    C_ENDSWITH = "endswith"
+    C_NOT_ENDSWITH = "notendswith"
 
 
 def str_is_integer(s):
@@ -35,29 +43,50 @@ def str_is_dict(s):
     return bool(s.startswith("{") and s.endswith("}"))
 
 
-def consequence_multi(
-    args1_1: Any = None,
-    condition_1: str = "true",
-    args2_1: Any = None,
-    args1_2: Any = None,
-    condition_2: str = "true",
-    args2_2: Any = None,
-    args1_3: Any = None,
-    condition_3: str = "true",
-    args2_3: Any = None,
-    relation: str = "and",
-    **kwargs,
-):
-    """多条件判断：将多组(args, condition, args2)按 且/或 组合"""
+def consequence_multi(*args, **kwargs):
+    """
+    多条件判断：将任意多组(args1_N, condition_N, args2_N)按 且/或 组合
+    - 新格式: 关键字参数 args1_1/condition_1/args2_1, args1_2/... 数量不限(N>=1连续编号)
+    - 旧格式兼容: 位置参数按 (args1_1, condition_1, args2_1, ..., relation) 顺序
+    - relation: "and"=符合以下全部条件, "or"=符合以下任意条件
+    """
+    relation = str(kwargs.get("relation", "and"))
+
+    # 收集 kwargs 中的任意数量条件组
+    groups = {}
+    for k, v in kwargs.items():
+        m = re.match(r"^(args1|condition|args2)_(\d+)$", k)
+        if m:
+            groups.setdefault(int(m.group(2)), {})[m.group(1)] = v
+
+    # 旧格式位置参数兜底(生成代码为关键字调用, 通常不走此分支)
+    if not groups and args:
+        names = ("args1", "condition", "args2")
+        for i in range(0, len(args) - 1, 3):
+            n = i // 3 + 1
+            for j, name in enumerate(names):
+                if i + j < len(args):
+                    groups.setdefault(n, {})[name] = args[i + j]
+
     results = []
-    for a1, cond, a2 in (
-        (args1_1, condition_1, args2_1),
-        (args1_2, condition_2, args2_2),
-        (args1_3, condition_3, args2_3),
-    ):
-        if a1 is None or (isinstance(a1, str) and a1.strip() == ""):
+    for n in sorted(groups):
+        g = groups[n]
+        a1 = g.get("args1")
+        cond = str(g.get("condition", "true"))
+        # 未填行跳过: 空字符串=前端默认未填; None 仅在 None 判断类操作符下有意义,
+        # 其余操作符(如 >)直接比较 None 会 TypeError, 视为未填跳过(与旧版一致)
+        if isinstance(a1, str) and a1.strip() == "":
             continue
-        results.append(consequence(a1, cond, a2))
+        if a1 is None and cond not in (
+            CondType.C_IS_NONE.value,
+            CondType.C_NOT_NONE.value,
+            CondType.C_EMPTY.value,
+            CondType.C_NOT_EMPTY.value,
+            CondType.C_EMPTY_STR.value,
+            CondType.C_NOT_EMPTY_STR.value,
+        ):
+            continue
+        results.append(consequence(a1, cond, g.get("args2")))
 
     if not results:
         return True
@@ -85,13 +114,37 @@ def consequence(args1: Any, condition: str, args2: Any = None, **kwargs):
                 return res
             else:
                 return not res
+        case CondType.C_IS_NONE.value | CondType.C_NOT_NONE.value:
+            if condition == CondType.C_IS_NONE.value:
+                return args1 is None
+            return args1 is not None
+        case CondType.C_EMPTY_STR.value | CondType.C_NOT_EMPTY_STR.value:
+            # 严格字符串判断: None 不算空字符串(区别于 empty 的宽松语义)
+            res = isinstance(args1, str) and args1 == ""
+            if condition == CondType.C_EMPTY_STR.value:
+                return res
+            return not res
+        case (
+            CondType.C_STARTSWITH.value
+            | CondType.C_NOT_STARTSWITH.value
+            | CondType.C_ENDSWITH.value
+            | CondType.C_NOT_ENDSWITH.value
+        ):
+            s1, s2 = str(args1), str(args2)
+            if condition in (CondType.C_STARTSWITH.value, CondType.C_NOT_STARTSWITH.value):
+                res = s1.startswith(s2)
+            else:
+                res = s1.endswith(s2)
+            if condition in (CondType.C_STARTSWITH.value, CondType.C_ENDSWITH.value):
+                return res
+            return not res
         case CondType.C_GT.value | CondType.C_LT.value | CondType.C_GE.value | CondType.C_LE.value:
             if isinstance(args1, str) and (str_is_integer(args1) or str_is_float(args1)):
                 if str_is_integer(args1):
                     args1 = int(args1)
                 else:
                     args1 = float(args1)
-            elif isinstance(args1, float) or isinstance(args1, int):
+            elif isinstance(args1, (float, int)):
                 pass
             else:
                 args1 = str(args1)
@@ -101,7 +154,7 @@ def consequence(args1: Any, condition: str, args2: Any = None, **kwargs):
                     args2 = int(args2)
                 else:
                     args2 = float(args2)
-            elif isinstance(args2, float) or isinstance(args2, int):
+            elif isinstance(args2, (float, int)):
                 pass
             else:
                 args2 = str(args2)

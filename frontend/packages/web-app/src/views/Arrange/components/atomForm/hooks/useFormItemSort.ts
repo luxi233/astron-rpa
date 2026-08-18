@@ -105,6 +105,9 @@ export function useFormItemSort() {
     {
       type: ATOM_FORM_TYPE.REMOTEPARAMS,
     },
+    {
+      type: ATOM_FORM_TYPE.MULTICONDITION,
+    },
   ]
   return { extraItem, editItem }
 }

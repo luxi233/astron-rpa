@@ -11,7 +11,13 @@ const { atomForm } = defineProps({
 })
 
 const atomFormItem = computed(() => {
-  return atomForm.filter(item => !item.dynamics || [undefined, true].includes(item.show))
+  // 多条件组件(MULTICONDITION)内部已渲染 args1_N/condition_N/args2_N 行, 存在该组件时过滤掉独立行避免重复渲染
+  const hasMultiCondition = atomForm.some(item => item.formType?.type === 'MULTICONDITION')
+  return atomForm.filter((item) => {
+    if (hasMultiCondition && /^(args1|condition|args2)_\d+$/.test(item.key))
+      return false
+    return !item.dynamics || [undefined, true].includes(item.show)
+  })
 })
 </script>
 
