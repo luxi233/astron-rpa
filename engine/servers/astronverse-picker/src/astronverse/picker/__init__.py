@@ -35,17 +35,14 @@ class Rect:
         return self.bottom - self.top
 
     def area(self) -> int:
+        # 修复: 反向矩形(right<left且bottom<top)曾因负负得正返回正值, 分别钳制宽高后相乘
         if not self.__area:
-            self.__area = self.width() * self.height()
-        self.__area = max(self.__area, 0)
+            self.__area = max(self.width(), 0) * max(self.height(), 0)
         return self.__area
 
     @staticmethod
     def calculate_area(left: int = 0, top: int = 0, right: int = 0, bottom: int = 0):
-        area = (right - left) * (bottom - top)
-        if area < 0:
-            return 0
-        return area
+        return max(right - left, 0) * max(bottom - top, 0)
 
     def contains(self, point: Point) -> bool:
         """

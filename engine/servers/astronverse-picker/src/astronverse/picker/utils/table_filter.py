@@ -361,6 +361,9 @@ class DataFilter:
             "Suffix",
         ]
         for index in range(len(self.dataProcessConfig_list)):
+            # 部分列缺 colDataProcessConfig 键时为 None, 跳过(与 cell_filter/table_filter 判空行为一致)
+            if not self.dataProcessConfig_list[index]:
+                continue
             for process_type in process_order:
                 process_type_result = list(
                     filter(

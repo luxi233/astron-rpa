@@ -149,7 +149,8 @@ class ComplexParamParser:
         if need_eval:
             return "+".join(f"str({p})" for p in pieces), need_eval
         else:
-            return "".join(pieces), need_eval, need_eval
+            # 修复: 多段非eval拼接曾误返回3元组, 上游均按2元组解包导致 ValueError 崩溃
+            return "".join(pieces), need_eval
 
     @classmethod
     def _recursive_convert_params(cls, data: Any, gv=None) -> Any:
