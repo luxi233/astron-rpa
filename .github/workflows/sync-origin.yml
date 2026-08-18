@@ -1,0 +1,21 @@
+name: Sync origin fork
+on:
+  schedule:
+    - cron: '30 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror upstream all branches and tags to fork
+        env:
+          TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          set -e
+          git clone --bare https://github.com/iflytek/astron-rpa.git repo
+          cd repo
+          git push --prune --force "https://x-access-token:${TOKEN}@github.com/luxi233/astron-rpa-origin.git" \
+            'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
+          echo "SYNC DONE"
