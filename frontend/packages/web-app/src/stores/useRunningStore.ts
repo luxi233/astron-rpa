@@ -467,10 +467,29 @@ export const useRunningStore = defineStore('running', () => {
   const updateDataTableCell = async (cellData: Omit<RPA.IUpdateDataTableCell, 'sheet'>[]) => {
     const sheetName = dataTable.value?.name
     await updateDataTable(processStore.project.id, cellData.map(it => ({ sheet: sheetName, ...it })))
-    // 同步到本地
-    cellData.forEach(it => set(dataTable.value.data, [it.row, it.col], it.value))
-    dataTable.value.max_row = dataTable.value.data.length
-    dataTable.value.max_column = dataTable.value.data.length > 0 ? Math.max(...dataTable.value.data.map(it => it.length)) : 0
+    // 同步到本地(null 仅写入已用区域内的格子, 避免稀疏数组扩容污染 max_row/max_column)
+    const usedRows = dataTable.value.data.length
+    cellData.forEach((it) => {
+      if (it.value == null && it.row >= usedRows)
+        return
+      set(dataTable.value.data, [it.row, it.col], it.value)
+    })
+    // 按最后非空行/列计算, 防止 null 撑大已用区域(稀疏数组空洞无 length, 直接 .map 会抛 TypeError)
+    let maxRow = 0
+    let maxCol = 0
+    dataTable.value.data.forEach((row, idx) => {
+      if (!row)
+        return
+      for (let c = row.length - 1; c >= 0; c--) {
+        if (row[c] != null) {
+          maxRow = Math.max(maxRow, idx + 1)
+          maxCol = Math.max(maxCol, c + 1)
+          break
+        }
+      }
+    })
+    dataTable.value.max_row = maxRow
+    dataTable.value.max_column = maxCol
   }
 
   /**

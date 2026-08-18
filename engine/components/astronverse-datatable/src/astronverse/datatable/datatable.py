@@ -1,4 +1,5 @@
 import ast
+import atexit
 import csv
 import json
 import os
@@ -6,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime
 from functools import wraps
 
@@ -61,6 +63,9 @@ from astronverse.datatable.utils import (
     validate_end_row,
     validate_formula,
     validate_row,
+    validate_row_param,
+    normalize_end_row,
+    normalize_end_col,
 )
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -79,13 +84,36 @@ except Exception as e:
     logger.exception(f"DataTable 初始化失败, 后续数据表格操作将不可用: {e}")
 
 
+# 保存防抖: 写原子高频调用时(循环写行)合并落盘, 避免每次写都全量序列化工作簿;
+# 内存 wrapper 始终是最新的(读原子不受影响), 仅磁盘持久化被合并
+_SAVE_DEBOUNCE_SECONDS = 0.5
+_save_state = {"last_save": 0.0, "pending": False}
+
+
+def flush_save():
+    """立即落盘待保存的变更(进程退出前 atexit 兜底调用, 测试/外部亦可显式调用)"""
+    if _save_state["pending"]:
+        PyxlWrapper.save(path=_xlsx_file_path)
+        _save_state["pending"] = False
+    _save_state["last_save"] = time.time()
+
+
+atexit.register(flush_save)
+
+
 def auto_save(func):
-    """自动保存装饰器"""
+    """自动保存装饰器(带防抖: 距上次落盘不足0.5s的写操作合并, 由下次写或退出时落盘)"""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)  # type: ignore , 先执行写入操作
-        PyxlWrapper.save(path=_xlsx_file_path)
+        if time.time() - _save_state["last_save"] >= _SAVE_DEBOUNCE_SECONDS:
+            # 距上次落盘超过防抖窗口: 本次写直接落盘(刚执行过写入, 不能复用pending判断)
+            PyxlWrapper.save(path=_xlsx_file_path)
+            _save_state["pending"] = False
+            _save_state["last_save"] = time.time()
+        else:
+            _save_state["pending"] = True
         return result
 
     return wrapper
@@ -93,8 +121,12 @@ def auto_save(func):
 
 def last_nonempty_row() -> int:
     """最后一个非空行号(openpyxl delete_rows后max_row可能残留幻影空行, 不收缩)"""
+    sheet = PyxlWrapper.sheet
+    max_col = PyxlWrapper.get_max_column()  # 显式传边界, 避免iter_rows默认值内部再扫一次max_column
     for r in range(PyxlWrapper.get_max_row(), 0, -1):
-        if any(value is not None for value in PyxlWrapper.read_row(r)):
+        # values_only 批量取值, 消除逐格属性访问开销
+        row = next(sheet.iter_rows(min_row=r, max_row=r, min_col=1, max_col=max_col, values_only=True))
+        if any(value is not None for value in row):
             return r
     return 0
 
@@ -107,7 +139,7 @@ def validate_cell(func):
         # 负数行号就地转换(-1=最后一行), 批量语法('1,3,5:7')与空值/0跳过
         for key in ("row", "start_row", "end_row"):
             value = kwargs.get(key)
-            if value is None or value == 0 or value == "":
+            if value is None or value in (0, "", "0"):
                 continue
             if is_batch_spec(value):
                 continue
@@ -118,7 +150,7 @@ def validate_cell(func):
         # 负数列号就地转换(-1=最后一列), 支持数字列号与字母列标, 数字统一转回字母列标
         for key in ("col", "start_col", "end_col"):
             value = kwargs.get(key)
-            if value is None or value == 0 or value == "":
+            if value is None or value in (0, "", "0"):
                 continue
             if is_batch_spec(value):
                 continue
@@ -181,10 +213,9 @@ def _resolve_format_area(format_type, row, col, start_row, start_col, end_row, e
     # 区域操作
     if not start_row or not start_col:
         raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("区域操作需要指定开始行列"), "区域操作需要指定开始行列")
-    if end_row is None or end_row in {"", 0, "0"}:
-        end_row = PyxlWrapper.get_max_row()
-    if end_col is None or end_col in {"", "0"}:
-        end_col = index_to_col(PyxlWrapper.get_max_column() - 1)
+    # 结束行/列统一归一: -1=最后(默认), 0/""=已使用区域(兼容旧语义), 负数=倒数
+    end_row = normalize_end_row(end_row)
+    end_col = normalize_end_col(end_col)
     start_col_index = col_to_index(start_col)
     end_col_index = col_to_index(end_col)
     start_row = int(start_row)
@@ -341,8 +372,8 @@ class DataTable:
         col: str = "A",
         start_row: int = 1,
         start_col: str = "A",
-        end_row: int = 0,
-        end_col: str = "",
+        end_row: int = -1,
+        end_col: str = "-1",
         is_trim_spaces: bool = False,
         is_replace_none: bool = False,
     ):
@@ -350,8 +381,9 @@ class DataTable:
         读取数据表格内容
         """
         if read_type == ReadType.CELL:
-            if not row or not col:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("读取单元格需要指定行列"), "读取单元格需要指定行列")
+            row = validate_row_param(row)
+            if not col:
+                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("读取单元格需要指定列号"), "读取单元格需要指定列号")
             col_index = col_to_index(col)
             value = PyxlWrapper.read_cell(row=row, col=col_index)
             if is_trim_spaces and isinstance(value, str):
@@ -361,8 +393,7 @@ class DataTable:
             return value
 
         if read_type == ReadType.ROW:
-            if not row:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("读取行需要指定行号"), "读取行需要指定行号")
+            row = validate_row_param(row)
             row_value = PyxlWrapper.read_row(row_index=row)
             if is_trim_spaces:
                 row_value = [cell.strip() if isinstance(cell, str) else cell for cell in row_value]
@@ -382,12 +413,12 @@ class DataTable:
             return col_value
 
         if read_type == ReadType.AREA:
-            if not start_row or not start_col:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("读取区域需要指定开始行列"), "读取区域需要指定开始行列")
-            if end_col is None or end_col in {"", "0"}:
-                end_col = index_to_col(PyxlWrapper.get_max_column() - 1)
-            if end_row is None or end_row in {"", "0", 0}:
-                end_row = PyxlWrapper.get_max_row()
+            start_row = validate_row_param(start_row, "开始行号")
+            if not start_col:
+                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("读取区域需要指定开始列号"), "读取区域需要指定开始列号")
+            # 结束行/列统一归一: -1=最后(默认), 0/""=已使用区域(兼容旧语义), 负数=倒数
+            end_row = normalize_end_row(end_row)
+            end_col = normalize_end_col(end_col)
             validate_col(col=end_col)
             validate_row(row=end_row)
             validate_end_col(start_col=start_col, end_col=end_col)
@@ -524,8 +555,9 @@ class DataTable:
                 pass
 
         if write_type == WriteType.CELL:
-            if not row or not col:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("写入单元格需要指定行列"), "写入单元格需要指定行列")
+            row = validate_row_param(row)
+            if not col:
+                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("写入单元格需要指定列号"), "写入单元格需要指定列号")
             col_index = col_to_index(col)
             if not isinstance(data, str):
                 data = str(data)
@@ -553,8 +585,7 @@ class DataTable:
                     PyxlWrapper.write_row(row_index=row, data=new_row)
             return
         if write_type == WriteType.ROW:
-            if not row:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("行号不能为空"), "行号不能为空")
+            row = validate_row_param(row)
             col_index = col_to_index(start_col)
             if not isinstance(data, list):
                 data = [data]
@@ -607,8 +638,9 @@ class DataTable:
                     sync_data_table_head()
 
         if write_type == WriteType.AREA:
-            if not start_row or not start_col:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("区域写入需要指定开始行列"), "区域写入需要指定开始行列")
+            start_row = validate_row_param(start_row, "开始行号")
+            if not start_col:
+                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("区域写入需要指定开始列号"), "区域写入需要指定开始列号")
             if not isinstance(data, list):
                 try:
                     # 尝试将字符串解析为列表
@@ -761,8 +793,8 @@ class DataTable:
         col: str = "A",
         start_row: int = 1,
         start_col: str = "A",
-        end_row: int = 0,
-        end_col: str = "",
+        end_row: int = -1,
+        end_col: str = "-1",
     ):
         """
         复制数据，复制指定单元格，行，列，区域的内容
@@ -981,8 +1013,8 @@ class DataTable:
         col: str = "A",
         start_row: int = 1,
         start_col: str = "A",
-        end_row: int = 0,
-        end_col: str = "",
+        end_row: int = -1,
+        end_col: str = "-1",
         delete_cell_move: DeleteCellMove = DeleteCellMove.UP,
         delete_col_move: bool = True,
         delete_row_move: bool = True,
@@ -1029,12 +1061,12 @@ class DataTable:
                         col_index=col_index,
                     )
         if delete_type == DeleteType.AREA:
-            if not start_row or not start_col:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("删除区域需要指定开始行列"), "删除区域需要指定开始行列")
-            if end_col is None or end_col in {"", "0"}:
-                end_col = index_to_col(PyxlWrapper.get_max_column() - 1)
-            if end_row is None or end_row in {"", "0", 0}:
-                end_row = PyxlWrapper.get_max_row()
+            start_row = validate_row_param(start_row, "开始行号")
+            if not start_col:
+                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("删除区域需要指定开始列号"), "删除区域需要指定开始列号")
+            # 结束行/列统一归一: -1=最后(默认), 0/""=已使用区域(兼容旧语义), 负数=倒数
+            end_row = normalize_end_row(end_row)
+            end_col = normalize_end_col(end_col)
             validate_col(col=end_col)
             validate_row(row=end_row)
             validate_end_col(start_col=start_col, end_col=end_col)
@@ -1148,8 +1180,8 @@ class DataTable:
         col: str = "A",
         start_row: int = 1,
         start_col: str = "A",
-        end_row: int = 0,
-        end_col: str = "",
+        end_row: int = -1,
+        end_col: str = "-1",
     ):
         """
         遍历数据表格内容
@@ -1247,8 +1279,7 @@ class DataTable:
         if amount == 0:
             return
         if insert_type == InsertType.ROW:
-            if not row:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("行号不能为空"), "行号不能为空")
+            row = validate_row_param(row)
             if row_insert_shift == RowInsertShift.UP:
                 if row == 1:
                     PyxlWrapper.insert_rows(idx=1, amount=amount)
@@ -1284,8 +1315,7 @@ class DataTable:
         """
         插入公式到指定单元格
         """
-        if not row:
-            raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("行号不能为空"), "行号不能为空")
+        row = validate_row_param(row)
         if not col:
             raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("列号不能为空"), "列号不能为空")
         if not formula:
@@ -1577,8 +1607,7 @@ class DataTable:
                 raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("列号不能为空"), "列号不能为空")
             data = PyxlWrapper.read_column(col_index=col_index)
         elif filter_type == FilterType.ROW:
-            if not row:
-                raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("行号不能为空"), "行号不能为空")
+            row = validate_row_param(row)
             data = PyxlWrapper.read_row(row_index=row)
         else:
             data = PyxlWrapper.read_effective_area()
@@ -1841,7 +1870,7 @@ class DataTable:
             atomicMg.param("first_available_row", types="Int"),
         ],
     )
-    def get_first_available_row(start_row: int = 1, start_col: str = "A", end_col: str = "") -> int:
+    def get_first_available_row(start_row: int = 1, start_col: str = "A", end_col: str = "-1") -> int:
         """
         获取列范围内第一个空白行的行号
         :param start_row: 起始行号
@@ -1856,7 +1885,7 @@ class DataTable:
                 "开始行号必须是大于0的正整数",
             )
         start_col_index = col_to_index(start_col)
-        if end_col is None or end_col in {"", "0"}:
+        if end_col is None or end_col in {"", "0", 0, -1, "-1"}:
             end_col_index = PyxlWrapper.get_max_column()
         else:
             end_col_index = col_to_index(end_col)
@@ -1890,12 +1919,12 @@ class DataTable:
             atomicMg.param("first_available_col", types="Str"),
         ],
     )
-    def get_first_available_col(start_col: str = "A", start_row: int = 1, end_row: int = 0) -> str:
+    def get_first_available_col(start_col: str = "A", start_row: int = 1, end_row: int = -1) -> str:
         """
         获取行范围内第一个空白列的列标
         :param start_col: 起始列号
         :param start_row: 起始行号
-        :param end_row: 结束行号, 0或不填则到已用最大行
+        :param end_row: 结束行号, -1表示最后一行(默认), 0或不填为已用最大行
         """
         if not start_col:
             raise DATAFRAME_EXPECTION(PARAMS_ERROR.format("开始列号不能为空"), "开始列号不能为空")
@@ -1904,8 +1933,7 @@ class DataTable:
                 PARAMS_ERROR.format("开始行号必须是大于0的正整数"),
                 "开始行号必须是大于0的正整数",
             )
-        if end_row is None or end_row in {"", 0, "0"}:
-            end_row = PyxlWrapper.get_max_row()
+        end_row = normalize_end_row(end_row)
         if int(end_row) < int(start_row):
             raise DATAFRAME_EXPECTION(
                 PARAMS_ERROR.format("结束行号不能小于开始行号"),
@@ -2068,7 +2096,7 @@ class DataTable:
         sort_cols: str = "A",
         sort_orders: str = "ascending",
         start_row: int = 1,
-        end_row: int = 0,
+        end_row: int = -1,
         has_header: bool = False,
     ):
         """
@@ -2076,7 +2104,7 @@ class DataTable:
         :param sort_cols: 排序列, 多列用逗号分隔(如A,C)
         :param sort_orders: 排序方式, 逗号分隔与排序列一一对应(ascending/descending)
         :param start_row: 起始行号
-        :param end_row: 结束行号, 0或不填则到已用最大行
+        :param end_row: 结束行号, -1表示最后一行(默认), 0或不填为已用最大行
         :param has_header: 首行是否为表头(不参与排序)
         """
         if not sort_cols:
@@ -2107,8 +2135,7 @@ class DataTable:
                     PARAMS_ERROR.format(f"无效的排序方式: {order}"),
                     f"无效的排序方式: {order}，仅支持ascending/descending",
                 )
-        if end_row is None or end_row in {"", 0, "0"}:
-            end_row = PyxlWrapper.get_max_row()
+        end_row = normalize_end_row(end_row)
         # max_row可能含delete_rows残留的幻影空行, 截断到最后一个非空行, 避免空行被排到数据前面
         end_row = min(int(end_row), last_nonempty_row())
         data_start_row = int(start_row) + 1 if has_header else int(start_row)
@@ -2139,6 +2166,8 @@ class DataTable:
             for offset, value in enumerate(row_values):
                 # 直接赋值: cell(value=None)是空操作, 无法清空排序后空出的单元格
                 PyxlWrapper.sheet.cell(row=data_start_row + i, column=offset + 1).value = value
+        # 直接写 sheet 绕过了 wrapper 的边界缓存, 手动失效
+        PyxlWrapper.invalidate_bounds()
 
     @staticmethod
     @auto_save
@@ -2262,8 +2291,8 @@ class DataTable:
         col: str = "A",
         start_row: int = 1,
         start_col: str = "A",
-        end_row: int = 0,
-        end_col: str = "",
+        end_row: int = -1,
+        end_col: str = "-1",
         font_name: str = "",
         font_size: float = 0,
         bold: bool = False,
@@ -2371,8 +2400,8 @@ class DataTable:
         col: str = "A",
         start_row: int = 1,
         start_col: str = "A",
-        end_row: int = 0,
-        end_col: str = "",
+        end_row: int = -1,
+        end_col: str = "-1",
     ):
         """
         清除数据表格格式(恢复常规样式)
@@ -2585,6 +2614,7 @@ class DataTable:
         if is_current:
             # 删除的是当前表, 切换到工作簿的活动工作表
             PyxlWrapper.sheet = PyxlWrapper.workbook.active
+            PyxlWrapper.invalidate_bounds()
 
     @staticmethod
     @auto_save

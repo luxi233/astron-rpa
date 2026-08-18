@@ -14,7 +14,7 @@ const props = defineProps<{ dataTablePath: string, class?: string }>()
 const { isDark } = useTheme()
 const { i18next } = useTranslation()
 
-const { state: workbookData } = useAsyncState<ISheetWorkbookData>(async () => {
+const { state: workbookData, error: loadError } = useAsyncState<ISheetWorkbookData>(async () => {
   const { data } = await fileRead({ path: props.dataTablePath })
   const file = blob2File(data, 'data-table.xlsx')
   return sheetUtils.transformExcelToUniver(file)
@@ -34,5 +34,6 @@ const locale = computed<SheetLocaleType>(() => {
     :dark-mode="isDark"
     :locale="locale"
   />
+  <a-empty v-else-if="loadError" :description="$t('common.loadFailed')" />
   <a-empty v-else :description="$t('common.loading')" />
 </template>

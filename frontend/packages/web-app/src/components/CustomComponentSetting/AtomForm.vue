@@ -85,7 +85,7 @@ onMounted(() => {
 
 <template>
   <section class="atom-config flex-1 flex flex-col w-full relative bg-[#fff] dark:bg-[#1d1d1d] overflow-hidden">
-    <section v-if="atomTab.length > 0" class="flex-1 relative atom-config-container border border-dashed border-[#000000]/[.16] dark:border-[#FFFFFF]/[.16] rounded-[8px] h-full overflow-y-auto py-5 px-4">
+    <section v-if="atomTab.length > 0" class="flex-1 relative atom-config-container border border-dashed border-[#000000]/[.16] dark:border-[#FFFFFF]/[.16] rounded-[8px] h-full overflow-y-auto pt-5 pb-8 px-4">
       <div class="flex items-center mb-4">
         <a-segmented v-model:value="activeKey" block :options="formattedTabs" class="flex-1">
           <template #label="{ title }">

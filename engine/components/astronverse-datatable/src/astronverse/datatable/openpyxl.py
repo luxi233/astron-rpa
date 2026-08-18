@@ -5,7 +5,7 @@ import os
 import openpyxl
 from astronverse.datatable.error import *
 from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 
@@ -33,6 +33,17 @@ class OpenpyxlWrapper:
                 self.sheet = self.workbook.create_sheet(title=sheet_name)
         else:
             self.sheet = self.workbook.active
+
+        # max_row/max_column 缓存: openpyxl 3.1.x 的 sheet.max_row 每次调用都对全部
+        # 单元格键做 max() 扫描(O(n_cells)), 大文件循环操作下退化为 O(n²);
+        # 写操作增量维护缓存, 结构性变更(删/插/清/换sheet)时置 None 失效
+        self._max_row_cache = None
+        self._max_col_cache = None
+
+    def invalidate_bounds(self):
+        """使 max_row/max_column 缓存失效(结构变更或外部直接改写 sheet 后调用)"""
+        self._max_row_cache = None
+        self._max_col_cache = None
 
     def save(self, path: str = None):
         """
@@ -73,6 +84,7 @@ class OpenpyxlWrapper:
             self.sheet = self.workbook[sheet_name]
         else:
             self.sheet = self.workbook.create_sheet(title=sheet_name)
+        self.invalidate_bounds()
 
     def add_sheet(self, title: str = None, index: int = None) -> Worksheet:
         """
@@ -159,7 +171,11 @@ class OpenpyxlWrapper:
         Returns:
             list: A list of cell values in the row.
         """
-        return [cell.value for cell in self.sheet[row_index]]
+        # values_only 批量取值, 消除逐格 .value 属性访问开销(边界内空隙仍会物化, 与旧实现一致)
+        rows = self.sheet.iter_rows(
+            min_row=row_index, max_row=row_index, min_col=1, max_col=self.get_max_column(), values_only=True
+        )
+        return list(next(rows, ()))
 
     def read_column(self, col_name: str = None, col_index: int = None) -> list:
         """
@@ -176,11 +192,18 @@ class OpenpyxlWrapper:
             ValueError: If neither col_name nor col_index is provided.
         """
         if col_name:
-            return [cell.value for cell in self.sheet[col_name]]
+            col = column_index_from_string(col_name)
         elif col_index:
-            return [cell.value for cell in self.sheet[get_column_letter(col_index)]]
+            col = col_index
         else:
             raise ValueError("Either column name or column index must be provided.")
+        # values_only 批量取值, 消除逐格 .value 属性访问开销(边界内空隙仍会物化, 与旧实现一致)
+        return [
+            row[0]
+            for row in self.sheet.iter_rows(
+                min_row=1, max_row=self.get_max_row(), min_col=col, max_col=col, values_only=True
+            )
+        ]
 
     def read_range(self, range_str: str) -> list:
         """
@@ -192,27 +215,38 @@ class OpenpyxlWrapper:
         Returns:
             list: A 2D list of cell values in the range.
         """
-        return [[cell.value for cell in row] for row in self.sheet[range_str]]
+        # values_only 批量取值, 消除逐格 .value 属性访问开销(边界内空隙仍会物化, 与旧实现一致)
+        from openpyxl.utils import range_boundaries
+
+        min_col, min_row, max_col, max_row = range_boundaries(range_str)
+        return [
+            list(row)
+            for row in self.sheet.iter_rows(
+                min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col, values_only=True
+            )
+        ]
 
     def read_effective_area(self) -> list:
         """
         Reads the effective area of the sheet (all non-empty cells).
 
-        Returns:
-            list: A 2D list of cell values in the effective area.
+        注意: 使用 iter_rows(values_only=True) 批量取值, 消除旧实现嵌套 cell() 的
+        逐格属性访问开销; 边界取自缓存, 避免旧实现先扫两次 max 属性
         """
-        max_row = self.sheet.max_row
-        max_col = self.sheet.max_column
-        return [[self.sheet.cell(row=r, column=c).value for c in range(1, max_col + 1)] for r in range(1, max_row + 1)]
+        max_row = self.get_max_row()
+        max_col = self.get_max_column()
+        return [
+            list(row)
+            for row in self.sheet.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col, values_only=True)
+        ]
 
     def get_max_row(self) -> int:
         """
         Gets the maximum row index with data.
-
-        Returns:
-            int: The maximum row index.
         """
-        return self.sheet.max_row
+        if self._max_row_cache is None:
+            self._max_row_cache = self.sheet.max_row
+        return self._max_row_cache
 
     def get_max_column(self) -> int:
         """
@@ -221,7 +255,9 @@ class OpenpyxlWrapper:
         Returns:
             int: The maximum column index.
         """
-        return self.sheet.max_column
+        if self._max_col_cache is None:
+            self._max_col_cache = self.sheet.max_column
+        return self._max_col_cache
 
     def write_cell(self, row: int, col: int, value):
         """
@@ -233,6 +269,8 @@ class OpenpyxlWrapper:
             value: The value to write.
         """
         self.sheet.cell(row=row, column=col, value=value)
+        self._max_row_cache = max(self._max_row_cache or 0, row)
+        self._max_col_cache = max(self._max_col_cache or 0, col)
 
     def write_row(self, row_index: int, data: list, start_col: int = 1):
         """
@@ -243,9 +281,10 @@ class OpenpyxlWrapper:
             data (list): The list of data to write.
             start_col (int): The starting column index (1-based).
         """
-        print(f"Writing data to row {row_index} starting at column {start_col}: {data}")
         for i, value in enumerate(data):
             self.sheet.cell(row=row_index, column=start_col + i, value=value)
+        self._max_row_cache = max(self._max_row_cache or 0, row_index)
+        self._max_col_cache = max(self._max_col_cache or 0, start_col + len(data) - 1)
 
     def append_row(self, data: list):
         """
@@ -255,6 +294,9 @@ class OpenpyxlWrapper:
             data (list): The list of data to append.
         """
         self.sheet.append(data)
+        if data:
+            self._max_row_cache = (self._max_row_cache or 0) + 1
+            self._max_col_cache = max(self._max_col_cache or 0, len(data))
 
     def write_column(self, col_name: str = None, col_index: int = None, data: list = None, start_row: int = 1):
         """
@@ -276,6 +318,8 @@ class OpenpyxlWrapper:
 
         for i, value in enumerate(data):
             self.sheet.cell(row=start_row + i, column=col, value=value)
+        self._max_row_cache = max(self._max_row_cache or 0, start_row + len(data) - 1)
+        self._max_col_cache = max(self._max_col_cache or 0, col)
 
     def write_range(self, range_str: str, data: list):
         """
@@ -292,6 +336,8 @@ class OpenpyxlWrapper:
         for r_idx, row_data in enumerate(data):
             for c_idx, cell_value in enumerate(row_data):
                 self.sheet.cell(row=min_row + r_idx, column=min_col + c_idx, value=cell_value)
+        self._max_row_cache = max(self._max_row_cache or 0, min_row + len(data) - 1)
+        self._max_col_cache = max(self._max_col_cache or 0, min_col + (max((len(r) for r in data), default=1)) - 1)
 
     def fill_data_table_by_import_file(
         self,
@@ -310,6 +356,7 @@ class OpenpyxlWrapper:
         """
         ext = os.path.splitext(import_file_path)[1].lower()
         self.sheet.delete_rows(1, self.sheet.max_row)
+        self.invalidate_bounds()
         header_row = None
         if ext == ".csv":
             rows = []
@@ -361,6 +408,7 @@ class OpenpyxlWrapper:
         """
         self.sheet.insert_cols(idx=col, amount=amount)
         self.sheet.insert_rows(idx=row, amount=amount)
+        self.invalidate_bounds()
 
     def insert_rows(self, idx: int, amount: int = 1):
         """
@@ -371,6 +419,7 @@ class OpenpyxlWrapper:
             amount (int): The number of rows to insert.
         """
         self.sheet.insert_rows(idx=idx, amount=amount)
+        self._max_row_cache = (self._max_row_cache or 0) + amount
 
     def insert_cols(self, idx: int, amount: int = 1):
         """
@@ -381,6 +430,7 @@ class OpenpyxlWrapper:
             amount (int): The number of columns to insert.
         """
         self.sheet.insert_cols(idx=idx, amount=amount)
+        self._max_col_cache = (self._max_col_cache or 0) + amount
 
     def copy_paste_range(self, source_range_str: str, dest_start_cell_str: str):
         """
@@ -395,10 +445,15 @@ class OpenpyxlWrapper:
 
         dest_start_row = dest_start_cell.row
         dest_start_col = dest_start_cell.column
+        max_src_row = 0
+        max_src_col = 0
 
         for i, row in enumerate(source_range):
             for j, cell in enumerate(row):
                 self.sheet.cell(row=dest_start_row + i, column=dest_start_col + j, value=cell.value)
+                max_src_row, max_src_col = i + 1, j + 1
+        self._max_row_cache = max(self._max_row_cache or 0, dest_start_row + max_src_row - 1)
+        self._max_col_cache = max(self._max_col_cache or 0, dest_start_col + max_src_col - 1)
 
     def delete_cell(self, row: int, col: int, move_direction: str = "up"):
         """
@@ -429,6 +484,7 @@ class OpenpyxlWrapper:
             amount (int): The number of rows to delete.
         """
         self.sheet.delete_rows(idx=idx, amount=amount)
+        self.invalidate_bounds()
 
     def delete_cols(self, idx: int, amount: int = 1):
         """
@@ -439,6 +495,7 @@ class OpenpyxlWrapper:
             amount (int): The number of columns to delete.
         """
         self.sheet.delete_cols(idx=idx, amount=amount)
+        self.invalidate_bounds()
 
     def empty_row(self, row_index: int):
         """
@@ -537,6 +594,8 @@ class OpenpyxlWrapper:
             reader = csv.reader(csvfile, delimiter=delimiter)
             for row_data in reader:
                 self.sheet.append(row_data)
+        # 逐行 append 后边界已变, 失效缓存
+        self.invalidate_bounds()
 
     def export_to_csv(self, csv_file_path: str, include_header: bool = True, delimiter=","):
         """
@@ -618,7 +677,7 @@ class OpenpyxlWrapper:
         Returns:
             int: The maximum row count.
         """
-        return self.sheet.max_row
+        return self.get_max_row()
 
     def get_column_count(self) -> int:
         """
@@ -627,7 +686,7 @@ class OpenpyxlWrapper:
         Returns:
             int: The maximum column count.
         """
-        return self.sheet.max_column
+        return self.get_max_column()
 
     def get_column_name(self, col_index: int) -> str:
         """

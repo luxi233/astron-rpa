@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 import openpyxl
+from astronverse.baseline.error.error import BizCode, ErrorCode
 from astronverse.datatable import ConditionType, FilterType
 from astronverse.datatable.error import (
     COL_FORMAT_ERROR,
@@ -27,6 +28,30 @@ def validate(row=1, col="A"):
             raise DATAFRAME_EXPECTION(COL_FORMAT_ERROR.format(col), "列格式错误")
     if not isinstance(row, int) or row < 1:
         raise DATAFRAME_EXPECTION(ROW_FORMAT_ERROR.format(row), "行格式错误")
+
+
+def validate_row_param(row, name="行号"):
+    """
+    行号参数校验: 区分"未填写"与"填了0"两种情况, 给出精确报错
+    (循环索引从0开始, 直接绑定到行号会在首次迭代得到0)
+    :param row: 行号 (int/str)
+    :param name: 参数中文名, 用于报错信息
+    :return: 转换后的 int 行号
+    """
+
+    def _err(msg: str):
+        # 每次构造新 ErrorCode, 规避模块级单例 .format() 原地污染模板的框架缺陷
+        return DATAFRAME_EXPECTION(ErrorCode(BizCode.LocalErr, "参数有误: " + msg), "参数有误: " + msg)
+
+    if row is None or row == "":
+        raise _err(f"{name}不能为空")
+    try:
+        row_int = int(row)
+    except (ValueError, TypeError):
+        raise DATAFRAME_EXPECTION(ROW_FORMAT_ERROR.format(row), f"{name}格式错误: {row}") from None
+    if row_int < 1:
+        raise _err(f"{name}从1开始, 当前为{row}(若绑定的是循环索引请+1)")
+    return row_int
 
 
 def validate_row(row):
@@ -102,6 +127,34 @@ def resolve_negative_row(row) -> int:
             raise DATAFRAME_EXPECTION(ROW_FORMAT_ERROR.format(row), "行格式错误")
         return actual
     return row
+
+
+def normalize_end_row(end_row):
+    """
+    区域结束行归一化: None/''/'0'/0→最后一行, 负数→倒数(-1=最后一行), 正数原样
+    (装饰器只转换显式传入的kwargs, 函数默认值与0兼容值在此统一处理)
+    """
+    from astronverse.datatable.datatable import PyxlWrapper
+
+    if end_row is None or end_row in ("", 0, "0"):
+        return PyxlWrapper.get_max_row()
+    if isinstance(end_row, int) and end_row > 0:
+        return end_row
+    return resolve_negative_row(end_row)
+
+
+def normalize_end_col(end_col):
+    """
+    区域结束列归一化: None/''/'0'/0→最后一列, 负数→倒数(-1=最后一列), 其余转字母列标
+    """
+    from astronverse.datatable.datatable import PyxlWrapper
+
+    if end_col is None or end_col in ("", 0, "0"):
+        return index_to_col(PyxlWrapper.get_max_column() - 1)
+    converted = resolve_negative_col(end_col)
+    if isinstance(converted, int):
+        converted = index_to_col(converted - 1)
+    return converted
 
 
 def resolve_negative_col(col):

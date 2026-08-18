@@ -1,13 +1,22 @@
 import os
+import threading
 from collections.abc import Generator
 from typing import Any
 
 from astronverse.scheduler.logger import logger
 from openpyxl import Workbook, load_workbook
 
+# 单元格更新合并防抖窗口: 快速连续编辑(如前端逐格输入)合并为一次落盘
+_UPDATE_DEBOUNCE_SECONDS = 0.2
+
 
 class ExcelService:
     """Excel 文件读写服务"""
+
+    # 合并防抖状态(类级共享: get_excel_service 每次请求新建实例, 状态必须跨实例存活)
+    _pending_updates: dict[str, list[dict]] = {}
+    _pending_lock = threading.Lock()
+    _flush_timer: threading.Timer | None = None
 
     def __init__(self, resource_dir: str):
         """
@@ -80,6 +89,8 @@ class ExcelService:
         Yields:
             每行数据的字典，格式为 {"sheet": str, "row": int, "data": list}
         """
+        # 先落盘待保存的单元格更新, 保证读到最新内容
+        self.flush_pending()
         file_path = self.get_file_path(filename)
 
         if not os.path.exists(file_path):
@@ -137,6 +148,8 @@ class ExcelService:
         Returns:
             包含所有数据的字典
         """
+        # 先落盘待保存的单元格更新, 保证读到最新内容
+        self.flush_pending()
         file_path = self.get_file_path(filename)
 
         if not os.path.exists(file_path):
@@ -164,6 +177,23 @@ class ExcelService:
                     row_data = [self._serialize_cell_value(cell) for cell in row]
                     sheet_data["data"].append(row_data)
 
+                # 裁剪尾部全空行/列: 文件 dimension 可能虚高(历史版本样式事件误写 null 撑大),
+                # 按真实内容收敛 max_row/max_column, 避免前端展示大量空行
+                while sheet_data["data"]:
+                    if any(cell is not None and cell != "" for cell in sheet_data["data"][-1]):
+                        break
+                    sheet_data["data"].pop()
+                max_col = 0
+                for row_data in sheet_data["data"]:
+                    for c in range(len(row_data) - 1, -1, -1):
+                        if row_data[c] is not None and row_data[c] != "":
+                            max_col = max(max_col, c + 1)
+                            break
+                for row_data in sheet_data["data"]:
+                    del row_data[max_col:]
+                sheet_data["max_row"] = len(sheet_data["data"])
+                sheet_data["max_column"] = max_col
+
                 result["sheets"].append(sheet_data)
 
             return result
@@ -179,6 +209,8 @@ class ExcelService:
             filename: 文件名
             data: 要写入的数据，格式为 {"sheets": [{"name": str, "data": list[list]}]}
         """
+        # 先落盘待保存的单元格更新, 避免全量覆盖后又被旧pending回写
+        self.flush_pending()
         file_path = self.get_file_path(filename)
 
         # 确保目录存在
@@ -220,7 +252,7 @@ class ExcelService:
 
     def update_cells(self, filename: str, updates: list[dict]) -> None:
         """
-        更新指定单元格的值
+        更新指定单元格的值(带合并防抖: 入队后由定时器合并落盘, 读接口自动先flush保证一致)
 
         Args:
             filename: 文件名
@@ -231,6 +263,46 @@ class ExcelService:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Excel file not found: {file_path}")
 
+        with ExcelService._pending_lock:
+            ExcelService._pending_updates.setdefault(file_path, []).extend(updates)
+            # 已有定时器在等待则复用(持续编辑时滚动延迟), 否则起一个新定时器
+            if ExcelService._flush_timer is None:
+                ExcelService._flush_timer = threading.Timer(_UPDATE_DEBOUNCE_SECONDS, ExcelService._flush_pending)
+                ExcelService._flush_timer.daemon = True
+                ExcelService._flush_timer.start()
+
+    @classmethod
+    def flush_pending(cls) -> None:
+        """立即落盘全部待保存的单元格更新(读/写/删文件前调用保证一致性)"""
+        with cls._pending_lock:
+            items = list(cls._pending_updates.items())
+            cls._pending_updates.clear()
+            if cls._flush_timer is not None:
+                cls._flush_timer.cancel()
+                cls._flush_timer = None
+        for file_path, updates in items:
+            try:
+                cls._apply_updates(file_path, updates)
+            except Exception:
+                # 单个文件失败(如已被删除)不影响其他文件, 丢弃该批待更新
+                logger.exception(f"Flush pending cell updates failed: {file_path}")
+
+    @classmethod
+    def _flush_pending(cls) -> None:
+        """定时器回调: 取出并应用全部待更新(防抖静默期到达)"""
+        with cls._pending_lock:
+            items = list(cls._pending_updates.items())
+            cls._pending_updates.clear()
+            cls._flush_timer = None
+        for file_path, updates in items:
+            try:
+                cls._apply_updates(file_path, updates)
+            except Exception:
+                logger.exception(f"Flush pending cell updates failed: {file_path}")
+
+    @staticmethod
+    def _apply_updates(file_path: str, updates: list[dict]) -> None:
+        """将一批单元格更新写入文件(原 update_cells 主体)"""
         wb = load_workbook(file_path)
 
         try:
@@ -245,7 +317,16 @@ class ExcelService:
                 else:
                     ws = wb[sheet_name]
 
-                ws.cell(row=row, column=col, value=value)
+                # 防御: 空值写入已用区域之外会撑大 max_row/max_column 且无意义, 跳过
+                # (前端样式类事件误传整列 null 时避免污染文件)
+                if value is None and (row > ws.max_row or col > ws.max_column):
+                    continue
+
+                if value is None:
+                    # ws.cell(value=None) 不会清空原值(None 表示"不设置"), 需显式赋值清空
+                    ws.cell(row=row, column=col).value = None
+                else:
+                    ws.cell(row=row, column=col, value=value)
 
             wb.save(file_path)
             logger.info(f"Updated {len(updates)} cells in: {file_path}")
@@ -263,6 +344,8 @@ class ExcelService:
         Returns:
             是否删除成功
         """
+        # 先落盘待保存的单元格更新(文件即将删除, 清空pending避免定时器写已删除文件)
+        self.flush_pending()
         file_path = self.get_file_path(filename)
 
         if os.path.exists(file_path):

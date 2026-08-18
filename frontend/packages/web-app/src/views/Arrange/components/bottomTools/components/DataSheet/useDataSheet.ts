@@ -64,8 +64,9 @@ const [useProvideDataSheetStore, useDataSheetStore] = createInjectionState(() =>
 
     for (let row = 0; row < maxRow; row++) {
       for (let col = 0; col < maxCol; col++) {
-        const newCellValue = get(newValue?.data, [row, col])
-        const oldCellValue = get(oldValue?.data, [row, col])
+        // null/undefined 统一视为空, 防止稀疏空位与显式 null 误判为变化导致全量回写清空数据
+        const newCellValue = get(newValue?.data, [row, col]) ?? null
+        const oldCellValue = get(oldValue?.data, [row, col]) ?? null
 
         if (newCellValue !== oldCellValue) {
           cellValue.push({

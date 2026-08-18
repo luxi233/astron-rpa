@@ -742,7 +742,7 @@ class BrowserSoftware:
                 down_tag.append(1)
 
             if is_wait:
-                if time_out == 0 or time_out == "":
+                if time_out in (0, "", "0"):
                     download_from_req(file_name)
                 else:
                     threading.Thread(target=download_from_req, args=(file_name,)).start()

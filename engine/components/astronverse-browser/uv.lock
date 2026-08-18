@@ -127,6 +127,7 @@ version = "1.0.2"
 source = { editable = "../../shared/astronverse-locator" }
 dependencies = [
     { name = "astronverse-baseline" },
+    { name = "comtypes", marker = "sys_platform == 'win32'" },
     { name = "numpy" },
     { name = "psutil" },
     { name = "pyautogui" },
@@ -139,6 +140,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "astronverse-baseline", editable = "../../shared/astronverse-baseline" },
+    { name = "comtypes", marker = "sys_platform == 'win32'" },
     { name = "numpy" },
     { name = "psutil" },
     { name = "pyautogui" },

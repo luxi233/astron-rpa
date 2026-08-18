@@ -132,7 +132,7 @@ onMounted(() => {
 
 <template>
   <section class="atom-config h-full relative bg-[#fff] dark:bg-[#1d1d1d]" :class="sidebarWide ? 'w-[620px]' : 'w-80'">
-    <section v-if="atomTab.length > 0" class="relative atom-config-container h-full overflow-y-auto py-3 px-4">
+    <section v-if="atomTab.length > 0" class="relative atom-config-container h-full overflow-y-auto pt-3 pb-8 px-4">
       <div v-if="isSmartComponentKey(flowStore.activeAtom.key)" class="flex items-center mb-4">
         <rpa-icon name="magic-wand" size="20" class="text-primary" />
         <span class="ml-1 mr-auto text-[16px] font-medium">{{ $t('smartComponent.smartComponent') }}</span>

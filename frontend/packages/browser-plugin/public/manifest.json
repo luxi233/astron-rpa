@@ -1,6 +1,5 @@
 {
   "manifest_version": 3,
-  "description": "undefined-test",
   "version": "5.2.12",
   "icons": {
     "16": "static/icon_16.png",

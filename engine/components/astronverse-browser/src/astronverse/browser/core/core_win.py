@@ -159,7 +159,7 @@ class BrowserCore:
         win32gui.SendMessage(dialog, win32con.WM_COMMAND, 1, button)  # 点击打开按钮
 
         if is_wait:
-            if not (time_out == 0 or time_out == ""):
+            if not (time_out in (0, "", "0")):
                 try:
                     wait_time_download = int(time_out)
                 except Exception:

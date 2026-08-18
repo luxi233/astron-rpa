@@ -33,6 +33,16 @@ export interface ICellValue {
   value: CellValue | null
 }
 
+// 真正改变单元格值的 mutation 白名单(SheetValueChanged 事件同时会被
+// set-col-data 列宽/set-row-data 行高等纯样式 mutation 触发, 需过滤)
+const VALUE_CHANGE_MUTATIONS = new Set([
+  'sheet.mutation.set-range-values',
+  'sheet.mutation.move-range',
+  'sheet.mutation.remove-worksheet-merge',
+  'sheet.mutation.add-worksheet-merge',
+  'sheet.mutation.reorder-range',
+])
+
 const props = withDefaults(defineProps<SheetProps>(), {
   darkMode: false,
   locale: LocaleType.ZH_CN,
@@ -125,6 +135,13 @@ onMounted(() => {
   univerAPI.createWorkbook(props.defaultValue)
 
   univerAPI.addEvent(univerAPI.Event.SheetValueChanged, (params) => {
+    // 列宽/行高/默认样式等纯样式 mutation 也会触发该事件, 但并不改变单元格值,
+    // 若不过滤会把整列(含大量 null 空行)回写, 导致数据表格数据被清空
+    const mutationId: string | undefined = params.payload?.id
+    if (mutationId && !VALUE_CHANGE_MUTATIONS.has(mutationId)) {
+      return
+    }
+
     const cellValues: ICellValue[] = params.effectedRanges.flatMap(it => {
       const { startRow, startColumn } = it.getRange();
       const values = it.getValues();

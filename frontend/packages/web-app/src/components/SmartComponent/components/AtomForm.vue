@@ -66,7 +66,7 @@ watch(() => alias.value, (newVal, oldVal) => {
       </template>
     </a-segmented>
 
-    <div class="form-container flex-1 flex flex-col gap-6 overflow-y-auto">
+    <div class="form-container flex-1 flex flex-col gap-6 overflow-y-auto pb-6">
       <section
         v-for="item in atomTab[activeKey]?.params"
         :key="item.key"
