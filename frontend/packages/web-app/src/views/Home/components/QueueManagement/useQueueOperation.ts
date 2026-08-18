@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 
 import { getTaskQueueList, removeTaskQueue } from '@/api/task'
 import { QueueConfigModal } from '@/components/QueueConfigModal'
+import { setIntervalWhenVisible } from '@/hooks/useIntervalWhenVisible'
 import { useCommonOperate } from '@/views/Home/pages/hooks/useCommonOperate.tsx'
 
 export default function useQueueOperation() {
@@ -70,8 +71,8 @@ export default function useQueueOperation() {
   }
 
   const intervalRefresh = () => {
-    const t = setInterval(() => queueTableRef.value?.fetchTableData(), 10 * 1000) // 每10秒刷新一次;
-    return { clear: () => clearInterval(t) }
+    // 每10秒刷新一次; 页面后台时自动暂停轮询
+    return { clear: setIntervalWhenVisible(() => queueTableRef.value?.fetchTableData(), 10 * 1000) }
   }
 
   return {

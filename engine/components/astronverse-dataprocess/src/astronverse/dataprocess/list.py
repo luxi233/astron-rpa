@@ -332,7 +332,12 @@ class ListProcess:
         """
         列表过滤
         """
-        return [i for i in list_data_1 if i not in list_data_2]
+        # 全可哈希时走 set 快路径 O(n+m); 含不可哈希项(嵌套list/dict)时回退线性扫描 O(n*m)
+        try:
+            exclude_set = set(list_data_2)
+            return [i for i in list_data_1 if i not in exclude_set]
+        except TypeError:
+            return [i for i in list_data_1 if i not in list_data_2]
 
     @staticmethod
     @atomicMg.atomic(
@@ -596,13 +601,12 @@ class ListProcessExtend:
         is_2d = len(list_data) > 0 and isinstance(list_data[0], list)
         if is_2d:
             rows = list_data
-            non_empty_rows = [row for row in rows if any(not _is_empty_value(cell) for cell in row)]
             if only_trim_trailing:
                 last = len(rows)
                 while last > 0 and all(_is_empty_value(cell) for cell in rows[last - 1]):
                     last -= 1
                 return [row for row in rows[:last] if any(not _is_empty_value(cell) for cell in row)]
-            return non_empty_rows
+            return [row for row in rows if any(not _is_empty_value(cell) for cell in row)]
         if only_trim_trailing:
             last = len(list_data)
             while last > 0 and _is_empty_value(list_data[last - 1]):
@@ -1115,12 +1119,17 @@ class ListProcessExtend:
         删除每行中指定的一列或多列（列索引逗号分隔，如 "0,2"，支持负索引），返回新列表。
         """
         indexes = _parse_indexes(column_indexes)
+        # 正索引归一结果与行无关, 提到循环外只算一次; 负索引依赖行长度, 逐行换算
+        positive_remove = {idx for idx in indexes if idx >= 0}
+        negative_indexes = [idx for idx in indexes if idx < 0]
         result = []
         for row in list_data:
             if not isinstance(row, list):
                 result.append(row)
                 continue
-            remove_set = {_norm_index(idx, len(row)) for idx in indexes}
+            remove_set = positive_remove
+            if negative_indexes:
+                remove_set = positive_remove | {_norm_index(idx, len(row)) for idx in negative_indexes}
             remove_set.discard(None)
             result.append([cell for i, cell in enumerate(row) if i not in remove_set])
         return result

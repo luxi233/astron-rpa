@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { getAppUpdateStatus } from '@/api/market'
 import { getRobotUpdateStatus } from '@/api/robot'
+import { setIntervalWhenVisible } from '@/hooks/useIntervalWhenVisible'
 import { useMarketStore } from '@/stores/useMarketStore'
 
 export function useRobotUpdate(type: string, tableRef: Ref) {
@@ -44,14 +45,15 @@ export function useRobotUpdate(type: string, tableRef: Ref) {
       })
     }
   }
-  let timer = null
+  let stopPolling: (() => void) | null = null
   onMounted(() => {
-    timer = setInterval(() => {
+    // 每10秒轮询更新状态; 页面后台时自动暂停
+    stopPolling = setIntervalWhenVisible(() => {
       handlePollingStatus()
     }, 10000)
   })
   onBeforeUnmount(() => {
-    clearInterval(timer)
+    stopPolling?.()
   })
   return {
     getInitUpdateIds,

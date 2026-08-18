@@ -14,6 +14,7 @@ import {
 } from '@/api/market'
 import { APPLICATIONMARKET, EDITORPAGE, TEAMMARKETS } from '@/constants/menu'
 import { useRoutePush } from '@/hooks/useCommonRoute'
+import { setIntervalWhenVisible } from '@/hooks/useIntervalWhenVisible'
 import { useMarketStore } from '@/stores/useMarketStore'
 import { useProcessStore } from '@/stores/useProcessStore'
 
@@ -23,7 +24,7 @@ export function useMessageTip() {
   const processStore = useProcessStore()
   const { t } = useTranslation()
   const route = useRoute()
-  let loopTimer = null
+  let stopLoop: (() => void) | null = null
   const showMessage = ref(false)
   const messageData = ref([])
   const messageBoxRef = ref(null)
@@ -183,13 +184,13 @@ export function useMessageTip() {
   }, { immediate: true })
 
   onMounted(() => {
-    // 开启轮询 是否有新消息
-    loopTimer && clearInterval(loopTimer)
-    loopTimer = setInterval(refresh, 20000)
+    // 开启轮询 是否有新消息(每20秒); 页面后台时自动暂停
+    stopLoop?.()
+    stopLoop = setIntervalWhenVisible(refresh, 20000)
   })
 
   onBeforeUnmount(() => {
-    loopTimer && clearInterval(loopTimer)
+    stopLoop?.()
   })
 
   return {

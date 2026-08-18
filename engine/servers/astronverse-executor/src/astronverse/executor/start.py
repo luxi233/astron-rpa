@@ -94,6 +94,8 @@ def debug_start(args, svc, flow_tip=None):
             if wait_time >= 10:
                 logger.error("The websocket connection timed out")
                 svc.end(ExecuteStatus.CANCEL)
+                # 超时必须终止启动流程, 否则 ws 永不连接时死循环
+                return
 
     # 执行代码
     debug = Debug(svc=svc, args=args)

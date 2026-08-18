@@ -3,8 +3,6 @@ import json
 import locale
 import os
 import socket
-import subprocess
-import sys
 import time
 from enum import Enum
 
@@ -42,25 +40,13 @@ def string_to_base64(input_string):
 
 def emit_to_front(emit_type: EmitType, msg=None):
     """
-    向控制台输出信息，传递到 tauri main.rs标准输出中，触发给前端
-    使用print暂时行不通，原因未知
+    通过 stdout 的 ||emit|| 前缀消息通知前端(Electron 主进程 server.ts 的 msgFilter 监听本进程 stdout)
+    注意: print+flush 即可, 之前的 echo 子进程方案是 Tauri 时代遗留(fork 开销 ~10ms/条)
     """
     data = {"type": emit_type.value, "msg": msg}
     logger.info("emit msg to front: {}".format(data))
     data = json.dumps(data)
-    if sys.platform == "win32":
-        encoded_data = string_to_base64(data)
-        # 核心修改：使用 print 并强制 flush
-        # 这样可以确保内容立即被推送到标准输出，被 Tauri 捕获
-        print(f"||emit|| {encoded_data}", flush=True)
-    else:
-        subprocess.run(
-            ["echo", "||emit|| {}".format(string_to_base64(data))],
-            shell=False,
-            check=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+    print(f"||emit|| {string_to_base64(data)}", flush=True)
 
 
 def check_port(port, host="127.0.0.1"):

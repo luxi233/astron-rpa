@@ -114,6 +114,7 @@ with tempfile.TemporaryDirectory() as td:
     r.info(ReportCode(process_id="p1", line=7, msg_str="步骤开始 {process} 第{line}行"))
     r.warning(ReportCode(process_id="p1", line=7, msg_str="警告消息"))
     r.error(ReportCode(process_id="p1", line=7, msg_str="错误消息", error_traceback="Traceback...", cost_ms=12))
+    r.flush()  # 缓冲写: 读取前显式刷盘(首条已即时刷, 后续2s窗口合并)
 
     lines = read_lines(log_file)
     check("JSONL: 写入3行", len(lines) == 3, f"got {len(lines)}")
@@ -137,6 +138,7 @@ with tempfile.TemporaryDirectory() as td:
     from astronverse.actionlib import ReportTip
 
     r.info(ReportTip(msg_str="tip消息"))
+    r.flush()
 
     lines = read_lines(log_file)
     check("Tip: START不落盘", not any(l["data"].get("status") == ReportCodeStatus.START.value for l in lines))
@@ -161,6 +163,7 @@ with tempfile.TemporaryDirectory() as td:
     r.info(ReportCode(process_id="p1", line=7, msg_str="本工程"))
     # 再写一条外部工程 id (子流程/组件)
     r.info(ReportCode(process_id="other_proj_proc", line=99, msg_str="外部"))
+    r.flush()
     lines = read_lines(log_file)
     check("回退: 外部process_id归一到p1", lines[1]["data"]["process_id"] == "p1" and lines[1]["data"]["line"] == 7)
     check("回退: process名填主流程", lines[1]["data"]["process"] == "主流程")
@@ -189,6 +192,7 @@ with tempfile.TemporaryDirectory() as td:
     threads = [threading.Thread(target=worker, args=(t,)) for t in range(N_T)]
     [t.start() for t in threads]
     [t.join() for t in threads]
+    r.flush()
     lines = read_lines(log_file)
     check("并发: 200条全部落盘", len(lines) == N_T * N_M, f"got {len(lines)}")
     msgs = {l["data"]["msg_str"] for l in lines}

@@ -123,6 +123,7 @@ with tempfile.TemporaryDirectory() as td:
         reports.append(r)
         atomicMg.cfg()["LOG_LEVEL"] = "debug"
         run_step(url="http://a", password="secret")
+        r.flush()  # 缓冲写: 读取前显式刷盘
         lines = read_lines(log_file)
         params = [l["data"] for l in lines if "参数:" in str(l["data"].get("msg_str"))]
         results = [l["data"] for l in lines if l["data"].get("msg_str") == "done"]
@@ -162,6 +163,7 @@ with tempfile.TemporaryDirectory() as td:
         check("切换前: off无落盘", len(read_lines(log_file)) == 0)
         atomicMg.cfg()["LOG_LEVEL"] = "debug"
         run_step(url="http://b")
+        r.flush()  # 缓冲写: 读取前显式刷盘
         after = read_lines(log_file)
         check(
             "级别切换: off→debug 即时生效",

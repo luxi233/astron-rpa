@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import queue
 import time
 from dataclasses import asdict
 from enum import Enum
@@ -17,6 +18,9 @@ from astronverse.actionlib import (
 )
 from astronverse.actionlib.report import IReport
 
+# 日志缓冲刷盘间隔: 首条立即刷(流程启动消息即时可见), 之后按此间隔批量刷, close/退出兜底
+_FLUSH_INTERVAL_SECONDS = 2.0
+
 
 class Report(IReport):
     """运行日志处理程序"""
@@ -24,6 +28,7 @@ class Report(IReport):
     def __init__(self, svc):
         self.svc = svc
         self.queue = Queue(maxsize=1000)
+        self._last_flush_time = 0.0
         local_file_path = os.path.join(self.svc.conf.log_path, "report", self.svc.conf.project_id)
         if not os.path.exists(local_file_path):
             os.makedirs(local_file_path)
@@ -69,7 +74,14 @@ class Report(IReport):
         self.last_line = 0
 
     def close(self):
+        self.flush()
         self.log_local_file.close()
+
+    def flush(self):
+        """将缓冲中的日志刷入磁盘(读文件前/close/进程退出时调用)"""
+        if self.log_local_file and not self.log_local_file.closed:
+            self.log_local_file.flush()
+        self._last_flush_time = time.time()
 
     @staticmethod
     def __json__(obj):
@@ -81,7 +93,11 @@ class Report(IReport):
     def __send__(self, filtered_dict):
         if self.queue and self.svc.conf.open_log_ws:
             ms = json.dumps(filtered_dict, ensure_ascii=False, default=self.__json__)
-            self.queue.put(ms, block=True, timeout=None)
+            try:
+                # ws消费过慢时最多等5s, 队列满则丢弃该条, 不阻塞流程执行
+                self.queue.put(ms, block=True, timeout=5)
+            except queue.Full:
+                pass
 
         if (
             self.log_local_file
@@ -94,7 +110,10 @@ class Report(IReport):
                 {"event_time": int(time.time()), "data": filtered_dict}, ensure_ascii=False, default=self.__json__
             )
             self.log_local_file.write(f"{message}\n")
-            self.log_local_file.flush()
+            # 缓冲写: 首条立即落盘(流程启动消息即时可见), 之后每2s刷一次, close/退出兜底
+            if time.time() - self._last_flush_time >= _FLUSH_INTERVAL_SECONDS:
+                self.log_local_file.flush()
+                self._last_flush_time = time.time()
 
     def __pre__(self, message):
         if (

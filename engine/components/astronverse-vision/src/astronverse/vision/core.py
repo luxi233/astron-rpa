@@ -1,14 +1,12 @@
 import base64
 import io
+from functools import lru_cache
 
 import cv2
 import numpy as np
 import pyautogui
 from astronverse.vision.cv_match import AnchorMatch
 from PIL import Image
-
-desktop_filepath = "desktop.png"
-desktop_filepath_match = "desktop_filepath_match.png"
 
 
 class CvCore:
@@ -42,7 +40,6 @@ class CvCore:
             center_coords_anchor = ""
 
         match_img = pyautogui.screenshot(region=None)
-        match_img.save(desktop_filepath_match)
         ratio_w = match_img.width / data["sr"]["screen_w"]
         ratio_h = match_img.height / data["sr"]["screen_h"]
         ratio = f"{ratio_w},{ratio_h}"
@@ -60,11 +57,11 @@ class CvCore:
         )
         if result is None or not isinstance(result, (list, tuple)) or len(result) != 2:
             raise ValueError("match.process_image did not return a valid (out_img, match_box) tuple")
-        out_img, match_box = result
-        cv2.imwrite(desktop_filepath, out_img)
+        _, match_box = result
         return match_box
 
     @staticmethod
+    @lru_cache(maxsize=64)
     def base64_to_image(base64_str):
         if not base64_str:
             return None

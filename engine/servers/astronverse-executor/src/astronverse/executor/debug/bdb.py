@@ -5,8 +5,11 @@ import inspect
 import os
 import sys
 import threading
+import traceback
 from collections import defaultdict
 from collections.abc import Callable
+
+from astronverse.executor.logger import logger
 
 
 class CustomBdb(bdb.Bdb):
@@ -137,7 +140,11 @@ class CustomBdb(bdb.Bdb):
             try:
                 importlib.import_module(package_name)
             except ImportError:
-                pass
+                # 记录组件包导入失败原因(依赖缺失/DLL缺失等), 写入引擎日志文件,
+                # 供设置中心-引擎日志查看; 此前静默吞掉导致组件消失无从排查
+                logger.error(
+                    "组件包导入失败 {}: {}\n{}".format(package_name, sys.exc_info()[1], traceback.format_exc())
+                )
 
             # 准备执行环境
             # 合并 g_v 参数和必要的执行环境变量
