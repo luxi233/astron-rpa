@@ -7,9 +7,6 @@ from astronverse.datatable.openpyxl import OpenpyxlWrapper
 test_excel_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.xlsx"))
 
 
-print(f"Test Excel Path: {test_excel_path}")
-
-
 class TestOpenpyxl(TestCase):
     
     def test_openpyxl_read_cell(self):

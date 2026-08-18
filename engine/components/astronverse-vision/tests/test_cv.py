@@ -1,4 +1,5 @@
 import time
+import unittest
 from unittest import TestCase
 
 from astronverse.input import MoveType, Speed
@@ -26,6 +27,7 @@ input_data = {
 }
 
 
+@unittest.skip("集成测试：依赖实时屏幕画面与图像匹配，需人工环境运行")
 class TestCV(TestCase):
     def test_cv_click(self):
         cv = CV()
