@@ -1,3 +1,4 @@
+import type { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
@@ -56,22 +57,26 @@ function startAppiumProcess(mainJs: string) {
   child.stdout?.on('data', (data: Buffer) => {
     for (const line of data.toString().split('\n')) {
       const trimmed = line.trim()
-      if (trimmed) logger.info(`[appium] ${trimmed}`)
+      if (trimmed)
+        logger.info(`[appium] ${trimmed}`)
     }
   })
   child.stderr?.on('data', (data: Buffer) => {
     for (const line of data.toString().split('\n')) {
       const trimmed = line.trim()
-      if (trimmed) logger.warn(`[appium] ${trimmed}`)
+      if (trimmed)
+        logger.warn(`[appium] ${trimmed}`)
     }
   })
   child.once('close', (code) => {
     logger.info(`appium server exited with code ${code}`)
-    if (appiumProcess === child) appiumProcess = null
+    if (appiumProcess === child)
+      appiumProcess = null
   })
   child.once('error', (error) => {
     logger.error(`appium server start failed: ${error.message}`)
-    if (appiumProcess === child) appiumProcess = null
+    if (appiumProcess === child)
+      appiumProcess = null
   })
 
   appiumProcess = child
@@ -80,8 +85,10 @@ function startAppiumProcess(mainJs: string) {
 async function waitUntilAlive(deadline: number): Promise<boolean> {
   while (Date.now() < deadline) {
     // 进程中途退出直接失败，不再空等
-    if (!appiumProcess) return false
-    if (await isAppiumAlive()) return true
+    if (!appiumProcess)
+      return false
+    if (await isAppiumAlive())
+      return true
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL))
   }
   return false
@@ -103,13 +110,15 @@ export async function ensureAppiumServer(): Promise<boolean> {
     return false
   }
 
-  if (startingPromise) return startingPromise
+  if (startingPromise)
+    return startingPromise
 
   startingPromise = (async () => {
     logger.info(`starting builtin appium server on ${APPIUM_HOST}:${APPIUM_PORT}`)
     startAppiumProcess(mainJs)
     const ok = await waitUntilAlive(Date.now() + READY_TIMEOUT)
-    if (ok) logger.info('appium server ready')
+    if (ok)
+      logger.info('appium server ready')
     else logger.error(`appium server not ready within ${READY_TIMEOUT / 1000}s`)
     return ok
   })().finally(() => {
@@ -131,7 +140,8 @@ export function stopAppiumServer(): Promise<void> {
       return
     }
     treeKill(child.pid!, 'SIGTERM', (error) => {
-      if (error) logger.warn(`appium server tree-kill failed: ${error.message}`)
+      if (error)
+        logger.warn(`appium server tree-kill failed: ${error.message}`)
       resolve()
     })
   })
