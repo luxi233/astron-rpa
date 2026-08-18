@@ -291,12 +291,12 @@ def find_window(cls_name: str, name: str, app_name: str = None) -> int:
             )
             continue
 
-        # 使用cls过滤
-        if handler_class_name != cls_name:
+        # 使用cls过滤 (cls_name为None表示该属性被禁用/缺失, 不参与过滤)
+        if cls_name is not None and handler_class_name != cls_name:
             continue
 
-        # 使用name过滤
-        if handler_name != name:
+        # 使用name过滤 (name为None表示该属性被禁用, 不参与过滤, 如相似元素跨窗口实例匹配)
+        if name is not None and handler_name != name:
             continue
         match_list.append(
             (
@@ -369,12 +369,12 @@ def find_window_handles_list(cls_name: str, name: str, app_name: str = None, pic
             )
             continue
 
-        # 使用cls过滤
-        if handler_class_name != cls_name:
+        # 使用cls过滤 (cls_name为None表示该属性被禁用/缺失, 不参与过滤)
+        if cls_name is not None and handler_class_name != cls_name:
             continue
 
-        # 使用name过滤
-        if handler_name != name:
+        # 使用name过滤 (name为None表示该属性被禁用, 不参与过滤, 如相似元素跨窗口实例匹配)
+        if name is not None and handler_name != name:
             continue
         match_list.append(
             (
@@ -406,6 +406,13 @@ def find_window_handles_list(cls_name: str, name: str, app_name: str = None, pic
         # 按name长度排序，取最长的
         match_list_lv2.sort(key=lambda item: len(item[1]), reverse=True)
         logger.info(f"窗口name最长并且一致的handle: {match_list_lv2}")
+
+        # name被禁用时(如相似元素跨窗口实例匹配), 返回全部候选句柄而非仅同名的
+        if name is None:
+            for item in match_list_lv2:
+                if item[0] not in result_handles:
+                    result_handles.append(item[0])
+            return result_handles
 
         # 获取第一个匹配项的name作为基准
         target_name = match_list_lv2[0][1]
@@ -493,12 +500,12 @@ def find_window_by_enum(cls: str, name: str, app_name: str = None) -> int:
             )
             continue
 
-        # 使用cls过滤
-        if handler_class_name != cls:
+        # 使用cls过滤 (cls为None表示该属性被禁用/缺失, 不参与过滤)
+        if cls is not None and handler_class_name != cls:
             continue
 
-        # 使用name过滤 (支持双向模糊匹配)
-        if handler_name != name:
+        # 使用name过滤 (name为None表示该属性被禁用, 不参与过滤, 如相似元素跨窗口实例匹配)
+        if name is not None and handler_name != name:
             continue
         match_list.append(
             (
@@ -594,12 +601,12 @@ def find_window_by_enum_list(cls: str, name: str, app_name: str = None, picker_t
             )
             continue
 
-        # 使用cls过滤
-        if handler_class_name != cls:
+        # 使用cls过滤 (cls为None表示该属性被禁用/缺失, 不参与过滤)
+        if cls is not None and handler_class_name != cls:
             continue
 
-        # 使用name过滤 (支持双向模糊匹配)
-        if handler_name != name:
+        # 使用name过滤 (name为None表示该属性被禁用, 不参与过滤, 如相似元素跨窗口实例匹配)
+        if name is not None and handler_name != name:
             continue
         match_list.append(
             (
@@ -629,6 +636,13 @@ def find_window_by_enum_list(cls: str, name: str, app_name: str = None, picker_t
         # 按name长度排序，取最长的
         match_list_lv2.sort(key=lambda item: len(item[1]), reverse=True)
         logger.info(f"窗口name最长并且一致的handle: {match_list_lv2}")
+
+        # name被禁用时(如相似元素跨窗口实例匹配), 返回全部候选句柄而非仅同名的
+        if name is None:
+            for item in match_list_lv2:
+                if item[0] not in result_handles:
+                    result_handles.append(item[0])
+            return result_handles
 
         # 获取第一个匹配项的name作为基准
         target_name = match_list_lv2[0][1]

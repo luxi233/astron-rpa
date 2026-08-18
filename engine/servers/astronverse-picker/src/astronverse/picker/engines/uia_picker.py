@@ -462,7 +462,16 @@ class UIAPicker:
 
     @classmethod
     def get_similar_path(cls, strategy_svc, curr_path):
-        """用户给定两个相似元素"""
+        """用户给定两个相似元素, 生成泛化路径(对齐影刀宽松语义)。
+
+        判定放宽点:
+        - 不再要求两条路径深度完全一致: 公共前缀为共同祖先,
+          长路径多出的尾部层全部作为区分层(宽松匹配)
+        - 根层(窗口层)不再比较 name(窗口标题): 同应用不同标题的窗口实例
+          (如"文档1-Word"/"文档2-Word")也可拾取相似, name 差异通过 disable_keys
+          交给定位阶段按窗口类名跨实例匹配
+        - 祖先关系(一条路径是另一条的真前缀且无分叉)仍判不相似
+        """
 
         old_ele = strategy_svc.data["data"]
         new_ele = curr_path
@@ -474,42 +483,60 @@ class UIAPicker:
             return None
         path1 = old_ele.get("path", [])
         path2 = new_ele.get("path", [])
-        if not path1 or not path2 or len(path1) != len(path2):
+        if not path1 or not path2:
             return None
 
-        # 比较
         match_similar = False
         is_first = True
-        for i, v in enumerate(path1):
-            if i == 0:
-                attrs = ["tag_name", "cls", "name", "value"]
-                for attr in attrs:
-                    self_attr = path1[i].get(attr, None)
-                    other_attr = path2[i].get(attr, None)
-                    if self_attr and other_attr and self_attr != other_attr:
-                        return None
-                path1[i]["similar_parent"] = True
+
+        def _mark_distinguish(idx: int):
+            nonlocal is_first
+            if is_first:
+                # 第一个区分层只基于 tag_name 做区分
+                is_first = False
+                path1[idx]["disable_keys"] = ["cls", "name", "value", "index"]
             else:
-                is_eq = True
-                attrs = ["tag_name", "cls", "name", "value", "index"]
-                for attr in attrs:
-                    self_attr = path1[i].get(attr, None)
-                    other_attr = path2[i].get(attr, None)
-                    if self_attr is not None and other_attr is not None and self_attr != other_attr:
-                        is_eq = False
-                        break
-                if is_eq and not match_similar:
-                    path1[i]["similar_parent"] = True  # similar_parent 这个值就是标识它的父级
-                else:
-                    match_similar = True
-                    if is_first:
-                        # 这一层子元素只基于 tag_name 做区分
-                        is_first = False
-                        path1[i]["disable_keys"] = ["cls", "name", "value", "index"]
-                    else:
-                        # 后续的子节点剔除 name 做区分
-                        path1[i]["disable_keys"] = ["name", "value"]
+                # 后续的子节点剔除 name/value 做区分
+                path1[idx]["disable_keys"] = ["name", "value"]
+
+        # 根层(窗口层): 只比较 tag_name/cls, name 不参与(窗口标题动态/多实例不同)
+        for attr in ["tag_name", "cls"]:
+            self_attr = path1[0].get(attr, None)
+            other_attr = path2[0].get(attr, None)
+            if self_attr and other_attr and self_attr != other_attr:
+                return None
+        if path1[0].get("name") != path2[0].get("name"):
+            # 窗口标题不同 → 定位阶段按窗口类名跨实例匹配, 不按标题锁定单一窗口
+            path1[0]["disable_keys"] = ["name"]
+        path1[0]["similar_parent"] = True
+
+        # 中间层: 逐层比较公共前缀, 第一个出现属性差异的层即区分层
+        common_len = min(len(path1), len(path2))
+        for i in range(1, common_len):
+            is_eq = True
+            attrs = ["tag_name", "cls", "name", "value", "index"]
+            for attr in attrs:
+                self_attr = path1[i].get(attr, None)
+                other_attr = path2[i].get(attr, None)
+                if self_attr is not None and other_attr is not None and self_attr != other_attr:
+                    is_eq = False
+                    break
+            if is_eq and not match_similar:
+                path1[i]["similar_parent"] = True  # similar_parent 这个值就是标识它的父级
+            else:
+                match_similar = True
+                _mark_distinguish(i)
+
+        # 深度不同时, 参照路径多出的尾部层(公共前缀之外)全部作为区分层
+        if len(path1) > common_len:
+            if not match_similar:
+                # path2 是 path1 的真前缀且无分叉 → 祖先关系, 非相似元素
+                return None
+            for i in range(common_len, len(path1)):
+                _mark_distinguish(i)
+
         if not match_similar:
+            # 完全同路径(同一元素)或 path1 是 path2 的真前缀 → 不构成相似样例
             return None
         return path1
 

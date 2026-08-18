@@ -69,7 +69,8 @@ class UIAEle:
 
         # 特殊: 这个是相对于UIANode的匹配数据, index的匹配不是强匹配
         self.index_parent_match_sort: str = ""
-        self.index_match_sort: str = ""
+        # 修复: 构造参数曾被忽略恒为空串, 单层路径排序时 int('') 崩溃
+        self.index_match_sort: str = index_match_sort
 
     @property
     def rect(self):
@@ -192,19 +193,40 @@ class UIAFactory:
         if not path_list:
             return None
 
-        # 1. 先找到父路径
+        # 1. 先定位父路径(similar_parent共同祖先层); 失败时逐层截短父路径降级重试,
+        #    被截短的层前插到区分链头部做结构化匹配(tag+cls):
+        #    否则截掉List后, ListItem会被当成Pane的直接子级匹配, 层级错位必然匹配为空
         parent_path = [v for v in path_list if v.get("similar_parent", False)]
-        parent_ele = deepcopy(ele)
-        parent_ele["path"] = parent_path
-        parent_locator = cls.__find_one__(parent_ele, picker_type=picker_type, **kwarg)
+        distinguish_path = [v for v in path_list if not v.get("similar_parent", None)]
+        if not distinguish_path:
+            return None
+
+        parent_locator = None
+        while parent_path:
+            locate_ele = deepcopy(ele)
+            locate_ele["path"] = deepcopy(parent_path)
+            try:
+                parent_locator = cls.__find_one__(locate_ele, picker_type=picker_type, **kwarg)
+            except Exception as e:
+                logger.debug(f"父路径定位失败(剩余{len(parent_path)}层): {e}")
+                parent_locator = None
+            if parent_locator:
+                break
+            drop = deepcopy(parent_path.pop())
+            drop.pop("similar_parent", None)
+            drop["disable_keys"] = ["name", "value", "index"]  # 结构化匹配: 仅tag+cls
+            drop["similar_fallback"] = True  # 标记为降级结构层(路径层), 不作为枚举层
+            distinguish_path.insert(0, drop)
         if not parent_locator:
             raise Exception("元素无法找到")
         assert isinstance(parent_locator.control(), Control)
 
         # 2. 再找子元素
+        #    区分链分两类: 降级结构层(前缀, 仅作路径下钻且保留全部分支) + 原区分层(首层枚举相似项, 后续层链内择优)
         res = []
-        node_list = [
-            UIANode(
+
+        def _to_uianode(path: dict) -> UIANode:
+            return UIANode(
                 tag_name=path.get("tag_name", None),
                 checked=path.get("checked", None),
                 disable_keys=path.get("disable_keys", []),
@@ -213,57 +235,73 @@ class UIAFactory:
                 name=path.get("name", None),
                 value=path.get("value", None),
             )
-            for path in path_list
-            if not path.get("similar_parent", None)
-        ]
 
-        for root_ctrl in cls.__get_child_walk_control__(parent_locator.control()):
-            # 判断第一场子元素是否符合规范
-            root_ele = UIAEle(control=root_ctrl.control, index=0, index_match_sort="1")
-            is_ok = cls.__compare_node_and_uia_ele__(root_ele, node_list[0], ["tag_name", "name", "cls", "value"])
-            if not is_ok:
-                continue
+        # 2.1 降级结构层逐层下钻(全部分支保留, 容错同tag+cls多容器)
+        eff_parents = [parent_locator.control()]
+        for fb in [n for n in distinguish_path if n.get("similar_fallback")]:
+            fb_node = _to_uianode(fb)
+            nxt = []
+            for ctrl in eff_parents:
+                for child in cls.__get_child_walk_control__(ctrl):
+                    child_ele = UIAEle(control=child.control, index=0, index_match_sort="1")
+                    if cls.__compare_node_and_uia_ele__(child_ele, fb_node, ["tag_name", "name", "cls", "value"]):
+                        nxt.append(child.control)
+            eff_parents = nxt
+            if not eff_parents:
+                return res
+        node_list = [_to_uianode(p) for p in distinguish_path if not p.get("similar_fallback")]
 
-            if len(node_list) == 1:
-                # 如果只有一层就直接结束
-                res.append(UIALocator(control=root_ctrl.control))
-                continue
-            else:
-                # 如果还有多层就需要向下遍历，并找到一个相近的值
-                search_list = [UIAEle(control=root_ctrl.control, index=0, index_match_sort="1")]
-                i = 0
-                for i, node in enumerate(node_list[1:]):
-                    # i 表示第几层
-
-                    # 4.1 遍历查询里面的子集
-                    child_list = []
-                    for search in search_list:
-                        for uia_ele in cls.__get_child_walk_control__(search.control):
-                            uia_ele.index_parent_match_sort = search.index_match_sort
-                            child_list.append(uia_ele)
-
-                    # 4.2 基于前端传递的node, 过滤掉不符合要求的, 强匹配
-                    child_list = [
-                        item
-                        for item in child_list
-                        if cls.__compare_node_and_uia_ele__(item, node, ["tag_name", "name", "cls", "value"])
-                    ]
-
-                    # 4.3 基于前端传递的node, 处理index，弱匹配
-                    for item in child_list:
-                        index_match = cls.__compare_node_and_uia_ele__(item, node, ["index"])
-                        item.index_match_sort = "{}{}".format(item.index_parent_match_sort, "1" if index_match else "0")
-
-                    # 4.3 去一下层又去做比较，直到没有找人任何符合，或者层级结束
-                    search_list = child_list
-                    if not search_list:
-                        break
-
-                if not search_list or i != (len(node_list) - 2):
+        # 2.2 原区分层匹配: 首层枚举, 后续层择优
+        for eff_root in eff_parents:
+            for root_ctrl in cls.__get_child_walk_control__(eff_root):
+                # 判断第一层子元素是否符合规范
+                root_ele = UIAEle(control=root_ctrl.control, index=0, index_match_sort="1")
+                is_ok = cls.__compare_node_and_uia_ele__(root_ele, node_list[0], ["tag_name", "name", "cls", "value"])
+                if not is_ok:
                     continue
-                search_list.sort(key=lambda s: -int(s.index_match_sort))
-                match = search_list[0]
-                res.append(UIALocator(control=match.control))
+
+                if len(node_list) == 1:
+                    # 如果只有一层就直接结束
+                    res.append(UIALocator(control=root_ctrl.control))
+                    continue
+                else:
+                    # 如果还有多层就需要向下遍历，并找到一个相近的值
+                    search_list = [UIAEle(control=root_ctrl.control, index=0, index_match_sort="1")]
+                    i = 0
+                    for i, node in enumerate(node_list[1:]):
+                        # i 表示第几层
+
+                        # 4.1 遍历查询里面的子集
+                        child_list = []
+                        for search in search_list:
+                            for uia_ele in cls.__get_child_walk_control__(search.control):
+                                uia_ele.index_parent_match_sort = search.index_match_sort
+                                child_list.append(uia_ele)
+
+                        # 4.2 基于前端传递的node, 过滤掉不符合要求的, 强匹配
+                        child_list = [
+                            item
+                            for item in child_list
+                            if cls.__compare_node_and_uia_ele__(item, node, ["tag_name", "name", "cls", "value"])
+                        ]
+
+                        # 4.3 基于前端传递的node, 处理index，弱匹配
+                        for item in child_list:
+                            index_match = cls.__compare_node_and_uia_ele__(item, node, ["index"])
+                            item.index_match_sort = "{}{}".format(
+                                item.index_parent_match_sort, "1" if index_match else "0"
+                            )
+
+                        # 4.4 去下一层又去做比较，直到没有找到任何符合，或者层级结束
+                        search_list = child_list
+                        if not search_list:
+                            break
+
+                    if not search_list or i != (len(node_list) - 2):
+                        continue
+                    search_list.sort(key=lambda s: -int(s.index_match_sort))
+                    match = search_list[0]
+                    res.append(UIALocator(control=match.control))
         return res
 
     @classmethod
@@ -387,7 +425,9 @@ class UIAFactory:
                         break
 
                 # 6. 检查是否成功找到元素
-                if element_found and search_list and i == (len(node_list) - 2):
+                # 单层路径(仅窗口层): 相似元素父路径截短降级的兜底场景, 直接返回窗口控件
+                # (否则 i==len(node_list)-2 即 0==-1 恒为False, 窗口层永远定位失败)
+                if element_found and search_list and (len(node_list) == 1 or i == (len(node_list) - 2)):
                     # 7. 处理index
                     search_list.sort(key=lambda s: -int(s.index_match_sort))
                     match = search_list[0]
