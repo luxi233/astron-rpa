@@ -3,9 +3,15 @@ import time
 
 import pythoncom
 import pyWinhook as pyWinhook
+import win32api
 from astronverse.picker import IEventCore, MKSign
 from astronverse.picker.logger import logger
 from pyWinhook import KeyboardEvent
+
+# VK_LCONTROL(0xA2) / VK_RCONTROL(0xA3)
+_CTRL_VKS = (0xA2, 0xA3)
+# 钩子事件名: 左/右Ctrl(不同键盘布局/远程桌面下命名可能差异,两者都认)
+_CTRL_KEY_NAMES = ("Lcontrol", "Rcontrol")
 
 
 class EventCore(IEventCore):
@@ -25,13 +31,17 @@ class EventCore(IEventCore):
         self.domain = None
 
     def __mouse_left_down__(self, event):
-        if self.__control_down:
+        # 鼠标按下瞬间查询真实Ctrl状态(左/右都认),不单纯依赖KeyDown事件追踪——
+        # 修复: 1)右Ctrl按下时事件名是Rcontrol,原逻辑只认Lcontrol导致点击穿透到目标应用;
+        #       2)捕获开始前Ctrl已按住时钩子收不到KeyDown,追踪状态为False同样穿透
+        ctrl_down = self.__control_down or any(win32api.GetAsyncKeyState(vk) & 0x8000 for vk in _CTRL_VKS)
+        if ctrl_down:
             self.__control_left_down = True
             return False
         return True
 
     def __key_pressed__(self, event: KeyboardEvent):
-        if event.Key == "Lcontrol":
+        if event.Key in _CTRL_KEY_NAMES:
             self.__control_down = True
         elif event.Key == "F4":
             self.__f4_pressed = True
@@ -40,7 +50,7 @@ class EventCore(IEventCore):
     def __key_released__(self, event: KeyboardEvent):
         if event.Key == "Escape":
             self.__esc = True
-        if event.Key == "Lcontrol":
+        if event.Key in _CTRL_KEY_NAMES:
             self.__control_down = False
         return True
 
