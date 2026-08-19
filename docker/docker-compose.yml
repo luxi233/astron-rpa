@@ -80,7 +80,9 @@ services:
     env_file: *env_file
 
   redis:
-    image: bitnami/redis:latest
+    # bitnami/redis:latest 自2025-08目录政策变化后为hardened重构镜像(无redis用户,setup行为不兼容),
+    # 改用官方迁移仓库bitnamilegacy锁定7.2(=旧bitnami/redis:7.2,与compose中user:root+chown命令完全兼容)
+    image: bitnamilegacy/redis:7.2
     container_name: rpa-opensource-redis
     restart: always
     user: root
