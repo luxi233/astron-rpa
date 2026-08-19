@@ -6,7 +6,15 @@ from typing import Optional
 
 from astronverse.scheduler.logger import logger
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+
+# 注意: 不用 watchdog.observers.Observer 平台默认实现——
+# macOS 26 + watchdog 6.x 的 FSEvents 绑定实测不触发任何事件(import 正常但零回调),
+# 导致数据表格文件变更前端永远收不到 file_changed, 表格显示不刷新。
+# PollingObserver 跨平台行为一致且可靠: 单文件 0.5s 轮询 stat 开销可忽略,
+# 延迟被事件防抖(0.5s)自然吸收。
+from watchdog.observers.polling import PollingObserver
+
+_POLL_INTERVAL_SECONDS = 0.5
 
 
 class ExcelFileHandler(FileSystemEventHandler):
@@ -178,7 +186,7 @@ class FileWatcher:
         )
 
         # 创建并启动观察者
-        observer = Observer()
+        observer = PollingObserver(timeout=_POLL_INTERVAL_SECONDS)
         observer.schedule(handler, watch_dir, recursive=False)
         observer.start()
 
@@ -316,20 +324,36 @@ class AsyncFileWatcher:
             if time.time() < self._ignore_until:
                 return
 
-            # 取消之前的延迟任务
-            if self._pending_task and not self._pending_task.done():
-                self._pending_task.cancel()
+            def _schedule():
+                # 取消之前的延迟任务
+                if self._pending_task and not self._pending_task.done():
+                    self._pending_task.cancel()
 
-            # 创建新的延迟任务
-            event_data = {"type": "file_changed", "path": path}
-            self._pending_task = self._event_loop.create_task(_delayed_trigger(event_data))
+                # 创建新的延迟任务
+                event_data = {"type": "file_changed", "path": path}
+                self._pending_task = self._event_loop.create_task(_delayed_trigger(event_data))
+
+            # watchdog 回调运行在 Observer 线程, 必须用线程安全方式调度到事件循环:
+            # 直接跨线程 create_task 不会唤醒阻塞中的循环, 事件最多延迟一个心跳周期才被处理
+            try:
+                self._event_loop.call_soon_threadsafe(_schedule)
+            except RuntimeError:
+                pass  # 事件循环已关闭(SSE连接断开), 忽略
 
         def on_deleted(path: str):
             """文件删除回调 - 立即触发，不需要延迟"""
+
+            def _enqueue():
+                try:
+                    self._queue.put_nowait({"type": "file_deleted", "path": path})
+                except asyncio.QueueFull:
+                    logger.warning("Event queue is full, dropping delete event")
+
+            # 同 on_modified: watchdog 线程操作 asyncio.Queue 必须调度到事件循环线程
             try:
-                self._queue.put_nowait({"type": "file_deleted", "path": path})
-            except asyncio.QueueFull:
-                logger.warning("Event queue is full, dropping delete event")
+                self._event_loop.call_soon_threadsafe(_enqueue)
+            except RuntimeError:
+                pass  # 事件循环已关闭(SSE连接断开), 忽略
 
         # 获取文件所在目录
         watch_dir = os.path.dirname(self.file_path)
@@ -347,7 +371,7 @@ class AsyncFileWatcher:
         )
 
         # 创建并启动观察者
-        self._observer = Observer()
+        self._observer = PollingObserver(timeout=_POLL_INTERVAL_SECONDS)
         self._observer.schedule(self._handler, watch_dir, recursive=False)
         self._observer.start()
 

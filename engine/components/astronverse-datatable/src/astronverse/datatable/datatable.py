@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from functools import wraps
@@ -86,34 +87,58 @@ except Exception as e:
 
 # 保存防抖: 写原子高频调用时(循环写行)合并落盘, 避免每次写都全量序列化工作簿;
 # 内存 wrapper 始终是最新的(读原子不受影响), 仅磁盘持久化被合并
+# 注意: pending 必须由定时器兜底落盘, 不能只等"下一次写或进程退出"——
+# 若清空表格后流程立即结束, 落盘被推迟到 atexit(进程退出), 此时前端 SSE 监听已关闭,
+# file_changed 事件丢失, 表格显示不刷新(内存已清空但界面残留旧数据)
 _SAVE_DEBOUNCE_SECONDS = 0.5
-_save_state = {"last_save": 0.0, "pending": False}
+_save_state = {"last_save": 0.0, "pending": False, "timer": None}
+_save_lock = threading.Lock()
+
+
+def _cancel_save_timer():
+    """取消待触发的兜底落盘定时器(调用方需持有 _save_lock)"""
+    timer = _save_state["timer"]
+    if timer is not None:
+        _save_state["timer"] = None
+        timer.cancel()
 
 
 def flush_save():
-    """立即落盘待保存的变更(进程退出前 atexit 兜底调用, 测试/外部亦可显式调用)"""
-    if _save_state["pending"]:
-        PyxlWrapper.save(path=_xlsx_file_path)
-        _save_state["pending"] = False
-    _save_state["last_save"] = time.time()
+    """立即落盘待保存的变更(定时器兜底/进程退出前 atexit/测试/外部均可显式调用)"""
+    with _save_lock:
+        _cancel_save_timer()
+        if _save_state["pending"]:
+            PyxlWrapper.save(path=_xlsx_file_path)
+            _save_state["pending"] = False
+        _save_state["last_save"] = time.time()
 
 
 atexit.register(flush_save)
 
 
 def auto_save(func):
-    """自动保存装饰器(带防抖: 距上次落盘不足0.5s的写操作合并, 由下次写或退出时落盘)"""
+    """自动保存装饰器(带防抖: 距上次落盘不足0.5s的写操作合并, 防抖窗口结束后由定时器自动落盘)"""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)  # type: ignore , 先执行写入操作
-        if time.time() - _save_state["last_save"] >= _SAVE_DEBOUNCE_SECONDS:
-            # 距上次落盘超过防抖窗口: 本次写直接落盘(刚执行过写入, 不能复用pending判断)
-            PyxlWrapper.save(path=_xlsx_file_path)
-            _save_state["pending"] = False
-            _save_state["last_save"] = time.time()
-        else:
-            _save_state["pending"] = True
+        with _save_lock:
+            # 写内存与落盘互斥(openpyxl 非线程安全, 防止定时器落盘与写操作并发)
+            result = func(*args, **kwargs)  # type: ignore , 先执行写入操作
+            now = time.time()
+            if now - _save_state["last_save"] >= _SAVE_DEBOUNCE_SECONDS:
+                # 距上次落盘超过防抖窗口: 本次写直接落盘(刚执行过写入, 不能复用pending判断)
+                PyxlWrapper.save(path=_xlsx_file_path)
+                _save_state["pending"] = False
+                _save_state["last_save"] = now
+            else:
+                # 防抖窗口内: 标记pending, 并起定时器在窗口结束后自动落盘
+                _save_state["pending"] = True
+                if _save_state["timer"] is None:
+                    delay = max(0.0, _SAVE_DEBOUNCE_SECONDS - (now - _save_state["last_save"]))
+                    timer = threading.Timer(delay, flush_save)
+                    timer.daemon = True
+                    timer.start()
+                    _save_state["timer"] = timer
         return result
 
     return wrapper

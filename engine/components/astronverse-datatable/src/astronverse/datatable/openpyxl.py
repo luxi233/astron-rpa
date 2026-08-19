@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import uuid
 
 import openpyxl
 from astronverse.datatable.error import *
@@ -40,6 +41,18 @@ class OpenpyxlWrapper:
         self._max_row_cache = None
         self._max_col_cache = None
 
+    def _ensure_bounds_cached(self):
+        """确保边界缓存已按当前 sheet 真实边界初始化。
+
+        写操作对缓存做增量 max 更新的前提是缓存已初始化:
+        若首次写直接以 None 当 0 参与 max, 会把文件已有数据的真实边界覆盖成写入的小行号,
+        导致清空数据表格(get_max_row 只拿到部分行)等操作残留旧数据。
+        """
+        if self._max_row_cache is None:
+            self._max_row_cache = self.sheet.max_row
+        if self._max_col_cache is None:
+            self._max_col_cache = self.sheet.max_column
+
     def invalidate_bounds(self):
         """使 max_row/max_column 缓存失效(结构变更或外部直接改写 sheet 后调用)"""
         self._max_row_cache = None
@@ -47,18 +60,36 @@ class OpenpyxlWrapper:
 
     def save(self, path: str = None):
         """
-        Saves the workbook.
+        Saves the workbook(原子写: 先写同目录临时文件再替换, 保证读方永远看到完整文件)。
+
+        非原子直接覆盖写时, scheduler/前端并发 load_workbook 会读到写一半的损坏
+        zip(BadZipFile), 导致数据表格显示不稳定(拉取失败回退旧数据)。
 
         Args:
             path (str, optional): The path to save the file. If None, overwrites the original file.
         """
         save_path = path or self.file_path
+        # 临时文件放同目录(保证与目标同一文件系统, rename 原子); 带 pid+uuid 防多进程写冲突
+        tmp_path = "{}.{}.{}.tmp".format(save_path, os.getpid(), uuid.uuid4().hex[:8])
         try:
-            self.workbook.save(save_path)
+            self.workbook.save(tmp_path)
+            # os.replace 跨平台原子替换(目标存在也覆盖), 读方要么看到旧完整文件要么看到新完整文件
+            os.replace(tmp_path, save_path)
         except PermissionError:
+            self._cleanup_tmp(tmp_path)
             raise DATAFRAME_EXPECTION(WRITE_PERMISSION_DENIED_ERROR_FORMAT.format(save_path), "写入Excel文件失败")
         except Exception as e:
+            self._cleanup_tmp(tmp_path)
             raise DATAFRAME_EXPECTION(WRITE_DATA_ERROR_FORMAT.format(save_path, str(e)), "写入Excel文件失败")
+
+    @staticmethod
+    def _cleanup_tmp(tmp_path: str):
+        """清理写失败的临时文件(失败可容忍)"""
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
 
     def close(self):
         """
@@ -269,8 +300,9 @@ class OpenpyxlWrapper:
             value: The value to write.
         """
         self.sheet.cell(row=row, column=col, value=value)
-        self._max_row_cache = max(self._max_row_cache or 0, row)
-        self._max_col_cache = max(self._max_col_cache or 0, col)
+        self._ensure_bounds_cached()
+        self._max_row_cache = max(self._max_row_cache, row)
+        self._max_col_cache = max(self._max_col_cache, col)
 
     def write_row(self, row_index: int, data: list, start_col: int = 1):
         """
@@ -283,8 +315,9 @@ class OpenpyxlWrapper:
         """
         for i, value in enumerate(data):
             self.sheet.cell(row=row_index, column=start_col + i, value=value)
-        self._max_row_cache = max(self._max_row_cache or 0, row_index)
-        self._max_col_cache = max(self._max_col_cache or 0, start_col + len(data) - 1)
+        self._ensure_bounds_cached()
+        self._max_row_cache = max(self._max_row_cache, row_index)
+        self._max_col_cache = max(self._max_col_cache, start_col + len(data) - 1)
 
     def append_row(self, data: list):
         """
@@ -295,8 +328,9 @@ class OpenpyxlWrapper:
         """
         self.sheet.append(data)
         if data:
-            self._max_row_cache = (self._max_row_cache or 0) + 1
-            self._max_col_cache = max(self._max_col_cache or 0, len(data))
+            self._ensure_bounds_cached()
+            self._max_row_cache = self._max_row_cache + 1
+            self._max_col_cache = max(self._max_col_cache, len(data))
 
     def write_column(self, col_name: str = None, col_index: int = None, data: list = None, start_row: int = 1):
         """
@@ -318,8 +352,9 @@ class OpenpyxlWrapper:
 
         for i, value in enumerate(data):
             self.sheet.cell(row=start_row + i, column=col, value=value)
-        self._max_row_cache = max(self._max_row_cache or 0, start_row + len(data) - 1)
-        self._max_col_cache = max(self._max_col_cache or 0, col)
+        self._ensure_bounds_cached()
+        self._max_row_cache = max(self._max_row_cache, start_row + len(data) - 1)
+        self._max_col_cache = max(self._max_col_cache, col)
 
     def write_range(self, range_str: str, data: list):
         """
@@ -336,8 +371,9 @@ class OpenpyxlWrapper:
         for r_idx, row_data in enumerate(data):
             for c_idx, cell_value in enumerate(row_data):
                 self.sheet.cell(row=min_row + r_idx, column=min_col + c_idx, value=cell_value)
-        self._max_row_cache = max(self._max_row_cache or 0, min_row + len(data) - 1)
-        self._max_col_cache = max(self._max_col_cache or 0, min_col + (max((len(r) for r in data), default=1)) - 1)
+        self._ensure_bounds_cached()
+        self._max_row_cache = max(self._max_row_cache, min_row + len(data) - 1)
+        self._max_col_cache = max(self._max_col_cache, min_col + (max((len(r) for r in data), default=1)) - 1)
 
     def fill_data_table_by_import_file(
         self,
@@ -419,7 +455,8 @@ class OpenpyxlWrapper:
             amount (int): The number of rows to insert.
         """
         self.sheet.insert_rows(idx=idx, amount=amount)
-        self._max_row_cache = (self._max_row_cache or 0) + amount
+        self._ensure_bounds_cached()
+        self._max_row_cache = self._max_row_cache + amount
 
     def insert_cols(self, idx: int, amount: int = 1):
         """
@@ -430,7 +467,8 @@ class OpenpyxlWrapper:
             amount (int): The number of columns to insert.
         """
         self.sheet.insert_cols(idx=idx, amount=amount)
-        self._max_col_cache = (self._max_col_cache or 0) + amount
+        self._ensure_bounds_cached()
+        self._max_col_cache = self._max_col_cache + amount
 
     def copy_paste_range(self, source_range_str: str, dest_start_cell_str: str):
         """
@@ -452,8 +490,9 @@ class OpenpyxlWrapper:
             for j, cell in enumerate(row):
                 self.sheet.cell(row=dest_start_row + i, column=dest_start_col + j, value=cell.value)
                 max_src_row, max_src_col = i + 1, j + 1
-        self._max_row_cache = max(self._max_row_cache or 0, dest_start_row + max_src_row - 1)
-        self._max_col_cache = max(self._max_col_cache or 0, dest_start_col + max_src_col - 1)
+        self._ensure_bounds_cached()
+        self._max_row_cache = max(self._max_row_cache, dest_start_row + max_src_row - 1)
+        self._max_col_cache = max(self._max_col_cache, dest_start_col + max_src_col - 1)
 
     def delete_cell(self, row: int, col: int, move_direction: str = "up"):
         """

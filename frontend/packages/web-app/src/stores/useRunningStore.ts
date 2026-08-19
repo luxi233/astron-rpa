@@ -55,7 +55,12 @@ export const useRunningStore = defineStore('running', () => {
     activeProgressIds.forEach(id => notification.close(id))
     activeProgressIds = []
     RpaExecutor?.destroy()
-    dataTableListenController?.abort()
+    if (dataTableListenController) {
+      // 流程结束时兜底拉取一次最终数据: 清空数据表格等写操作落盘后的 file_changed
+      // 事件可能晚于流程结束(执行器防抖落盘), SSE 监听关闭前主动同步, 避免表格残留旧数据
+      fetchDataTable().catch(() => {})
+      dataTableListenController.abort()
+    }
     closeDataTableListener()
   }
 

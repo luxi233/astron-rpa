@@ -1,5 +1,7 @@
 import os
 import threading
+import time
+import uuid
 from collections.abc import Generator
 from typing import Any
 
@@ -8,6 +10,42 @@ from openpyxl import Workbook, load_workbook
 
 # 单元格更新合并防抖窗口: 快速连续编辑(如前端逐格输入)合并为一次落盘
 _UPDATE_DEBOUNCE_SECONDS = 0.2
+
+# 并发读写容错: 执行器进程原子替换文件的瞬间(或异常时序下)读到瞬时不可用文件时,
+# 短间隔重试, 避免前端拉取(fetchDataTable)失败导致表格显示旧数据
+_READ_RETRY_TIMES = 3
+_READ_RETRY_INTERVAL = 0.1
+
+
+def _atomic_save(workbook, file_path: str) -> None:
+    """原子保存工作簿: 先写同目录临时文件再 os.replace 替换。
+
+    非原子直接覆盖写时, 执行器/前端并发 load_workbook 会读到写一半的损坏
+    zip(BadZipFile), 导致数据表格显示不稳定。临时文件带 pid+uuid 防多进程冲突。
+    """
+    tmp_path = "{}.{}.{}.tmp".format(file_path, os.getpid(), uuid.uuid4().hex[:8])
+    try:
+        workbook.save(tmp_path)
+        os.replace(tmp_path, file_path)
+    except Exception:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def _load_workbook_with_retry(file_path: str, **kwargs):
+    """带短重试的 load_workbook: 读到瞬时不可用文件(极端时序/平台差异)时重试,
+    重试耗尽仍失败才抛出。配合写侧原子替换, 正常情况下首次即成功。"""
+    for attempt in range(_READ_RETRY_TIMES):
+        try:
+            return load_workbook(file_path, **kwargs)
+        except Exception:
+            if attempt == _READ_RETRY_TIMES - 1:
+                raise
+            time.sleep(_READ_RETRY_INTERVAL)
 
 
 class ExcelService:
@@ -73,7 +111,7 @@ class ExcelService:
 
         # 创建空白工作簿
         wb = Workbook()
-        wb.save(file_path)
+        _atomic_save(wb, file_path)
         wb.close()
 
         logger.info(f"Created Excel file: {file_path}")
@@ -155,7 +193,7 @@ class ExcelService:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Excel file not found: {file_path}")
 
-        wb = load_workbook(file_path, read_only=True, data_only=False)
+        wb = _load_workbook_with_retry(file_path, read_only=True, data_only=False)
 
         try:
             result = {
@@ -245,7 +283,7 @@ class ExcelService:
         elif wb.sheetnames:
             wb.active = wb[wb.sheetnames[0]]
 
-        wb.save(file_path)
+        _atomic_save(wb, file_path)
         wb.close()
 
         logger.info(f"Saved Excel file: {file_path}")
@@ -328,7 +366,7 @@ class ExcelService:
                 else:
                     ws.cell(row=row, column=col, value=value)
 
-            wb.save(file_path)
+            _atomic_save(wb, file_path)
             logger.info(f"Updated {len(updates)} cells in: {file_path}")
 
         finally:
