@@ -106,7 +106,14 @@ def auto_default_strategy(
     if preliminary_element is None and uia_element is not None:
         return uia_element
     if uia_element is None and preliminary_element is None:
-        return None
+        # 兜底尝试MSAA: 老旧软件(MFC/VB/Delphi等非标准控件)UIA与JAB往往都失败,
+        # 但多数老控件仍暴露IAccessible, MSAA是最后的捕获机会
+        try:
+            msaa_element = msaa_default_strategy(strategy_svc)
+        except Exception as e:
+            logger.error(f"auto_default_strategy msaa fallback error: {e} {traceback.extract_stack()}")
+            msaa_element = None
+        return msaa_element
     # 优先使用面积小的，如果相同使用preliminary_element
     logger.info(
         "pk: uia %s preliminary %s",

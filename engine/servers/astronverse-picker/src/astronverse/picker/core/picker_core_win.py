@@ -107,8 +107,11 @@ class PickerCore(IPickerCore):
         # 环境收集
         start_control = UIAOperate.get_windows_by_point(self.last_point)
         if not start_control:
+            # 空error_message = 会话保活(不终止拾取): 老旧软件/特殊窗口结构下
+            # 起始控件可能暂时拿不到, 若以非空错误返回会立即卸载键鼠钩子结束会话,
+            # 用户随后的Ctrl+左键会真实穿透点击到目标应用。此处静默失败等待下一轮重试
             logger.info("拾取预处理 start_control 为空")
-            return DrawResult(success=False, error_message="未找到起始控件")
+            return DrawResult(success=False, error_message="")
 
         process_id = UIAOperate.get_process_id(start_control)
 

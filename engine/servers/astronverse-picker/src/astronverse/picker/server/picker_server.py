@@ -99,6 +99,9 @@ class PickerServer:
                             sign[PickerSign.START.value],
                         )
                         self.end_time = time.time()
+                        # 节流: 绘图轮询间留出空档, 避免失败路径(如老软件UIA持续失败)下
+                        # 无间歇空转独占GIL, 导致键鼠钩子线程响应延迟
+                        time.sleep(0.03)
 
                         # 检查绘图结果
                         if not draw_result.success and draw_result.error_message:
