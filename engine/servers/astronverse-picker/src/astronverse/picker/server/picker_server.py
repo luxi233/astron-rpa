@@ -58,6 +58,9 @@ class PickerServer:
                     if is_start:
                         logger.info("拾取开始")
                     event_core = self.service_context.event_core
+                    # 轮询兜底: UIPI(管理员目标窗口)隔离钩子时, 钩子回调不触发,
+                    # 用GetAsyncKeyState轮询感知Esc/Ctrl+左键(详见poll_fallback注释)
+                    event_core.poll_fallback()
                     if event_core.is_cancel() or event_core.is_focus():
                         # 退出
 

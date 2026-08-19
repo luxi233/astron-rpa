@@ -1,3 +1,4 @@
+import ctypes
 import threading
 import time
 from typing import Optional
@@ -16,6 +17,40 @@ from astronverse.picker import (
 from astronverse.picker.engines.uia_picker import UIAElement, UIAOperate
 from astronverse.picker.logger import logger
 from astronverse.picker.utils.browser import BrowserControlFinder
+
+# UIPI检测: 目标进程是否管理员(elevated)运行, 带pid缓存避免每轮重复系统调用
+_elevated_pid_cache: dict = {}
+
+
+def _is_process_elevated(process_id: int) -> bool:
+    if process_id in _elevated_pid_cache:
+        return _elevated_pid_cache[process_id]
+    elevated = False
+    try:
+        import win32api
+        import win32con
+        import win32security
+
+        h_process = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, process_id)
+        try:
+            h_token = win32security.OpenProcessToken(h_process, win32con.TOKEN_QUERY)
+            try:
+                # TokenElevation=20: 返回(TokenElevation结构,) 非零即elevated
+                info = win32security.GetTokenInformation(h_token, 20)
+                elevated = bool(info[0]) if isinstance(info, (tuple, list)) and len(info) else bool(info)
+            finally:
+                h_token.Close()
+        finally:
+            h_process.Close()
+    except Exception:
+        # 查询失败(权限不足/进程已退出)按非elevated处理, 不影响拾取主流程
+        pass
+    _elevated_pid_cache[process_id] = elevated
+    return elevated
+
+
+def _is_self_elevated() -> bool:
+    return ctypes.windll.shell32.IsUserAnAdmin() != 0
 
 
 class PickerCore(IPickerCore):
@@ -115,6 +150,14 @@ class PickerCore(IPickerCore):
 
         process_id = UIAOperate.get_process_id(start_control)
 
+        # UIPI检测: 目标窗口管理员运行且自身普通权限时, 系统隔离低级钩子——
+        # Ctrl+左键会真实穿透点击目标应用(Esc/Ctrl+左键由轮询兜底感知), 画框标签提示用户根因
+        if not _is_self_elevated() and _is_process_elevated(process_id):
+            uipi_warning = "管理员窗口·点击会穿透(建议以管理员运行设计器)"
+            self.last_uipi_warning = uipi_warning
+        else:
+            self.last_uipi_warning = ""
+
         # 上下文生成
         if not svc.strategy:
             # 等待策略加载
@@ -154,6 +197,9 @@ class PickerCore(IPickerCore):
             self.last_element = res
         current_rect = self.last_element.rect()
         current_tag = self.last_element.tag()
+        # 附加UIPI警示到画框标签(仅管理员目标窗口场景非空)
+        if getattr(self, "last_uipi_warning", ""):
+            current_tag = "{} [{}]".format(current_tag, self.last_uipi_warning)
 
         # 确定实际使用的 domain
         actual_domain = self._get_element_domain(self.last_element)
