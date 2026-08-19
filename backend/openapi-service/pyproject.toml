@@ -29,7 +29,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-rpawebsocket = {path = "./app/utils/rpawebsocket-1.0.6-py3-none-any.whl"}
+rpawebsocket = {path = "./app/utils/rpawebsocket-1.0.7-py3-none-any.whl"}
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
