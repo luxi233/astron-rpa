@@ -15,7 +15,7 @@ dependencies = [
     "redis[hiredis]>=6.1.0",
     "sqlalchemy>=2.0.41",
     "pytz",
-    "mcp",
+    "mcp==1.10.1",
     "rpawebsocket"
 ]
 
