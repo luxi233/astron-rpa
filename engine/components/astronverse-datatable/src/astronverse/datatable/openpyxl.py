@@ -414,13 +414,7 @@ class OpenpyxlWrapper:
                 self.write_row(row_index=start_row, data=row_data)
                 start_row += 1
         if ext in [".xlsx", ".xls"]:
-            wb = openpyxl.load_workbook(import_file_path)
-            wb_sheet = wb[sheet_name] if sheet_name else wb.active
-            max_row = wb_sheet.max_row
-            max_col = wb_sheet.max_column
-            data = [
-                [wb_sheet.cell(row=r, column=c).value for c in range(1, max_col + 1)] for r in range(1, max_row + 1)
-            ]
+            data = self._read_excel_rows(import_file_path, sheet_name)
             start_row = 1
             if not include_header:
                 data = data[1:]
@@ -430,8 +424,71 @@ class OpenpyxlWrapper:
             for r_idx, row_data in enumerate(data):
                 self.write_row(row_index=start_row, data=row_data)
                 start_row += 1
-            wb.close()
         return header_row
+
+    @staticmethod
+    def _read_excel_rows(file_path: str, sheet_name: str = None) -> list:
+        """读取 Excel 文件全部行数据。
+
+        .xlsx 走 openpyxl; .xls(旧版 BIFF 格式) openpyxl 不支持, 走 xlrd 并按单元格
+        类型转换(数值整型还原为 int, 日期转为 datetime), 保证与 .xlsx 导入行为一致。
+        工作表不存在时抛出友好错误(而非原生 KeyError/XLRDError)。
+        """
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext == ".xls":
+            import xlrd
+
+            book = xlrd.open_workbook(file_path)
+            try:
+                if sheet_name:
+                    if sheet_name not in book.sheet_names():
+                        raise DATAFRAME_EXPECTION(
+                            PARAMS_ERROR.format(f"工作表不存在: {sheet_name}"),
+                            f"工作表不存在: {sheet_name}",
+                        )
+                    sh = book.sheet_by_name(sheet_name)
+                else:
+                    sh = book.sheet_by_index(0)
+                rows = []
+                for r in range(sh.nrows):
+                    row_data = []
+                    for c in range(sh.ncols):
+                        cell = sh.cell(r, c)
+                        if cell.ctype == xlrd.XL_CELL_TEXT:
+                            row_data.append(cell.value)
+                        elif cell.ctype == xlrd.XL_CELL_NUMBER:
+                            # xlrd 数值统一返回 float, 整数值还原为 int(与xlsx导入一致)
+                            v = cell.value
+                            row_data.append(int(v) if v == int(v) else v)
+                        elif cell.ctype == xlrd.XL_CELL_BOOLEAN:
+                            row_data.append(bool(cell.value))
+                        elif cell.ctype == xlrd.XL_CELL_DATE:
+                            row_data.append(xlrd.xldate_as_datetime(cell.value, book.datemode))
+                        else:
+                            # XL_CELL_EMPTY / XL_CELL_BLANK / XL_CELL_ERROR
+                            row_data.append(None)
+                    rows.append(row_data)
+                return rows
+            finally:
+                book.release_resources()
+        wb = openpyxl.load_workbook(file_path)
+        try:
+            if sheet_name:
+                if sheet_name not in wb.sheetnames:
+                    raise DATAFRAME_EXPECTION(
+                        PARAMS_ERROR.format(f"工作表不存在: {sheet_name}"),
+                        f"工作表不存在: {sheet_name}",
+                    )
+                wb_sheet = wb[sheet_name]
+            else:
+                wb_sheet = wb.active
+            max_row = wb_sheet.max_row
+            max_col = wb_sheet.max_column
+            return [
+                [wb_sheet.cell(row=r, column=c).value for c in range(1, max_col + 1)] for r in range(1, max_row + 1)
+            ]
+        finally:
+            wb.close()
 
     def insert_cells(self, row: int, col: int, amount: int = 1):
         """

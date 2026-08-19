@@ -272,7 +272,9 @@ def _decrypt_excel_to_temp_file(file_path: str, password: str) -> str:
             PARAMS_ERROR.format("密码错误或文件未加密"),
             "密码错误或文件未加密",
         )
-    fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
+    # 临时文件保留原扩展名: .xls 解密后仍是 BIFF 格式, 若写成 .xlsx 后缀
+    # 后续按扩展名分发会走 openpyxl 导致解析失败
+    fd, temp_path = tempfile.mkstemp(suffix=os.path.splitext(file_path)[1].lower() or ".xlsx")
     try:
         with os.fdopen(fd, "wb") as tmp_file:
             tmp_file.write(data.getvalue())
