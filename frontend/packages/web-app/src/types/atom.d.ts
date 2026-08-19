@@ -107,6 +107,7 @@ declare namespace RPA {
       | 'Pick'
       | 'WebPick'
       | 'WinPick'
+      | 'DeepUIAPick'
       | 'Browser'
       | 'DocxObj'
       | 'ExcelObj'

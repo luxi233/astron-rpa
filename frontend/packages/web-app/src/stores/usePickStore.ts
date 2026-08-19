@@ -156,8 +156,9 @@ export const usePickStore = defineStore('pickStore', () => {
         }
       }
       if (key === 'error') {
+        // 引擎侧自绘控件等场景返回带建议的中文错误文案, 直接透传展示(6s时长便于阅读建议)
         const errorMsg = data || err_msg || t('rpaPickerUnavailable')
-        message.error(errorMsg)
+        message.error(errorMsg, 6)
         finishPick()
       }
       if (key === 'cancel') {

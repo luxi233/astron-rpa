@@ -134,6 +134,11 @@ class PickerCore(IPickerCore):
         if pick_mode:
             if pick_mode == "WebPick":
                 domain = PickerDomain.AUTO_WEB
+            elif pick_mode in ("DeepUIA", "DeepUIAPick"):
+                # UIA强制深度拾取: 跳过策略试探(JAB/MSAA/SAP), 直达UIA引擎——
+                # 对应影刀"深度模式", 用于标准捕获失效的复杂桌面软件
+                # (DeepUIAPick为前端原子参数类型名, 透传为pick_mode)
+                domain = PickerDomain.UIA
             else:
                 domain = PickerDomain.AUTO_DESK
         self.last_strategy_svc = svc.strategy.gen_svc(
@@ -242,6 +247,11 @@ class PickerCore(IPickerCore):
             with self.lock:
                 if self.last_element:
                     return self.last_element.path(svc, self.last_strategy_svc)
-                return {}
+            # 确认拾取时仍无有效元素(如自绘控件无控件树可捕获):
+            # 抛出带建议的错误冒泡到前端, 而非静默返回空dict
+            raise RuntimeError(
+                "未能捕获该位置元素, 该程序可能使用自绘控件(DirectUI/Qt/Flash等)无法暴露控件树。"
+                "建议: 1)使用窗口拾取整个窗体; 2)尝试UIA深度拾取; 3)使用CV图像拾取(图像定位)"
+            )
         else:
             raise NotImplementedError()

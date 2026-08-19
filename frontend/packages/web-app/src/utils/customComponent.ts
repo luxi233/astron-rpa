@@ -71,6 +71,13 @@ export const varTypeToFormTypeMap = {
       use: 'ELEMENT',
     }],
   },
+  // UIA深度拾取: 跳过策略试探直达UIA引擎(对应影刀"深度模式"), 用于标准捕获失效的复杂桌面软件
+  DeepUIAPick: {
+    type: 'PICK',
+    params: [{
+      use: 'ELEMENT',
+    }],
+  },
   IMGPick: {
     type: 'PICK',
     params: [{
