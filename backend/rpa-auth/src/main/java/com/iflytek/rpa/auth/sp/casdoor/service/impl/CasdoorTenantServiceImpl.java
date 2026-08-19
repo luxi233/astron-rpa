@@ -416,8 +416,10 @@ public class CasdoorTenantServiceImpl implements TenantService {
 
     @Override
     public AppResponse<Integer> updateTenantClassifyCompleted(List<String> ids) {
-        // Casdoor模式下暂不支持此功能，返回成功但更新数量为1
-        return AppResponse.success(1);
+        // Casdoor模式下租户分类标志不持久化，返回ids.size()与预热线断言(i == tenantIds.size())对齐，
+        // 防止≥2个非built-in组织时ClassificationDataPreheater抛异常导致rpa-auth crash loop；
+        // 重复插入已由预热线countByTenantId>0跳过守卫，幂等安全
+        return AppResponse.success(ids == null ? 0 : ids.size());
     }
 
     @Override
