@@ -16,6 +16,12 @@ _UPDATE_DEBOUNCE_SECONDS = 0.2
 _READ_RETRY_TIMES = 3
 _READ_RETRY_INTERVAL = 0.1
 
+# Windows 下 os.replace 要求目标文件无其他进程持有句柄(Python 的 open 不带 FILE_SHARE_DELETE):
+# 执行器写盘与前端重拉读/执行器侧写并发时 replace 可能报 PermissionError,
+# 短间隔重试穿透瞬时锁(总窗口 ~2s), 耗尽后抛出原始异常
+_REPLACE_RETRY_TIMES = 10
+_REPLACE_RETRY_INTERVAL = 0.2
+
 
 def _atomic_save(workbook, file_path: str) -> None:
     """原子保存工作簿: 先写同目录临时文件再 os.replace 替换。
@@ -26,7 +32,16 @@ def _atomic_save(workbook, file_path: str) -> None:
     tmp_path = "{}.{}.{}.tmp".format(file_path, os.getpid(), uuid.uuid4().hex[:8])
     try:
         workbook.save(tmp_path)
-        os.replace(tmp_path, file_path)
+        last_err = None
+        for _ in range(_REPLACE_RETRY_TIMES):
+            try:
+                os.replace(tmp_path, file_path)
+                break
+            except PermissionError as e:
+                last_err = e
+                time.sleep(_REPLACE_RETRY_INTERVAL)
+        else:
+            raise last_err
     except Exception:
         try:
             if os.path.exists(tmp_path):

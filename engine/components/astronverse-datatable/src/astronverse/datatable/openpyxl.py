@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import time
 import uuid
 
 import openpyxl
@@ -11,6 +12,13 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 
 class OpenpyxlWrapper:
+    # Windows 下 os.replace 要求目标文件无其他进程持有句柄(Python 的 open 不带 FILE_SHARE_DELETE):
+    # scheduler/前端并发 load_workbook(read_only) 的瞬时读句柄、杀毒软件扫描都会让 replace 报
+    # PermissionError; 短间隔重试穿透瞬时锁(总窗口 ~2s), 持久锁(用户用 Excel/WPS 打开)重试耗尽后
+    # 仍抛出友好错误提示
+    _REPLACE_RETRY_TIMES = 10
+    _REPLACE_RETRY_INTERVAL = 0.2
+
     def __init__(self, file_path: str, sheet_name=None):
         """
         Initializes the Excel wrapper.
@@ -73,8 +81,18 @@ class OpenpyxlWrapper:
         tmp_path = "{}.{}.{}.tmp".format(save_path, os.getpid(), uuid.uuid4().hex[:8])
         try:
             self.workbook.save(tmp_path)
-            # os.replace 跨平台原子替换(目标存在也覆盖), 读方要么看到旧完整文件要么看到新完整文件
-            os.replace(tmp_path, save_path)
+            # os.replace 跨平台原子替换(目标存在也覆盖), 读方要么看到旧完整文件要么看到新完整文件;
+            # 目标被并发读句柄瞬时占用(Windows 无共享删除权限)时短重试, 耗尽后抛 PermissionError 走友好提示
+            last_err = None
+            for _ in range(self._REPLACE_RETRY_TIMES):
+                try:
+                    os.replace(tmp_path, save_path)
+                    break
+                except PermissionError as e:
+                    last_err = e
+                    time.sleep(self._REPLACE_RETRY_INTERVAL)
+            else:
+                raise last_err
         except PermissionError:
             self._cleanup_tmp(tmp_path)
             raise DATAFRAME_EXPECTION(WRITE_PERMISSION_DENIED_ERROR_FORMAT.format(save_path), "写入Excel文件失败")

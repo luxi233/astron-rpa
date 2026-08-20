@@ -92,7 +92,10 @@ except Exception as e:
 # file_changed 事件丢失, 表格显示不刷新(内存已清空但界面残留旧数据)
 _SAVE_DEBOUNCE_SECONDS = 0.5
 _save_state = {"last_save": 0.0, "pending": False, "timer": None}
-_save_lock = threading.Lock()
+# RLock(可重入): paste_data 等自身带 @auto_save 的原子内部还会调用同样带 @auto_save 的
+# write_data, 非重入 Lock 会在同线程重复加锁时死锁(流程线程永久挂起);
+# 可重入不影响与定时器落盘线程的互斥语义
+_save_lock = threading.RLock()
 
 
 def _cancel_save_timer():
