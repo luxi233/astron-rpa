@@ -44,6 +44,60 @@ function createWindow(options: Electron.BrowserWindowConstructorOptions, label?:
   return win
 }
 
+/**
+ * 渲染进程崩溃自愈。
+ * 系统内存提交额度耗尽（物理内存 + 页面文件用光）时 Chromium 会杀掉渲染进程（OOM），
+ * 此时窗口壳还在但内容变成白屏且无法操作。这里监听崩溃/加载失败事件并自动重载恢复。
+ */
+export function enableCrashRecovery(win: BrowserWindow, reloadUrl: string) {
+  const MAX_RELOAD = 3
+  let reloadCount = 0
+
+  const reload = (reason: string) => {
+    if (win.isDestroyed())
+      return
+    if (reloadCount >= MAX_RELOAD) {
+      logger.error(`crash recovery: reload 超过上限(${MAX_RELOAD})，放弃重载`)
+      return
+    }
+    reloadCount += 1
+    logger.warn(`crash recovery: ${reason}，${1}s 后重载 ${reloadUrl}（第 ${reloadCount} 次）`)
+    setTimeout(() => {
+      if (win.isDestroyed())
+        return
+      win.loadURL(reloadUrl).then(() => electronInfo(win)).catch(err => logger.error('crash recovery reload failed:', err.toString()))
+    }, 1000)
+  }
+
+  // 重载成功后重置计数，避免长会话中累计耗尽自愈次数
+  win.webContents.on('did-finish-load', () => {
+    reloadCount = 0
+  })
+
+  win.webContents.on('render-process-gone', (_event, details) => {
+    logger.warn(`render-process-gone reason=${details.reason} exitCode=${details.exitCode}`)
+    if (details.reason === 'clean-exit')
+      return
+    // crashed / oom / killed / abnormal-exit 等均尝试自愈
+    reload(`渲染进程退出(${details.reason})`)
+  })
+
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _validatedURL, isMainFrame) => {
+    // 忽略子框架失败与导航中断（ERR_ABORTED = -3，页面跳转时必然触发）
+    if (!isMainFrame || errorCode === -3)
+      return
+    logger.warn(`did-fail-load errorCode=${errorCode} ${errorDescription}`)
+    reload(`页面加载失败(${errorCode})`)
+  })
+
+  win.webContents.on('unresponsive', () => {
+    logger.warn('renderer unresponsive')
+  })
+  win.webContents.on('responsive', () => {
+    logger.info('renderer responsive')
+  })
+}
+
 export function createMainWindow() {
   const mainWindowOptions: Electron.BrowserWindowConstructorOptions = {
     title: 'iflyrpa',
@@ -131,6 +185,7 @@ export function createSubWindow(options: CreateWindowOptions) {
   }
 
   const window = createWindow(subWindowOptions, options.label)
+  enableCrashRecovery(window, url)
   window.loadURL(url).then(() => electronInfo(window)).catch(() => logger.error('Failed to load URL'))
   window.on('ready-to-show', () => {
     if (options?.show !== false) {

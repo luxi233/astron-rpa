@@ -37,7 +37,8 @@ export function createSingleNode(node: ProcessNodeVM, astNode: ASTNode, nodeAbil
   nodeAbility.inputList?.forEach((item) => {
     if (item.level === 'advanced') {
       const findItem = node.advanced.find(n => n.key === item.key)
-      if (!findItem || !findItem.value) {
+      // 只有真正缺失(null/undefined)才回填默认值, false/0/'' 是用户保存的合法值, 不能用 falsy 判断
+      if (!findItem || findItem.value == null) {
         advanced.push({
           ...item,
           value: item.default,
@@ -49,7 +50,8 @@ export function createSingleNode(node: ProcessNodeVM, astNode: ASTNode, nodeAbil
     }
     else {
       const findItem = node.inputList.find(n => n.key === item.key)
-      if (!findItem || !findItem.value) {
+      // 同上: 布尔型参数(如删除数据表格内容的行/列移动勾选)保存为 false 时不能被默认值覆盖
+      if (!findItem || findItem.value == null) {
         inputForm.push({
           ...item,
           value: item.default,
@@ -68,7 +70,7 @@ export function createSingleNode(node: ProcessNodeVM, astNode: ASTNode, nodeAbil
   })
   nodeAbility.outputList?.forEach((item, idx) => {
     const findItem = node.outputList[idx]
-    if (!findItem || !findItem.value) {
+    if (!findItem || findItem.value == null) {
       outputForm.push({
         ...item,
         value: [{ type: VAR_IN_TYPE, value: '_' }],

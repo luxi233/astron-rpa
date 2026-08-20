@@ -252,12 +252,14 @@ export function updateFlowNodesComponent(componentId: string, defaultNode: Proce
     nodes.forEach((node, index) => {
       if (isComponentKey(node.key) && getComponentId(node.key) === componentId) {
         const oldFormItems = [...node.inputList, ...node.outputList]
+        // 用 ?? 而非 ||: 已保存的 false/0/'' 是合法值, 不能被组件默认值覆盖
+        const mergeValue = (item: any) => oldFormItems.find(i => i.key === item.key)?.value ?? item.value
         const newNode = {
           ...node,
           icon: defaultNode.icon,
           version: defaultNode.version,
-          inputList: defaultNode.inputList.map(item => ({ ...item, value: oldFormItems.find(i => i.key === item.key)?.value || item.value })),
-          outputList: defaultNode.outputList.map(item => ({ ...item, value: oldFormItems.find(i => i.key === item.key)?.value || item.value })),
+          inputList: defaultNode.inputList.map(item => ({ ...item, value: mergeValue(item) })),
+          outputList: defaultNode.outputList.map(item => ({ ...item, value: mergeValue(item) })),
         }
         updateParams.push({ node: newNode, index, process: process.resourceId })
       }

@@ -9,7 +9,7 @@ import { listenRender } from './event'
 import { checkPythonRpaProcess, closeSubProcess, startBackend } from './server'
 import { ensureAppiumServer, stopAppiumServer } from './appium'
 import { changeTray, createTray } from './tray'
-import { createSubWindow, createMainWindow as createWindow, electronInfo, getWindowFromLabel, getMainWindow, WindowStack } from './window'
+import { createSubWindow, createMainWindow as createWindow, electronInfo, enableCrashRecovery, getMainWindow, getWindowFromLabel, WindowStack } from './window'
 import { rendererPath, windowBaseUrl, extensionHost } from './path'
 import { getExtensionResourcePath } from './extension'
 
@@ -41,6 +41,7 @@ function createMainWindow() {
   const url = windowBaseUrl + 'boot.html'
   logger.info(`app load url: ${url}`)
 
+  enableCrashRecovery(mainWindow, url)
   mainWindow.loadURL(url).then(() => electronInfo(mainWindow)).catch(() => {
     logger.error('Failed to load URL')
     logger.info('Retry loading URL after 10 seconds...')
