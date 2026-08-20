@@ -5,7 +5,10 @@ mock pyodbc (paramiko式), 不连真库。运行: .venv/bin/python /tmp/smoke_p1
 import sys
 import types
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-database/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-database/src"))
 
 
 class FakeOutput:

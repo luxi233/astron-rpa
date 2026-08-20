@@ -53,9 +53,12 @@ with open(jsonl, "w", encoding="utf-8") as f:
     f.write(json.dumps({"event_time": now, "data": {"log_type": "ERROR", "msg_str": "某步骤失败"}}) + "\n")
     f.write("not-a-json-line\n")
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-system/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-actionlib/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-baseline/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-system/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-actionlib/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-baseline/src"))
 from astronverse.system.core import app_core
 
 log_file = app_core.get_run_log_file()

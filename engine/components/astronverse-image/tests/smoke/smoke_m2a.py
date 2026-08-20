@@ -5,7 +5,8 @@ import os
 import sys
 import tempfile
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-image/src")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-image/src"))
 
 from astronverse.baseline.error.error import BaseException  # noqa: E402
 from astronverse.image import BarcodeType, QrErrorCorrectionType  # noqa: E402

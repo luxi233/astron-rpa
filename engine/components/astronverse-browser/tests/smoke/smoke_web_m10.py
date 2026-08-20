@@ -76,7 +76,10 @@ import platform as _platform  # noqa: E402
 
 _platform.system = lambda: "Linux"
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-browser/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-browser/src"))
 
 from astronverse.browser.browser import Browser  # noqa: E402
 from astronverse.browser.browser_iframe import BrowserIframe  # noqa: E402

@@ -4,8 +4,9 @@ import os
 import sys
 import tempfile
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-network/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/shared/astronverse-actionlib/src")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-network/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/shared/astronverse-actionlib/src"))
 
 import astronverse.network.ssh_tunnel as st
 from astronverse.network import SshLoginMode

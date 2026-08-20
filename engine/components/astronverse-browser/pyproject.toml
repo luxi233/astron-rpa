@@ -7,12 +7,12 @@ requires-python = ">=3.13"
 dependencies = [
     "requests",
     "pandas",
+    "pillow",
     "dogtail; sys_platform == 'linux'",
     "astronverse-software",
     "astronverse-window",
     "astronverse-input",
     "astronverse-encrypt",
-    "pandas",
     "astronverse-actionlib",
     "astronverse-locator; sys_platform == 'win32'",
     "keyring",

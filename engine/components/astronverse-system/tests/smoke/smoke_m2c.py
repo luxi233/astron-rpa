@@ -4,7 +4,10 @@ macOS 上: 跨平台原子(IP/计算机信息)真实执行, Win专有原子验�
 
 import sys
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-system/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-system/src"))
 
 from astronverse.baseline.error.error import BaseException  # noqa: E402
 from astronverse.system.device import Device as D  # noqa: E402

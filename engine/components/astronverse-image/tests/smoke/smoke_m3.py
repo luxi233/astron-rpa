@@ -7,9 +7,10 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-image/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/shared/astronverse-actionlib/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/shared/astronverse-baseline/src")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-image/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/shared/astronverse-actionlib/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/shared/astronverse-baseline/src"))
 
 import numpy as np
 from PIL import Image

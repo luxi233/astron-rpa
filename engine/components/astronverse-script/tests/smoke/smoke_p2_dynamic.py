@@ -38,7 +38,8 @@ w(
 )
 
 sys.path.insert(0, ROOT)
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-script/src")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-script/src"))
 # 模拟工程包上下文(_get_auto_context 从 main 帧取 __package__)
 __package__ = "dynpkg"  # noqa: A001
 # stub: actionlib 依赖 report/i18n 等真实包已在 venv(editable), 直接导入

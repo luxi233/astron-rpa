@@ -45,7 +45,8 @@ class _StubFinder:
 
 
 sys.meta_path.insert(0, _StubFinder())
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-system/src")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-system/src"))
 
 passed = failed = 0
 

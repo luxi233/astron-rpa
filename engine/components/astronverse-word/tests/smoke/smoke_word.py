@@ -7,9 +7,12 @@ for name in ["pywpsrpc", "pywpsrpc.rpcwpsapi"]:
     m.__all__ = []
     sys.modules[name] = m
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-word/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/shared/astronverse-actionlib/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/shared/astronverse-baseline/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-word/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/shared/astronverse-actionlib/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/shared/astronverse-baseline/src"))
 
 from astronverse.word import CursorPointerType, CursorPositionType, ReplaceMethodType, ReplaceType
 from astronverse.word.core_unix import WordDocumentCore

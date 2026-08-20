@@ -3,7 +3,10 @@
 
 import sys
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-dataprocess/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-dataprocess/src"))
 
 from astronverse.dataprocess.string import StringProcess as S
 from astronverse.dataprocess import ChineseNumberType, PercentConvertType

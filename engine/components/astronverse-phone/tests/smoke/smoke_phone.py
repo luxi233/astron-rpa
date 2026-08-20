@@ -140,7 +140,10 @@ adb.adb = types.SimpleNamespace(device_list=lambda: [_Dev()])
 sys.modules["adbutils"] = adb
 
 # ---------- 执行测试 ----------
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-phone/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-phone/src"))
 
 passed, failed = [], []
 

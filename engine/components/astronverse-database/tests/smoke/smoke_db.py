@@ -1,8 +1,11 @@
 import sys
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-database/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-actionlib/src")
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-baseline/src")
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-database/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-actionlib/src"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-baseline/src"))
 
 from astronverse.database.database import Database
 

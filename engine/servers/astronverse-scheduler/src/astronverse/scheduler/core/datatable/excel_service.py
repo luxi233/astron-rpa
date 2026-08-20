@@ -70,6 +70,12 @@ class ExcelService:
     _pending_updates: dict[str, list[dict]] = {}
     _pending_lock = threading.Lock()
     _flush_timer: threading.Timer | None = None
+    # flush 重入防护: 读/写接口的 flush_pending 与防抖定时器回调 _flush_pending 可能并发,
+    # 两者都在锁外应用更新, 若无防护同一批更新可能被双取并发 apply(读-改-写交叉导致丢写)。
+    # 后到者等待进行中的 flush 完成后再处理(保证读接口"先落盘再读"的一致性语义)。
+    # Condition 复用 _pending_lock: 队列入队(update_cells)与出队(flush)必须同一把锁
+    _flush_cond = threading.Condition(_pending_lock)
+    _flushing = False
 
     def __init__(self, resource_dir: str):
         """
@@ -327,31 +333,48 @@ class ExcelService:
     @classmethod
     def flush_pending(cls) -> None:
         """立即落盘全部待保存的单元格更新(读/写/删文件前调用保证一致性)"""
-        with cls._pending_lock:
+        with cls._flush_cond:
+            while cls._flushing:
+                # 已有 flush 在进行, 等其完成后再检查队列(避免读到未落盘数据)
+                cls._flush_cond.wait()
+            cls._flushing = True
             items = list(cls._pending_updates.items())
             cls._pending_updates.clear()
             if cls._flush_timer is not None:
                 cls._flush_timer.cancel()
                 cls._flush_timer = None
-        for file_path, updates in items:
-            try:
-                cls._apply_updates(file_path, updates)
-            except Exception:
-                # 单个文件失败(如已被删除)不影响其他文件, 丢弃该批待更新
-                logger.exception(f"Flush pending cell updates failed: {file_path}")
+        try:
+            for file_path, updates in items:
+                try:
+                    cls._apply_updates(file_path, updates)
+                except Exception:
+                    # 单个文件失败(如已被删除)不影响其他文件, 丢弃该批待更新
+                    logger.exception(f"Flush pending cell updates failed: {file_path}")
+        finally:
+            with cls._flush_cond:
+                cls._flushing = False
+                cls._flush_cond.notify_all()
 
     @classmethod
     def _flush_pending(cls) -> None:
         """定时器回调: 取出并应用全部待更新(防抖静默期到达)"""
-        with cls._pending_lock:
+        with cls._flush_cond:
+            while cls._flushing:
+                cls._flush_cond.wait()
+            cls._flushing = True
             items = list(cls._pending_updates.items())
             cls._pending_updates.clear()
             cls._flush_timer = None
-        for file_path, updates in items:
-            try:
-                cls._apply_updates(file_path, updates)
-            except Exception:
-                logger.exception(f"Flush pending cell updates failed: {file_path}")
+        try:
+            for file_path, updates in items:
+                try:
+                    cls._apply_updates(file_path, updates)
+                except Exception:
+                    logger.exception(f"Flush pending cell updates failed: {file_path}")
+        finally:
+            with cls._flush_cond:
+                cls._flushing = False
+                cls._flush_cond.notify_all()
 
     @staticmethod
     def _apply_updates(file_path: str, updates: list[dict]) -> None:

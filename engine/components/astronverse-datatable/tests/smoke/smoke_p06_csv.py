@@ -5,7 +5,8 @@ import sys
 import os
 import tempfile
 
-sys.path.insert(0, "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-datatable/src")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "engine/components/astronverse-datatable/src"))
 
 from astronverse.datatable import datatable as dt_mod
 from astronverse.datatable.datatable import DataTable

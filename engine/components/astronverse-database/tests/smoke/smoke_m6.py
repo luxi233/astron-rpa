@@ -5,7 +5,8 @@ import os
 import sys
 import types
 
-COMP = "/Users/infinitelab/Desktop/astron-rpa/engine/components/astronverse-database"
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
+COMP = os.path.join(REPO_ROOT, "engine/components/astronverse-database")
 sys.path.insert(0, os.path.join(COMP, "src"))
 os.chdir(COMP)
 
