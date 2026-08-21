@@ -65,8 +65,14 @@ class Strategy:
 
         if strategy_func:
             try:
-                if strategy_svc.domain == PickerDomain.WEB:
-                    result = strategy_func(self.service_context, strategy_svc)  # 只传 2 个参数
+                # 各策略函数签名不一致, 按域分发参数, 避免 TypeError:
+                # - UIA/MSAA: 仅接受 strategy_svc (1 个参数)
+                # - WEB: 接受 service + strategy_svc (2 个参数)
+                # - AUTO/AUTO_DESK/AUTO_WEB: 接受 service + strategy + strategy_svc (3 个参数)
+                if strategy_svc.domain in (PickerDomain.UIA, PickerDomain.MSAA):
+                    result = strategy_func(strategy_svc)
+                elif strategy_svc.domain == PickerDomain.WEB:
+                    result = strategy_func(self.service_context, strategy_svc)
                 else:
                     result = strategy_func(self.service_context, self, strategy_svc)
                 if result is not None:

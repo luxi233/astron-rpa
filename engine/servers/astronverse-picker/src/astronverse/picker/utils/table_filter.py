@@ -190,9 +190,10 @@ class DataFilter:
                 try:
                     filter_df = self.data_table[eval(filter_condition)]
                     self.hightLightIndex_list[index] = list(filter_df["index"])
-                    filter_result = list(filter_df[index])
-                    self.data_table[index] = ""
-                    self.data_table[index].update(filter_result)
+                    # pandas>=2 Copy-on-Write: df[col].update() 属链式赋值, 无法回写原表;
+                    # 改为整列赋值: 命中行保留原值, 未命中行清空(与原实现语义一致)
+                    keep_mask = self.data_table.index.isin(filter_df.index)
+                    self.data_table[index] = list(self.data_table[index].where(keep_mask, ""))
                 except Exception as e:
                     logger.error(f"cell_filter: {str(e)}")
                     raise ValueError(f"暂不支持该筛选条件：{str(e)}")

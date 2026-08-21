@@ -55,6 +55,10 @@ def _match_single_scale(gray, tpl_gray, similarity: float):
 
     if gray.shape[0] < tpl_gray.shape[0] or gray.shape[1] < tpl_gray.shape[1]:
         return []
+    # 零方差模板(如纯色截图)在 TM_CCOEFF_NORMED 下分母为零, 全图返回退化分数 1.0,
+    # 会造成任意位置"完美命中"的假阳性; 无区分度的模板视为未命中(与歧义防护策略一致)
+    if float(tpl_gray.astype(np.float32).std()) < 1e-6:
+        return []
     result = cv2.matchTemplate(gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
     h, w = tpl_gray.shape[:2]
     candidates = []

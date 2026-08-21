@@ -83,7 +83,9 @@ class TestPathConvert:
     def test_相对与绝对路径互转(self, tmp_path):
         b, _, project = _make_bdb(tmp_path)
         assert b._to_abs_path("main.py") == os.path.join(project, "main.py")
-        assert b._to_abs_path("/x/y.py") == "/x/y.py"
+        # Windows 下 "/x/y.py" 缺盘符不算绝对路径, 用例需按平台构造
+        other = "C:/x/y.py" if os.name == "nt" else "/x/y.py"
+        assert b._to_abs_path(other) == other
         assert b._to_project_path(os.path.join(project, "main.py")) == "main.py"
 
 
