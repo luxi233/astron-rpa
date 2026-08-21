@@ -26,7 +26,9 @@ export function getSimilarElement(preElementInfo: ElementInfo, currentElementInf
     return false
   }
 
-  const pathDirs = generateSimilarPathDirs(preElementInfo.pathDirs, currentElementInfo.pathDirs)
+  // 增量折叠: 参照携带 similarSampleCount 即为已泛化结果, 本轮在其上继续求交集
+  const preGeneralized = preElementInfo.similarSampleCount !== undefined
+  const pathDirs = generateSimilarPathDirs(preElementInfo.pathDirs, currentElementInfo.pathDirs, preGeneralized)
   if (!pathDirs) {
     return false
   }
@@ -39,7 +41,8 @@ export function getSimilarElement(preElementInfo: ElementInfo, currentElementInf
     cssSelector = generateSimilarSelector(preElementInfo.cssSelector, currentElementInfo.cssSelector)
   }
 
-  const similarElementInfo = { ...preElementInfo, xpath, cssSelector, pathDirs }
+  // 样本计数递增: 旧数据缺省按 1(首次折叠后为 2)
+  const similarElementInfo = { ...preElementInfo, xpath, cssSelector, pathDirs, similarSampleCount: (preElementInfo.similarSampleCount ?? 1) + 1 }
   return similarElementInfo
 }
 
@@ -127,9 +130,10 @@ function generateSimilarSelector(preSelector: string, currentSelector: string) {
  *
  * @param prePathDirs - The path directories of the reference element.
  * @param currentPathDirs - The path directories of the element to compare against.
+ * @param preGeneralized - 参照是否已是增量折叠的泛化结果; 是则被剔除的层不再复活(单调)
  * @returns The generalized tail-aligned `ElementDirectory` array, or `null` if no common suffix.
  */
-function generateSimilarPathDirs(prePathDirs: Array<ElementDirectory>, currentPathDirs: Array<ElementDirectory>) {
+function generateSimilarPathDirs(prePathDirs: Array<ElementDirectory>, currentPathDirs: Array<ElementDirectory>, preGeneralized = false) {
   const suffixLen = commonSuffixLength(prePathDirs, currentPathDirs)
   if (suffixLen < 1) {
     return null
@@ -139,7 +143,8 @@ function generateSimilarPathDirs(prePathDirs: Array<ElementDirectory>, currentPa
   for (let i = tailDirs.length - 1; i >= 0; i--) {
     const prePathDir = tailDirs[i]
     const currentPathDir = currentTailDirs[i]
-    if (prePathDir.checked !== currentPathDir.checked) {
+    if (prePathDir.checked !== currentPathDir.checked && !preGeneralized) {
+      // 首轮保留原有复活逻辑; 已泛化参照保持 false, 避免后续样本复活已剔除的层
       prePathDir.checked = true
     }
     prePathDir.attrs.forEach((attr) => {

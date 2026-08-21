@@ -95,6 +95,7 @@ interface ElementInfo {
   iframePathDirs?: Array<ElementDirectory>
   iframeCssSelector?: string
   similarCount?: number
+  similarSampleCount?: number // 增量折叠累积样本数(≥2 表示已泛化参照)
   preData?: ElementInfo
   tag?: string
   text?: string

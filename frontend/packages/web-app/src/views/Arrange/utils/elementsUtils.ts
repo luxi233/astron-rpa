@@ -66,7 +66,7 @@ function elementDirectoryFormatV1Common(
 ) {
   if (!data)
     return []
-  const ignoreKeys = ['checked', 'tag_name', 'disable_keys']
+  const ignoreKeys = ['checked', 'tag_name', 'disable_keys', 'similar_parent']
   return data.map((item: DirectoryItem) => {
     const attrKeys = Object.keys(item).filter(key => !ignoreKeys.includes(key))
     return {
@@ -77,6 +77,8 @@ function elementDirectoryFormatV1Common(
       tag: item.tag_name,
       checked: item.checked !== false,
       value: item.tag_name,
+      // 相似元素共同祖先标记透传(增量折叠多轮泛化依赖), 不进属性表
+      ...(item.similar_parent ? { similar_parent: item.similar_parent } : {}),
       attrs: attrKeys.map((key, index) => {
         const attr = {
           _checkDisabled: false,
@@ -118,6 +120,10 @@ function elementDirectoryFormatV1RecoverCommon(data: any) {
         attrObj.disable_keys.push(attr.name)
       }
     })
+    // 相似元素共同祖先标记回传(存在才写), 供下一轮相似拾取增量泛化使用
+    if (item.similar_parent) {
+      attrObj.similar_parent = item.similar_parent
+    }
     return attrObj
   })
 }

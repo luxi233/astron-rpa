@@ -21,6 +21,9 @@ export const usePickStore = defineStore('pickStore', () => {
   const isDataPicking = ref(false) // 正在数据抓取
   const isTreeLoading = ref(false) // 控件树浏览器加载中
   const pickerType = ref('')
+  // 深度捕获实时控件树(I5): 捕获进行中主窗口收缩为右侧面板, 随鼠标推送增量树
+  const isDeepPicking = ref(false)
+  const liveTreeData = ref<any>(null)
 
   const variableStore = useVariableStore()
   const { t } = useTranslation()
@@ -48,10 +51,33 @@ export const usePickStore = defineStore('pickStore', () => {
     'WINDOW': 'WINDOW', // 窗口拾取
     'POINT': 'POINT', // 坐标点拾取
   }
+  // 深度捕获侧边栏形态: 主窗口不最小化, 收缩为屏幕右侧 320px 置顶面板承载实时树
+  const DEEP_SIDEBAR_WIDTH = 320
+  async function enterDeepSidebarMode() {
+    try {
+      const workArea: any = await windowManager.getScreenWorkArea()
+      const scale = await windowManager.scaleFactor()
+      const width = workArea?.width || window.screen.availWidth
+      const height = workArea?.height || window.screen.availHeight
+      // setWindowPosition 为物理像素, 需乘缩放系数; 宽度用物理像素保持面板实际 320dp
+      const physWidth = Math.round(DEEP_SIDEBAR_WIDTH * scale)
+      await windowManager.setWindowPosition((workArea?.x || 0) + (width - DEEP_SIDEBAR_WIDTH) * scale, (workArea?.y || 0) * scale)
+      await windowManager.setWindowSize({ width: physWidth, height: Math.round(height * scale) })
+      await windowManager.setWindowAlwaysOnTop(true)
+    }
+    catch {
+      // 收缩失败降级为最小化, 不阻断拾取
+      windowManager.minimizeWindow()
+    }
+  }
+
   // 拾取结束
   function finishPick() {
     isPicking.value = false
+    isDeepPicking.value = false
+    liveTreeData.value = null
     RpaPicker.destroy()
+    windowManager.setWindowAlwaysOnTop(false)
     windowManager.maximizeWindow(true)
   }
   // 校验结束
@@ -122,6 +148,10 @@ export const usePickStore = defineStore('pickStore', () => {
   const startPick = (type: string, element: any, callback: (params: { success: boolean, data: any }) => void, mode = '') => {
     type = type.toUpperCase()
     isPicking.value = true
+    // 深度捕获: 启用侧边实时树面板(引擎仅 DeepUIA 会话推送 pick_tree_update)
+    const isDeepMode = mode === 'DeepUIA'
+    if (isDeepMode)
+      isDeepPicking.value = true
     // 启动拾取
     RpaPicker.create(() => {
       const _pickType = pickTypeMap[type] || 'ELEMENT'
@@ -143,12 +173,23 @@ export const usePickStore = defineStore('pickStore', () => {
           sendParams.ext_data = ext_data
         }
         RpaPicker.send(sendParams)
-        windowManager.minimizeWindow()
+        if (isDeepMode)
+          enterDeepSidebarMode()
+        else
+          windowManager.minimizeWindow()
       }, 500)
     })
     // 绑定消息
     RpaPicker.bindMessage((res) => {
-      const { key, data, err_msg } = res || {} // key: 'success' | 'error' | 'ping'
+      const { key, data, err_msg } = res || {} // key: 'success' | 'error' | 'ping' | 'pick_tree_update'
+      // 深度捕获实时控件树增量推送: 仅更新面板数据, 不结束拾取
+      if (key === 'pick_tree_update') {
+        try {
+          liveTreeData.value = data ? JSON.parse(data) : null
+        }
+        catch {}
+        return
+      }
       if (key === 'success' && data) {
         finishPick()
         const dataObj = JSON.parse(data)
@@ -498,6 +539,8 @@ export const usePickStore = defineStore('pickStore', () => {
     isChecking,
     isDataPicking,
     isTreeLoading,
+    isDeepPicking,
+    liveTreeData,
     startMousePick,
     startPick,
     startCheck,

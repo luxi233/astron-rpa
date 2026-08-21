@@ -380,7 +380,8 @@ const Handlers = {
           activeTab = await Tabs.getTab(tabUrl)
         }
         try {
-          const isSameId = isSameIdStart(params.data.pathDirs, activeElement.pathDirs)
+          // 已泛化参照(增量折叠第 2 轮起)是宽松规则不再对应单一实例, 跳过重锚定
+          const isSameId = params.data.similarSampleCount !== undefined || isSameIdStart(params.data.pathDirs, activeElement.pathDirs)
           if (!isSameId) {
             const res = await Handlers.elementHandler().handleInContent({
               ...params,

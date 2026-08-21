@@ -59,6 +59,7 @@ const pickerType = ref('') // 拾取类型
 const validMode = ref(VALID_POSITION) // 校验模式: 位置/点击/输入/悬浮
 const similarButton = ref(false) // 是否可以拾取相似元素
 const similarCount = ref(0) // 相似元素数量
+const similarSampleCount = ref(0) // 增量折叠累积样本数(≥2 表示已多轮泛化)
 const formOption = ref({
   pickName: '', // 拾取元素名称
   editXPathType: VISUALIZATION, // xpath类型，可视化/自定义/ 单选
@@ -273,13 +274,15 @@ watch(
     if (newVal.elementData) {
       const eleData = JSON.parse(newVal.elementData)
       // console.log('eleData: ', eleData)
-      const { version, type, path, picker_type, similar_count } = eleData
+      const { version, type, path, picker_type, similar_count, similar_sample_count } = eleData
       // 当前元素名称
       formOption.value.pickName = newVal.name
       // 当前元素数据
       detailElementData.value = eleData
       // 拾取类型
       pickerType.value = picker_type
+      // 增量折叠累积样本数(仅相似元素展示)
+      similarSampleCount.value = picker_type === 'SIMILAR' ? (similar_sample_count || 0) : 0
       // 自定义编辑元素
       customData.value = elementCustomFormat(version, type, path)
       // 设置相似拾取按钮展示
@@ -453,6 +456,9 @@ watch(
               class="mr-2"
               style="color: #52c41a"
             />{{ $t('pickTips.foundSimilarCount', { count: similarCount }) }}</span>
+          </div>
+          <div v-if="similarSampleCount >= 2" class="mt-1">
+            <span class="similar-counts">{{ $t('similarSampleCount', { count: similarSampleCount }) }}</span>
           </div>
         </a-col>
         <a-col :span="13">

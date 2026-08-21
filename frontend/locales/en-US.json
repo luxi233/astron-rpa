@@ -1455,6 +1455,7 @@
   "shortcutKey": "Shortcut key",
   "signUp": "Sign Up",
   "similarElementsPickup": "Similar elements pickup",
+  "similarSampleCount": "{{count}} similar samples accumulated, keep capturing to generalize further",
   "smartComponent": {
     "assistantSubtitle": "Helps you quickly create RPA components",
     "assistantTitle": "Astron RPA Smart Component Assistant",
@@ -1705,6 +1706,9 @@
   "controlTreePick": "Pick this node",
   "controlTreePickInvalid": "Please select a control other than the desktop root first",
   "controlTreePickUnlocated": "Element built but locate verification failed, check node attributes before saving",
+  "deepCaptureLiveTree": "Deep Capture · Live Control Tree",
+  "deepCaptureLiveTreeTip": "Move the mouse to inspect the control under the cursor, click to capture, press Esc to cancel",
+  "deepCaptureLiveTreeWaiting": "Waiting for control info…",
   "batchValidate": "Batch validate",
   "batchValidateTip": "Check each element in the library can be located, run before publishing",
   "batchValidateStart": "Start validation",

@@ -111,6 +111,52 @@ describe('similar - getSimilarElement 相似判定与泛化', () => {
   })
 })
 
+describe('similar - 增量折叠(多样本链式泛化)', () => {
+  const mkLi = (index, text) => info([
+    dir('html'), dir('body'),
+    dir('ul', [{ name: 'class', value: 'list' }]),
+    dir('li', [{ name: 'index', value: index }, { name: 'innertext', value: text }]),
+    dir('a', [{ name: 'href', value: `/detail/${index}` }]),
+  ])
+
+  it('三轮链式: 样本计数递增且泛化结果可继续作为参照', () => {
+    const g1 = getSimilarElement(mkLi(1, '第一项'), mkLi(2, '第二项'))
+    expect(g1.similarSampleCount).toBe(2)
+    expect(g1.pathDirs.find(d => d.tag === 'li').attrs.find(a => a.name === 'index').checked).toBe(false)
+
+    const g2 = getSimilarElement(g1, mkLi(3, '第三项'))
+    expect(g2.similarSampleCount).toBe(3)
+    expect(g2.pathDirs.find(d => d.tag === 'li').attrs.find(a => a.name === 'index').checked).toBe(false)
+    // 公共 class 属性仍参与匹配
+    expect(g2.pathDirs.find(d => d.tag === 'ul').attrs.find(a => a.name === 'class').checked).toBe(true)
+  })
+
+  it('已取消勾选的属性不被后续同值样本复活', () => {
+    const g1 = getSimilarElement(mkLi(1, '第一项'), mkLi(2, '第二项'))
+    // 第三个样本 index/href 恰好与第一个样本同值 → 不得复活已泛化掉的匹配
+    const g2 = getSimilarElement(g1, mkLi(1, '第三项'))
+    const li = g2.pathDirs.find(d => d.tag === 'li')
+    expect(li.attrs.find(a => a.name === 'index').checked).toBe(false)
+    expect(g2.pathDirs.find(d => d.tag === 'a').attrs.find(a => a.name === 'href').checked).toBe(false)
+  })
+
+  it('已泛化参照被剔除的层不复活; 未泛化参照保持首轮复活行为', () => {
+    // 已泛化参照: ul 层在上一轮被剔除(checked=false)
+    const preGeneralized = info([
+      dir('html'), dir('body'),
+      dir('ul', [], false),
+      dir('li'),
+    ], { similarSampleCount: 2 })
+    const res = getSimilarElement(preGeneralized, info([dir('html'), dir('body'), dir('ul'), dir('li')]))
+    expect(res.pathDirs.find(d => d.tag === 'ul').checked).toBe(false)
+
+    // 未泛化参照(首轮): 保留原有复活逻辑
+    const preRaw = info([dir('html'), dir('body'), dir('ul', [], false), dir('li')])
+    const resRaw = getSimilarElement(preRaw, info([dir('html'), dir('body'), dir('ul'), dir('li')]))
+    expect(resRaw.pathDirs.find(d => d.tag === 'ul').checked).toBe(true)
+  })
+})
+
 describe('similar - isSameIdStart', () => {
   it('双方首层均无 id: 视为一致(返回 true)', () => {
     expect(isSameIdStart([dir('html')], [dir('html')])).toBe(true)

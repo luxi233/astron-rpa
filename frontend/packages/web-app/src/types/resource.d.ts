@@ -63,6 +63,7 @@ export interface DirectoryItem {
   attrs?: DirectoryAttrItem[]
   name?: string
   disable_keys?: string[]
+  similar_parent?: boolean // 相似元素共同祖先层标记(增量折叠泛化)
 }
 
 export interface VarDataType {
