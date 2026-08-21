@@ -11,6 +11,63 @@ from astronverse.picker.logger import logger
 from astronverse.picker.utils.browser import Browser
 from pydantic import BaseModel
 
+# 拾取校验(VALIDATE)高亮保持时长(秒), 原为写死 sleep(3)
+VALIDATE_HIGHLIGHT_HOLD_SECONDS = 3.0
+
+# L2: 批量校验并发度(定位/截图/CV 匹配逐项耗时秒级, 并行压缩总时长)
+BATCH_VALIDATE_MAX_WORKERS = 4
+
+
+def _validate_one_element(manager: Any, item: dict) -> dict:
+    """单元素校验(L2: 线程内执行, report 为局部变量)。
+
+    审计修复(H1): 工作线程触碰 UIA/COM 前须初始化自己的公寓,
+    与 recorder_core_win/ws 服务线程的既有约定一致(非 Windows 无 pythoncom 则跳过)。
+    返回 {id, name, success, note|error[, cv_candidates]}, 语义与运行时定位一致。
+    """
+    pythoncom = None
+    try:
+        import pythoncom  # noqa: PLC0415
+
+        pythoncom.CoInitialize()
+    except ImportError:
+        pythoncom = None
+    try:
+        record: dict[str, Any] = {"id": item.get("id", ""), "name": item.get("name", "")}
+        try:
+            report: dict[str, Any] = {}
+            res = manager.locator(item.get("element"), report=report)
+            if res is None:
+                error_msg = "元素未找到"
+                if report.get("cv_ambiguous"):
+                    # CV 降级因多候选而中止: 回传候选供前端交互式消歧(I1), 也可重新拾取
+                    error_msg += f"(屏幕存在 {report['cv_ambiguous']} 处图像相似命中, 可选定候选或重新拾取)"
+                    record["cv_candidates"] = report.get("cv_candidates") or []
+                record.update({"success": False, "error": error_msg})
+            else:
+                notes = []
+                if report.get("heal_cache"):
+                    notes.append("历史自愈缓存命中")
+                elif report.get("healed"):
+                    notes.append("已自动修复")
+                if report.get("cv_fallback"):
+                    notes.append("已降级图像匹配")
+                record.update({"success": True, "note": "; ".join(notes)})
+        except Exception as e:
+            record.update({"success": False, "error": str(e)})
+        return record
+    finally:
+        if pythoncom is not None:
+            pythoncom.CoUninitialize()
+
+
+def _run_batch_validate(manager: Any, items: list) -> list:
+    """L2: 线程池并行逐项校验, map 保序返回与输入一致的结果列表"""
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=BATCH_VALIDATE_MAX_WORKERS, thread_name_prefix="batch-validate") as pool:
+        return list(pool.map(lambda item: _validate_one_element(manager, item), items))
+
 
 class PickerRequire(BaseModel):
     """拾取器请求参数模型"""
@@ -200,6 +257,20 @@ class PickerRequestHandler:
             result = await self._handle_pick_highlight(input_data)
         elif input_data.pick_sign == PickerSign.GAIN:
             result = await self._handle_pick_gain(input_data)
+        elif input_data.pick_sign == PickerSign.CONTROL_TREE:
+            result = await self._handle_control_tree(input_data)
+        elif input_data.pick_sign == PickerSign.VIRTUAL_LIST:
+            result = await self._handle_virtual_list(input_data)
+        elif input_data.pick_sign == PickerSign.BATCH_VALIDATE:
+            result = await self._handle_batch_validate(input_data)
+        elif input_data.pick_sign == PickerSign.PICKER_METRICS:
+            result = await self._handle_picker_metrics(input_data)
+        elif input_data.pick_sign == PickerSign.HEAL_CACHE_DROP:
+            result = await self._handle_heal_cache_drop(input_data)
+        elif input_data.pick_sign == PickerSign.CV_DISAMBIGUATE:
+            result = await self._handle_cv_disambiguate(input_data)
+        elif input_data.pick_sign == PickerSign.SWITCH_MODE:
+            result = await self._handle_switch_mode(input_data)
         else:
             result = OperationResult.error("pick_sign没有实现").to_dict()
 
@@ -245,27 +316,288 @@ class PickerRequestHandler:
             return OperationResult.error(str(e)).to_dict()
 
     async def _handle_pick_validate(self, input_data: PickerRequire) -> dict[str, Any]:
-        """处理拾取校验"""
+        """处理拾取校验。
+
+        ext_data.validate_mode(E5): check_position(缺省)/check_click/check_input/check_hover,
+        行为模式为非破坏性能力检查, 不真实执行事件。
+        """
         try:
             from astronverse.locator.locator import LocatorManager
+            from astronverse.picker.core import behavior_check
             from astronverse.picker.core.highlight_client import highlight_client
+
+            mode = (input_data.ext_data or {}).get("validate_mode", behavior_check.VALID_POSITION)
 
             with highlight_client:
                 highlight_client.start_wnd("validate")
                 input_data.data = self._process_element_data(input_data)
 
-                res = LocatorManager().locator(input_data.data)
+                # report 回写自愈/CV 降级信息, 校验结果中透传给前端
+                report: dict[str, Any] = {}
+                res = LocatorManager().locator(input_data.data, report=report)
                 if isinstance(res, list):
                     rects = [item.rect() for item in res]
+                    match_count = len(res)
+                    target = res[0] if res else None
                 else:
                     rects = res.rect()
+                    match_count = 1
+                    target = res
 
                 highlight_client.draw_wnd(rects, "", "validate")
+                logger.info(f"拾取校验命中 {match_count} 个元素, 高亮保持 {VALIDATE_HIGHLIGHT_HOLD_SECONDS}s")
 
-                time.sleep(3)
+                # 自愈提示: 元素原路径失效但已自动修复(建议用户确认后重新拾取)
+                heal_note = ""
+                if report.get("heal_cache"):
+                    heal_note = "原路径失效, 已按历史自愈结果定位, 建议重新拾取"
+                elif report.get("healed"):
+                    heal_note = (
+                        "原路径失效, 已自动修复: " + " → ".join(report.get("relaxations", [])) + ", 建议重新拾取"
+                    )
+                elif report.get("cv_fallback"):
+                    heal_note = "元素定位失败, 已降级为图像匹配定位"
 
-                return OperationResult.success(data="校验成功").to_dict()
+                # E5 行为校验: 高亮后对命中元素做能力检查(不执行事件)
+                behavior_note = ""
+                if mode != behavior_check.VALID_POSITION:
+                    control = target.control() if target is not None else None
+                    if control is None:
+                        behavior_note = "坐标类定位结果, 行为校验已跳过"
+                    else:
+                        ok, reason = behavior_check.run_behavior_check(control, mode)
+                        if not ok:
+                            time.sleep(VALIDATE_HIGHLIGHT_HOLD_SECONDS)
+                            return OperationResult.error(f"行为校验未通过: {reason}").to_dict()
+                        behavior_note = reason
 
+                # 高亮保持时长参数化(原为写死 sleep(3))
+                time.sleep(VALIDATE_HIGHLIGHT_HOLD_SECONDS)
+
+                notes = [note for note in (heal_note, behavior_note) if note]
+                suffix = f"({'; '.join(notes)})" if notes else ""
+                return OperationResult.success(data=f"校验成功{suffix}").to_dict()
+
+        except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_control_tree(self, input_data: PickerRequire) -> dict[str, Any]:
+        """处理控件树导出/节点高亮/节点点选拾取请求(E1 控件树浏览器后端能力)。
+
+        ext_data 可选参数:
+        - handle: 指定窗口句柄, 缺省时从桌面根控件导出
+        - max_depth: 导出深度上限, 缺省 6
+        - rect: {left, top, right, bottom}, 指定时仅高亮该区域(树节点点选), 不导出树
+        - pick: 窗口层→目标层的节点属性链, 指定时构造 UIA 元素并验证定位(树点选拾取)
+        """
+        try:
+            ext = input_data.ext_data or {}
+            pick_chain = ext.get("pick")
+            if pick_chain:
+                # 树节点点选拾取: 依据属性链构造元素, 定位验证后回传供前端保存
+                from astronverse.locator.locator import LocatorManager
+
+                path = [
+                    {
+                        "tag_name": node.get("tag_name"),
+                        "cls": node.get("cls"),
+                        "name": node.get("name"),
+                        "automation_id": node.get("automation_id"),
+                        "checked": True,
+                        "disable_keys": [],
+                    }
+                    for node in pick_chain
+                ]
+                element = {
+                    "app": (pick_chain[0].get("name") or "") if pick_chain else "",
+                    "version": "1",
+                    "type": "uia",
+                    "path": path,
+                    "picker_type": "",
+                }
+                located = False
+                try:
+                    located = LocatorManager().locator(element, self_heal=False, cv_fallback=False) is not None
+                except Exception as e:
+                    logger.warning(f"树点选元素验证定位失败: {e}")
+                payload = {"element": element, "located": located}
+                return OperationResult.success(data=json.dumps(payload, ensure_ascii=False)).to_dict()
+
+            rect = ext.get("rect")
+            if rect:
+                # 树节点点选高亮: 直接按 rect 绘制, 无需重新定位控件
+                from astronverse.picker import Rect
+                from astronverse.picker.core.highlight_client import highlight_client
+
+                with highlight_client:
+                    highlight_client.start_wnd("validate")
+                    highlight_client.draw_wnd(
+                        Rect(
+                            rect.get("left", 0),
+                            rect.get("top", 0),
+                            rect.get("right", 0),
+                            rect.get("bottom", 0),
+                        ),
+                        "",
+                        "validate",
+                    )
+                    time.sleep(VALIDATE_HIGHLIGHT_HOLD_SECONDS)
+                return OperationResult.success(data="").to_dict()
+
+            import uiautomation as auto
+
+            from astronverse.picker.core.control_tree import DEFAULT_MAX_DEPTH, dump_control_tree
+
+            max_depth = int(ext.get("max_depth", DEFAULT_MAX_DEPTH))
+            handle = ext.get("handle")
+            root = auto.ControlFromHandle(handle=int(handle)) if handle else auto.GetRootControl()
+            tree = dump_control_tree(root, max_depth=max_depth)
+            return OperationResult.success(data=json.dumps(tree, ensure_ascii=False)).to_dict()
+        except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_virtual_list(self, input_data: PickerRequire) -> dict[str, Any]:
+        """处理虚拟列表批量采集请求(E4)。
+
+        ext_data 参数:
+        - handle: 列表容器窗口句柄(必填)
+        - item_tag: 条目控件类型过滤(可选, 如 ListItemControl)
+        - item_name: 条目名称过滤(可选, 子串匹配)
+        - max_scrolls: 最大滚动次数, 缺省 5
+        - horizontal: True 横向滚动采集(表格类横向虚拟化), 缺省纵向
+        """
+        try:
+            import uiautomation as auto
+
+            from astronverse.picker.core.control_tree import dump_control_tree
+            from astronverse.picker.core.virtual_list import DEFAULT_MAX_SCROLLS, collect_virtual_list
+
+            ext = input_data.ext_data or {}
+            handle = ext.get("handle")
+            if not handle:
+                return OperationResult.error("VIRTUAL_LIST 缺少容器句柄 handle").to_dict()
+            container = auto.ControlFromHandle(handle=int(handle))
+            item_tag = ext.get("item_tag")
+            item_name = ext.get("item_name")
+
+            def is_item(child) -> bool:
+                try:
+                    if item_tag and getattr(child, "ControlTypeName", None) != item_tag:
+                        return False
+                    if item_name and item_name not in (getattr(child, "Name", None) or ""):
+                        return False
+                    return True
+                except Exception:
+                    return False
+
+            items = collect_virtual_list(
+                container,
+                is_item=is_item if (item_tag or item_name) else None,
+                max_scrolls=int(ext.get("max_scrolls", DEFAULT_MAX_SCROLLS)),
+                horizontal=bool(ext.get("horizontal", False)),
+            )
+            payload = [dump_control_tree(item, max_depth=1) for item in items]
+            return OperationResult.success(data=json.dumps(payload, ensure_ascii=False)).to_dict()
+        except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_batch_validate(self, input_data: PickerRequire) -> dict[str, Any]:
+        """批量校验元素库(发布前体检)。
+
+        data: JSON 数组 [{"id", "name", "element": 元素 json 串或 dict}...]
+        返回逐项报告 [{id, name, success, note|error}], 不高亮纯定位检查,
+        自愈/CV 降级与运行时行为一致并计入 note。
+        """
+        try:
+            from astronverse.locator.locator import LocatorManager
+
+            items = json.loads(input_data.data) if isinstance(input_data.data, str) else input_data.data
+            if not isinstance(items, list):
+                return OperationResult.error("BATCH_VALIDATE data 必须为数组").to_dict()
+
+            manager = LocatorManager()
+            # L2: 并行校验放到工作线程, 不阻塞 WS 事件循环
+            results = await asyncio.to_thread(_run_batch_validate, manager, items)
+            passed = sum(1 for r in results if r.get("success"))
+            logger.info(f"批量校验完成: {passed}/{len(results)} 通过")
+            return OperationResult.success(data=json.dumps(results, ensure_ascii=False)).to_dict()
+        except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_picker_metrics(self, input_data: PickerRequire) -> dict[str, Any]:
+        """拾取可观测性指标查询: 定位/自愈/CV 命中计数与自愈缓存条目"""
+        try:
+            from astronverse.locator.core import heal_store
+
+            payload = {"metrics": heal_store.metrics_snapshot(), "heal_cache": heal_store.heal_cache_all()}
+            return OperationResult.success(data=json.dumps(payload, ensure_ascii=False)).to_dict()
+        except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_heal_cache_drop(self, input_data: PickerRequire) -> dict[str, Any]:
+        """按缓存键删除单条自愈缓存(指标面板手动清理, data 为缓存键)"""
+        try:
+            from astronverse.locator.core import heal_store
+
+            key = input_data.data if isinstance(input_data.data, str) else str(input_data.data or "")
+            dropped = heal_store.heal_cache_drop_key(key)
+            return OperationResult.success(data=json.dumps({"key": key, "dropped": dropped})).to_dict()
+        except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_cv_disambiguate(self, input_data: PickerRequire) -> dict[str, Any]:
+        """I1 CV 歧义交互式消歧: 用户在候选中选定其一, 按候选区域构造坐标定位器。
+
+        data: JSON {"id", "name", "rect": [l,t,r,b], "score"}; 一次性决策不写自愈缓存。
+        """
+        try:
+            from astronverse.locator.core.cv_fallback import cv_disambiguate
+
+            data = json.loads(input_data.data) if isinstance(input_data.data, str) else (input_data.data or {})
+            rect = data.get("rect")
+            if not isinstance(rect, list) or len(rect) != 4:
+                return OperationResult.error("CV_DISAMBIGUATE rect 必须为 [left,top,right,bottom]").to_dict()
+            locator = cv_disambiguate(rect)
+            r = locator.rect()
+            payload = {
+                "id": data.get("id", ""),
+                "name": data.get("name", ""),
+                "success": True,
+                "rect": [r.left, r.top, r.right, r.bottom],
+                "center": [(r.left + r.right) // 2, (r.top + r.bottom) // 2],
+                "score": data.get("score"),
+            }
+            return OperationResult.success(data=json.dumps(payload, ensure_ascii=False)).to_dict()
+        except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_switch_mode(self, input_data: PickerRequire) -> dict[str, Any]:
+        """I4 会话内捕获模式切换: 就地改写活动会话字典的 pick_mode, 下一绘制周期生效。
+
+        data: 目标模式 'standard'/'deep'/'cv'。标准/深度会话内即时生效;
+        CV 需重初始化拾取引擎(requires_reinit=True), 由前端编排退出重进。
+        无活动会话时返回错误(无可切换对象)。
+        """
+        try:
+            from astronverse.picker.core.capture_mode import capture_mode_manager
+
+            sign = self.svc.sign()
+            if PickerSign.START.value not in sign:
+                return OperationResult.error("无进行中的拾取会话, 无法切换捕获模式").to_dict()
+            session_data = sign[PickerSign.START.value]
+            if not isinstance(session_data, dict):
+                return OperationResult.error("会话数据异常, 无法切换捕获模式").to_dict()
+
+            target = input_data.data if isinstance(input_data.data, str) else str(input_data.data or "")
+            try:
+                result = capture_mode_manager.switch(session_data, target)
+            except ValueError as ve:
+                return OperationResult.error(str(ve)).to_dict()
+
+            logger.info(
+                f"会话内捕获模式切换: {result['previous']} -> {result['mode']} (reinit={result['requires_reinit']})"
+            )
+            return OperationResult.success(data=json.dumps(result, ensure_ascii=False)).to_dict()
         except Exception as e:
             return OperationResult.error(str(e)).to_dict()
 

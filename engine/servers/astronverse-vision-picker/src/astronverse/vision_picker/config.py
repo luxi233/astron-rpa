@@ -12,4 +12,6 @@ class Config:
     LOG_LEVEL = logging.DEBUG
     # 高亮程序端口号
     HIGHLIGHT_SOCKET_PORT = 11001
+    # 元素唯一性校验相似度阈值(可配置)
+    UNIQUE_MATCH_SIMILARITY = 0.95
     REMOTE_ADDR = None

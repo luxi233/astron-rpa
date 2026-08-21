@@ -12,7 +12,7 @@ import comtypes
 import comtypes.automation
 import comtypes.client
 from astronverse.baseline.logger.logger import logger
-from astronverse.locator import ILocator, Rect
+from astronverse.locator import ILocator, PickerType, Rect
 from astronverse.locator.core.uia_locator import uia_factory
 
 # 加载MSAA相关库
@@ -381,14 +381,20 @@ class MSAAValidator:
         return None
 
     @staticmethod
-    def _find_matches_in_parent(parent_element, target_desc, use_recursive=False):
-        """在父元素中查找匹配目标描述的子元素"""
+    def _find_matches_in_parent(parent_element, target_desc, use_recursive=False, collect_all=False):
+        """在父元素中查找匹配目标描述的子元素
+
+        Args:
+            collect_all: True 时返回全部匹配候选(相似元素区分层枚举), 否则仅返回首个
+        """
         matches = []
 
         try:
-            target_name = target_desc.get("name")
-            target_value = target_desc.get("value")
-            target_index = target_desc.get("index", 0)
+            # disable_keys: 相似路径泛化后被禁用的属性不参与过滤(与 UIA 定位语义对齐)
+            disable_keys = target_desc.get("disable_keys") or []
+            target_name = None if "name" in disable_keys else target_desc.get("name")
+            target_value = None if "value" in disable_keys else target_desc.get("value")
+            target_index = 0 if "index" in disable_keys else target_desc.get("index", 0)
             target_tag = target_desc.get("tag_name")
 
             logger.info(
@@ -432,10 +438,14 @@ class MSAAValidator:
 
             logger.info(f"最终过滤后的候选元素数量: {len(filtered_candidates)}")
 
-            # 根据索引选择元素
+            # 根据索引选择元素: 常规模式取首个, 相似区分层枚举全部候选
             if filtered_candidates:
-                matches.append(filtered_candidates[0])
-                logger.info("选择第一个元素")
+                if collect_all:
+                    matches.extend(filtered_candidates)
+                    logger.info(f"相似枚举保留全部 {len(filtered_candidates)} 个候选")
+                else:
+                    matches.append(filtered_candidates[0])
+                    logger.info("选择第一个元素")
 
         except Exception as e:
             logger.info(f"在父元素中查找匹配项时出错: {str(e)}")
@@ -443,10 +453,14 @@ class MSAAValidator:
         return matches
 
     @staticmethod
-    def find_element_by_msaa_path(path_info, start_element):
+    def find_element_by_msaa_path(path_info, start_element, collect_similar=False):
         """
         根据路径信息查找元素
         返回 (找到的元素列表, 错误信息)
+
+        Args:
+            collect_similar: 相似模式下, similar_parent 标记的共同祖先层单点导航,
+                未标记的区分层枚举全部匹配分支(最终返回所有相似元素)
         """
         # logger.info(
         #     f'msaa 开始的首元素信息 {start_element.get_type()} {start_element.get_name()}  {start_element.get_value()}')
@@ -468,11 +482,13 @@ class MSAAValidator:
 
                 # 只在第一层查找时使用递归搜索
                 use_recursive = depth == 0
-                logger.info(f"第{depth + 1}层级查找，use_recursive={use_recursive}")
+                # 相似模式区分层: 枚举全部匹配候选, 共同祖先层保持单点导航
+                collect_all = collect_similar and not target_desc.get("similar_parent", False)
+                logger.info(f"第{depth + 1}层级查找，use_recursive={use_recursive}, collect_all={collect_all}")
 
                 for parent_elem in current_elements:
                     matches = MSAAValidator._find_matches_in_parent(
-                        parent_elem, target_desc, use_recursive=use_recursive
+                        parent_elem, target_desc, use_recursive=use_recursive, collect_all=collect_all
                     )
                     next_elements.extend(matches)
 
@@ -551,11 +567,16 @@ class MSAAValidator:
             msaa_start_ele = MSAAElement(ia_start_ele, 0)
             logger.info(f'创建的MSAA元素: name="{msaa_start_ele.get_name()}", type="{msaa_start_ele.get_type()}"')
 
-            elements = MSAAValidator.find_element_by_msaa_path(msaa_path, msaa_start_ele)
+            elements = MSAAValidator.find_element_by_msaa_path(
+                msaa_path, msaa_start_ele, collect_similar=(picker_type == PickerType.SIMILAR.value)
+            )
             logger.info(f"MSAA路径查找结果: {elements}")
 
             if elements and len(elements) > 0:
                 logger.info("成功找到MSAA元素")
+                if picker_type == PickerType.SIMILAR.value:
+                    # 相似元素与 UIA 一致返回定位器列表, 供上层统计 similar_count
+                    return [MSAALocator(ele_item) for ele_item in elements]
                 return MSAALocator(elements[0])
             else:
                 logger.info("未找到MSAA元素")
@@ -570,7 +591,7 @@ class MSAAFactory:
     """MSAA工厂"""
 
     @classmethod
-    def find(cls, ele: dict, picker_type: str, **kwargs) -> Union[MSAALocator, None]:
+    def find(cls, ele: dict, picker_type: str, **kwargs) -> Union[list[MSAALocator], MSAALocator, None]:
         return MSAAValidator.validate(ele, picker_type)
 
 

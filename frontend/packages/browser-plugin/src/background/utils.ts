@@ -91,7 +91,8 @@ export const Utils = {
   isSpecialCharacter(str: string) {
     if (this.isNumberStartString(str))
       return true
-    if (/[~`!@#$%^&*()+\-={}\\[\]|:;"'<>,.?/（）￥！、；：“”‘’【】《》，。？]/.test(str))
+    // 连字符是 CSS 标识符合法字符(如 tab-1/user-panel), 不列为特殊字符
+    if (/[~`!@#$%^&*()+={}\\[\]|:;"'<>,.?/（）￥！、；：“”‘’【】《》，。？]/.test(str))
       return true
     return false
   },

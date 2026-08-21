@@ -14,9 +14,25 @@ export const Utils = {
     return /\d/.test(str)
   },
 
+  // 与 common/utils.ts 的 isDynamicId 保持同步
+  isDynamicId(str: string) {
+    if (!str)
+      return false
+    if (/^\d+$/.test(str))
+      return true
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (uuidPattern.test(str))
+      return true
+    if (/^(?=.*\d)[\w-]{20,}$/.test(str))
+      return true
+    const dynamicKeywords = ['temp-', 'dynamic-', 'random-', 'unique-', 'session-', 'token-', 'uuid-', 'rand-']
+    return dynamicKeywords.some(kw => str.toLowerCase().includes(kw))
+  },
+
   isSpecialCharacter(str: string) {
     if (this.isNumberStartString(str))
       return true
+    // 连字符是 CSS 标识符合法字符(如 tab-1/user-panel), 不列为特殊字符
     if (/[·~`!@#$%^&*()+={}\\[\]|:;"'<>,.?/（）￥！、；：“”‘’【】《》，。？—]/.test(str))
       return true
     return false

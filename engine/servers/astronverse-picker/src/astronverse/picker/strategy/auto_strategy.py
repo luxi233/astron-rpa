@@ -2,7 +2,7 @@ import traceback
 from _ctypes import COMError
 from typing import TYPE_CHECKING, Optional
 
-from astronverse.picker import APP, MSAA_APPLICATIONS, IElement
+from astronverse.picker import APP, IElement
 from astronverse.picker.engines.uia_picker import UIAOperate
 from astronverse.picker.logger import logger
 
@@ -21,15 +21,11 @@ def auto_default_strategy(
     from astronverse.picker.strategy.uia_strategy import uia_default_strategy
     from astronverse.picker.strategy.web_strategy import web_default_strategy
 
-    try:
-        from astronverse.picker.strategy.jab_strategy import jab_default_strategy
-        from astronverse.picker.strategy.sap_default_strategy import sap_default_strategy
-        from astronverse.picker.strategy.web_ie_strategy import web_ie_default_strategy
-    except Exception as e:
-        logger.info(f"拾取模块导入异常{e}")
+    # 注意: JAB(Java)/SAP/IE 拾取策略模块当前未实现(历史代码曾引用 jab_strategy/
+    # sap_default_strategy/web_ie_strategy, 均不存在于仓库)。相关场景显式告警后
+    # 降级 UIA, 不再静默吞 NameError
 
-    # 2. 获取可能的元素
-    preliminary_element = None
+    # 2. 浏览器优先走 DOM 拾取
     chrome_like_apps = [
         APP.Chrome,
         APP.Firefox,
@@ -56,18 +52,15 @@ def auto_default_strategy(
 
             if is_document:
                 if strategy_svc.app == APP.IE:
-                    try:
-                        preliminary_element = web_ie_default_strategy(
-                            service, strategy, strategy_svc, (is_document, menu_top, menu_left, hwnd)
-                        )
-                    except Exception as e:
-                        logger.error(f"auto_default_strategy web_ie_picker error: {e} {traceback.extract_stack()}")
-                        preliminary_element = None
+                    # IE 拾取策略未实现, 不再静默返回 None; 明确告警后降级 UIA
+                    logger.warning(
+                        "IE 内核页面暂不支持元素级拾取(拾取策略未实现), 已降级为 UIA 拾取; 如需精确定位请使用 CV 图像拾取"
+                    )
+                    return None
                 else:
                     web_cache = (is_document, menu_top, menu_left, hwnd)
-                    preliminary_element = web_default_strategy(service, strategy_svc, web_cache)
-                # web元素直接返回，不做兜底
-                return preliminary_element
+                    # web元素直接返回，不做兜底
+                    return web_default_strategy(service, strategy_svc, web_cache)
         except COMError as e:
             # 忽略所有 COM 调用错误
             logger.warning(f"忽略 COMError: {e}")
@@ -77,22 +70,19 @@ def auto_default_strategy(
             logger.error("堆栈信息:\n%s", traceback.format_exc())
             logger.error(f"auto_default_strategy web error: {e} {traceback.extract_stack()}")
             raise e
-    elif strategy_svc.app.value in MSAA_APPLICATIONS:
-        preliminary_element = msaa_default_strategy(strategy_svc)
     elif strategy_svc.app == APP.SAP:
-        # 2. 判断是否是sap
-        try:
-            preliminary_element = sap_default_strategy(service, strategy, strategy_svc)
-        except Exception as e:
-            logger.error(f"auto_default_strategy sap_picker error: {e} {traceback.extract_stack()}")
-    else:
-        # 3. 如果不是浏览器就优先使用JAB
-        try:
-            preliminary_element = jab_default_strategy(service, strategy, strategy_svc)
-        except Exception as e:
-            logger.error(f"auto_default_strategy jab_picker error: {e} {traceback.extract_stack()}")
+        # 2. 判断是否是sap: SAP 拾取策略未实现, 显式告警后降级 UIA
+        logger.warning("SAP GUI 拾取策略未实现, 已降级为 UIA 拾取; 若控件无法捕获请使用 UIA 深度拾取或 CV 图像拾取")
 
-    # 3. 兜底使用uia
+    # 3. 桌面标准模式: UIA + MSAA 并行试探(原 MSAA 白名单已移除,
+    # 将 Thunder 类应用的"双域试探择优"泛化到所有桌面应用;
+    # 老旧软件(MFC/VB/Delphi等)UIA 往往失败, MSAA 是重要捕获通道)
+    msaa_element = None
+    try:
+        msaa_element = msaa_default_strategy(strategy_svc)
+    except Exception as e:
+        logger.warning(f"标准模式 MSAA 试探异常, 忽略并继续 UIA: {e}")
+
     uia_element = None
     try:
         uia_element = uia_default_strategy(strategy_svc)
@@ -100,27 +90,16 @@ def auto_default_strategy(
         logger.error("堆栈信息:\n%s", traceback.format_exc())
         logger.error(f"auto_default_strategy uia_picker error: {e} {traceback.extract_stack()}")
 
-    # 4. 结果优先选取
-    if uia_element is None and preliminary_element is not None:
-        return preliminary_element
-    if preliminary_element is None and uia_element is not None:
-        return uia_element
-    if uia_element is None and preliminary_element is None:
-        # 兜底尝试MSAA: 老旧软件(MFC/VB/Delphi等非标准控件)UIA与JAB往往都失败,
-        # 但多数老控件仍暴露IAccessible, MSAA是最后的捕获机会
-        try:
-            msaa_element = msaa_default_strategy(strategy_svc)
-        except Exception as e:
-            logger.error(f"auto_default_strategy msaa fallback error: {e} {traceback.extract_stack()}")
-            msaa_element = None
+    # 4. 结果择优: 双成功取面积小者(更贴近真实控件), 单成功直接返回
+    if uia_element is None:
         return msaa_element
-    # 优先使用面积小的，如果相同使用preliminary_element
-    logger.info(
-        "pk: uia %s preliminary %s",
-        uia_element.rect().area(),
-        preliminary_element.rect().area(),
-    )
-    if preliminary_element.rect().area() <= uia_element.rect().area():
-        return preliminary_element
-    else:
+    if msaa_element is None:
         return uia_element
+    logger.info(
+        "pk: uia %s msaa %s",
+        uia_element.rect().area(),
+        msaa_element.rect().area(),
+    )
+    if msaa_element.rect().area() <= uia_element.rect().area():
+        return msaa_element
+    return uia_element

@@ -15,12 +15,13 @@ describe('contentInject', () => {
   })
   it('formatElementInfo should return correct structure', () => {
     const el = document.createElement('div')
+    el.textContent = 'Hello'
     const info = contentInject['formatElementInfo'](el, document)
     expect(info.xpath).toBeDefined()
     expect(info.cssSelector).toBeDefined()
     expect(info.pathDirs).toBeDefined()
     expect(info.tag).toBe('块元素')
-    expect(info.text).toBe('未知名称')
+    expect(info.text).toBe('Hello') // 断言真实文本, 不绑定 i18n 缺省文案语言
   })
 
   it('dispatchMouseSequence should dispatch events', () => {

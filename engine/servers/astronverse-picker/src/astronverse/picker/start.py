@@ -15,6 +15,11 @@ def start():
 
     args = parser.parse_args()
 
+    # 高亮 UDP 端口贯通: 在任何模块级捕获 highlight_client 之前按配置重建全局客户端
+    from astronverse.picker.core.highlight_client import set_highlight_port
+
+    set_highlight_port(args.highlight_socket_port)
+
     # 初始化
     logger.debug(f"ws start {args}")
     service_context = ServiceContext(

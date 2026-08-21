@@ -189,6 +189,20 @@ class PickerSign(Enum):
 
     SMART_COMPONENT = "SMART_COMPONENT"
 
+    CONTROL_TREE = "CONTROL_TREE"  # E1 控件树导出(控件树浏览器后端能力)
+
+    VIRTUAL_LIST = "VIRTUAL_LIST"  # E4 虚拟列表批量采集(滚动容器分批续采)
+
+    BATCH_VALIDATE = "BATCH_VALIDATE"  # 批量校验元素库(发布前体检, 返回逐项报告)
+
+    PICKER_METRICS = "PICKER_METRICS"  # 拾取可观测性指标查询(自愈/CV 命中率等)
+
+    HEAL_CACHE_DROP = "HEAL_CACHE_DROP"  # 按缓存键删除单条自愈缓存(指标面板手动清理)
+
+    CV_DISAMBIGUATE = "CV_DISAMBIGUATE"  # I1 CV 歧义交互式消歧(用户选定候选后按坐标校验)
+
+    SWITCH_MODE = "SWITCH_MODE"  # I4 会话内捕获模式切换(标准/深度/CV, 就地改写会话 pick_mode)
+
 
 class RecordAction(Enum):
     """录制动作 - 专门处理录制相关的子操作"""
@@ -331,7 +345,5 @@ CHROME_LIKE_BROWSER_TYPES = [
     APP.Firefox.value,
     APP.Chromium.value,
 ]
-
-MSAA_APPLICATIONS = [APP.Thunder.value]
 
 RECORDING_BLACKLIST = ["astron-rpa"]  # 录制绘框黑名单

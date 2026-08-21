@@ -9,6 +9,7 @@ from collections import deque
 
 import cv2
 import pyautogui
+from astronverse.vision_picker.config import Config
 from astronverse.vision_picker.core import PickType, Status
 from astronverse.vision_picker.core.core import IPickCore, IRectHandler
 from astronverse.vision_picker.core.cv_match import AnchorMatch
@@ -37,9 +38,9 @@ RectHandler: IRectHandler = RectHandler()
 
 
 class Socket:
-    def __init__(self):
-        # 设置 socket 端口号
-        self.__socket_port = 11001
+    def __init__(self, port=None):
+        # 设置 socket 端口号: 优先使用传入端口, 其次 Config(__main__ 按命令行参数注入), 不再硬编码
+        self.__socket_port = port if port else Config.HIGHLIGHT_SOCKET_PORT
         # 创建 socket 对象，负责与高亮部分通信
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.receive_data = None
@@ -541,7 +542,9 @@ class CVPicker:
             # target_img.save(target_filepath)
             res = None
 
-            if not AnchorMatch.check_if_multiple_elements(self.desktop_image, target_img, match_similarity=0.95):
+            if not AnchorMatch.check_if_multiple_elements(
+                self.desktop_image, target_img, match_similarity=Config.UNIQUE_MATCH_SIMILARITY
+            ):
                 logger.info("元素不唯一，自动选取锚点")
                 if not self.bboxes:
                     picker_cv = ImageDetector(self.partial_screenshot)
@@ -550,7 +553,9 @@ class CVPicker:
 
                 for box in self.bboxes[::-1]:
                     anchor_img = self.desktop_image.crop((box[0], box[1], box[0] + box[2], box[1] + box[3]))
-                    if AnchorMatch.check_if_multiple_elements(self.desktop_image, anchor_img, match_similarity=0.95):
+                    if AnchorMatch.check_if_multiple_elements(
+                        self.desktop_image, anchor_img, match_similarity=Config.UNIQUE_MATCH_SIMILARITY
+                    ):
                         self.anchor_rect = box
                         # anchor_img.save(anchor_filepath)
                         res = PickCore.json_res(target_img, target_rect, anchor_img, box, self.desktop_image)
@@ -568,7 +573,9 @@ class CVPicker:
             anchor_img = self.desktop_image.crop(anchor_rect)
             # anchor_img.save(anchor_filepath)
             res = None
-            if not AnchorMatch.check_if_multiple_elements(self.desktop_image, anchor_img, match_similarity=0.95):
+            if not AnchorMatch.check_if_multiple_elements(
+                self.desktop_image, anchor_img, match_similarity=Config.UNIQUE_MATCH_SIMILARITY
+            ):
                 logger.info("锚点必须为唯一元素，请重新选取")
             else:
                 res = PickCore.json_res(None, None, anchor_img, anchor_rect, self.desktop_image)

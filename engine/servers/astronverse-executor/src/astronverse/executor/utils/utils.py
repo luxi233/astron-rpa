@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 import psutil
+from astronverse.executor.error import GENERAL_ERROR_FORMAT, BizException
 from astronverse.executor.logger import logger
 
 
@@ -90,4 +91,5 @@ def exec_run(exec_args: list, ignore_error: bool = False, timeout=-1):
         raise TimeoutError("error: timeout") from None
 
     if proc.returncode != 0 and not ignore_error:
-        raise BaseException(f"error: return code({proc.returncode})")
+        # 抛业务异常(而非内置 BaseException): 否则上层 except Exception 的重试/降级链会被绕过
+        raise BizException(GENERAL_ERROR_FORMAT.format(proc.returncode), f"error: return code({proc.returncode})")

@@ -106,16 +106,16 @@ class CustomBdb(bdb.Bdb):
         """设置断点 - 支持多文件"""
         abs_path = self._to_abs_path(filename)
         py_lines = self._to_py_lines(abs_path, flow_line)
+        # 一个流程行可能映射多个 Python 行(如带重试/跳过的原子展开), 需全部设置否则断点可能不命中
         for py_line in py_lines:
             self.set_break(abs_path, py_line, cond=cond)
-            break
 
     def clear_breakpoint(self, filename: str, flow_line: int):
         """清除断点 - 支持多文件"""
         abs_path = self._to_abs_path(filename)
+        # 与 set_breakpoint 对称: 清除该流程行映射的所有 Python 行断点
         for py_line in self._to_py_lines(abs_path, flow_line):
             self.clear_break(abs_path, py_line)
-            break
 
     def cmd_start(self, g_v=None, l_v=None):
         """启动调试 - 在project目录下运行"""

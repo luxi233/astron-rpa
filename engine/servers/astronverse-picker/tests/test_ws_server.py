@@ -236,7 +236,12 @@ class TestPickStopValidateGainHighlight:
                 return Rect(0, 0, 5, 5)
 
         class _FakeLM:
-            def locator(self, data):
+            def locator(self, data, **kwargs):
+                # report 回写自愈信息, 验证校验结果透传自愈提示
+                report = kwargs.get("report")
+                if isinstance(report, dict):
+                    report["healed"] = True
+                    report["relaxations"] = ["第2层放宽name/value"]
                 return _Ele()
 
         monkeypatch.setitem(sys.modules, "astronverse.locator.locator", _make_mod(LocatorManager=_FakeLM))
@@ -244,7 +249,10 @@ class TestPickStopValidateGainHighlight:
         handler = PickerRequestHandler(_FakeSvc())
         ws = _FakeWS()
         result = _run(handler._handle_pick_validate(PickerRequire(pick_sign=PickerSign.VALIDATE)))
-        assert result == {"success": True, "data": "校验成功"}
+        assert result["success"] is True
+        assert result["data"].startswith("校验成功")
+        # 自愈提示透传: 原路径失效已自动修复
+        assert "已自动修复" in result["data"]
 
     def test_validate异常返回错误(self, fake_ui, monkeypatch):
         class _FakeLM:
@@ -252,7 +260,7 @@ class TestPickStopValidateGainHighlight:
             def parse_element_json(s):
                 return {}
 
-            def locator(self, data):
+            def locator(self, data, **kwargs):
                 raise ValueError("元素定位失败")
 
         monkeypatch.setitem(sys.modules, "astronverse.locator.locator", _make_mod(LocatorManager=_FakeLM))

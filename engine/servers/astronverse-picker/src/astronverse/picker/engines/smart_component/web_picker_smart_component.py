@@ -49,9 +49,17 @@ class WEBElement(IElement):
         pick_type = strategy_svc.data.get("pick_type")
         if pick_type == PickerType.SIMILAR:
             similar_path = WEBPicker.get_similar_path(svc.route_port, strategy_svc)
-            if similar_path:
-                res["path"] = similar_path
-                res["img"]["self"] = strategy_svc.data.get("data", {}).get("img", {}).get("self", "")
+            if not similar_path:
+                raise Exception("找不到相识元素")
+            res["path"] = similar_path
+            res["img"]["self"] = strategy_svc.data.get("data", {}).get("img", {}).get("self", "")
+            # 插件已在泛化后回页统计命中数, 此处验证并透传(与 UIA/MSAA 相似链路对齐)
+            similar_count = similar_path.get("similarCount", 0) if isinstance(similar_path, dict) else 0
+            if not similar_count:
+                raise Exception("找不到相识元素")
+            res["picker_type"] = PickerType.SIMILAR.value  # 提前写入, 供 locator 区分相似定位
+            res["similar_count"] = similar_count
+            logger.info(f"智能组件 web 相似元素拾取成功, 命中 {similar_count} 个相似元素")
         if pick_type == PickerType.BATCH:
             batch_path = WEBPicker.get_batch_path(svc.route_port, strategy_svc, self)
             if batch_path:
@@ -88,11 +96,30 @@ class WEBPicker:
 
     @classmethod
     def get_similar_path(cls, route_port, strategy_svc) -> Optional[dict]:
-        raise Exception("智能组件的相似拾取暂未实现")
+        """相似元素泛化: 委托浏览器插件 similarElement(与普通 web 拾取同一通道),
+        插件返回泛化后的 pathDirs/xpath/cssSelector 及回页统计的 similarCount"""
+        web_info = Browser.send_browser_extension(
+            browser_type=strategy_svc.app.value,
+            data=strategy_svc.data.get("data", {}).get("path", []),
+            key="similarElement",
+            gate_way_port=route_port,
+        )
+        return web_info
 
     @classmethod
     def get_batch_path(cls, route_port, strategy_svc, curr_ele: "WEBElement") -> Optional[dict]:
-        raise Exception("智能组件的批量抓取暂未实现")
+        """批量抓取: 委托浏览器插件 similarBatch 按当前元素泛化采集同类元素"""
+        try:
+            web_info = Browser.send_browser_extension(
+                browser_type=strategy_svc.app.value,
+                data=curr_ele.web_info,
+                key="similarBatch",
+                gate_way_port=route_port,
+                timeout=3,
+            )
+            return web_info
+        except Exception as e:
+            raise Exception("插件响应出错", e)
 
     @classmethod
     def get_element(

@@ -215,10 +215,36 @@ export const Utils = {
     return /\d/.test(str)
   },
 
+  /**
+   * 判定 id 是否为动态生成(不稳定, 不适合作为 selector)。
+   *
+   * 仅当命中以下特征才判定为动态, 避免误伤 tab-1/user-panel 等含数字但稳定的 id:
+   * 1. 纯数字(递增主键/时间戳);
+   * 2. uuid/长随机串/动态关键词(复用 isDynamicAttribute 规则)。
+   */
+  isDynamicId(str: string) {
+    if (!str)
+      return false
+    // 纯数字(递增主键/时间戳)
+    if (/^\d+$/.test(str))
+      return true
+    // uuid(任意版本)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (uuidPattern.test(str))
+      return true
+    // 长随机串: 长度>=20 且含数字(纯单词语义 id 如 customer-order-summary 保留)
+    if (/^(?=.*\d)[\w-]{20,}$/.test(str))
+      return true
+    // 动态关键词(session/token/temp 等)
+    const dynamicKeywords = ['temp-', 'dynamic-', 'random-', 'unique-', 'session-', 'token-', 'uuid-', 'rand-']
+    return dynamicKeywords.some(kw => str.toLowerCase().includes(kw))
+  },
+
   isSpecialCharacter(str: string) {
     if (this.isNumberStartString(str))
       return true
-    if (/[·~`!@#$%^&*()+\-={}\\[\]|:;"'<>,.?/（）￥！、；：【】《》，。？—]/.test(str))
+    // 连字符是 CSS 标识符合法字符(如 tab-1/user-panel), 不列为特殊字符
+    if (/[·~`!@#$%^&*()+={}\\[\]|:;"'<>,.?/（）￥！、；：【】《》，。？—]/.test(str))
       return true
     return false
   },

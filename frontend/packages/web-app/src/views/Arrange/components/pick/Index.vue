@@ -1,6 +1,7 @@
 <!-- 元素编辑器 -->
 <script lang="ts" setup>
 import {
+  ApartmentOutlined,
   BorderOuterOutlined,
   CheckCircleOutlined,
   CloseOutlined,
@@ -23,6 +24,8 @@ import {
   CUSTOM_OPTIONS,
   CUSTOMIZATION,
   MATCH_OPTIONS,
+  VALID_OPTIONS,
+  VALID_POSITION,
   VISUALIZATION,
 } from '@/views/Arrange/config/pick'
 import {
@@ -35,6 +38,7 @@ import {
 import CustomTable from './CustomTable.vue'
 import DirectoryTable from './DirectoryTable.vue'
 import PickForm from './PickForm.vue'
+import { ControlTreeModal } from './controlTreeModal'
 
 defineProps({
   isContinue: {
@@ -44,6 +48,7 @@ defineProps({
 })
 
 const modal = NiceModal.useModal()
+const controlTreeModal = NiceModal.useModal(ControlTreeModal)
 const loading = ref('')
 const singleLoading = ref('') // 某个按钮loading状态
 const useElements = useElementsStore()
@@ -51,6 +56,7 @@ const usePick = usePickStore()
 const { t } = useTranslation()
 
 const pickerType = ref('') // 拾取类型
+const validMode = ref(VALID_POSITION) // 校验模式: 位置/点击/输入/悬浮
 const similarButton = ref(false) // 是否可以拾取相似元素
 const similarCount = ref(0) // 相似元素数量
 const formOption = ref({
@@ -214,7 +220,18 @@ const handleValidateElement = throttle(
     usePick.startCheck(pickerType.value, element, (res) => {
       if (res.success)
         message.success(t('validationSuccess'))
-    })
+    }, 'maximize', validMode.value)
+  },
+  1500,
+  { leading: true, trailing: false },
+)
+
+/**
+ * 打开控件树浏览器(E1, 仅桌面 uia 元素)
+ */
+const handleOpenControlTree = throttle(
+  () => {
+    controlTreeModal.show()
   },
   1500,
   { leading: true, trailing: false },
@@ -377,6 +394,24 @@ watch(
             </a-button>
           </div>
           <div class="pickWrapper-buttons mt-2">
+            <a-select
+              v-model:value="validMode"
+              size="small"
+              class="w-full font-size-12"
+              :disabled="usePick.isPicking || usePick.isChecking"
+              :title="$t('verificationMethod')"
+            >
+              <a-select-option
+                v-for="item in VALID_OPTIONS"
+                :key="item.value"
+                :value="item.value"
+                class="font-size-12"
+              >
+                {{ $t(item.label) }}
+              </a-select-option>
+            </a-select>
+          </div>
+          <div class="pickWrapper-buttons mt-2">
             <a-button
               class="font-size-12 inline-flex-center"
               :icon="h(BorderOuterOutlined)"
@@ -399,6 +434,18 @@ watch(
               @click="similarPick"
             >
               {{ $t("similarElementsPickup") }}
+            </a-button>
+          </div>
+          <div class="pickWrapper-buttons mt-2">
+            <a-button
+              v-if="formOption.pickType === 'uia'"
+              size="small"
+              :icon="h(ApartmentOutlined)"
+              :disabled="usePick.isPicking || usePick.isChecking"
+              class="font-size-12 inline-flex-center"
+              @click="handleOpenControlTree"
+            >
+              {{ $t("controlTree") }}
             </a-button>
           </div>
           <div v-if="similarCount" class="mt-1">

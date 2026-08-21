@@ -21,10 +21,13 @@ export const BROWSER_MAP = {
 }
 
 // Content constants
-export const MAX_TEXT_LENGTH = 10
-export const MAX_TEXT_INCLUDE_LENGTH = 64
+// text 等值匹配阈值: 放宽到 30, 覆盖多段文本/图标按钮等短文案(原 10)
+export const MAX_TEXT_LENGTH = 30
+// text 采集(contains 匹配)阈值: 放宽到 200, 避免长文本元素丢失 text 属性(原 64)
+export const MAX_TEXT_INCLUDE_LENGTH = 200
 export const MAX_ATTRIBUTE_LENGTH = 32
-export const DEEP_SEARCH_TRIGGER = 5 * 1000
+// 悬停静止触发 deep search 的时间: 5s 交互体验差, 缩短到 1.2s
+export const DEEP_SEARCH_TRIGGER = 1200
 export const ELEMENT_SEARCH_TRIGGER = 50
 export const SCROLL_TIMES = 20
 export const SCROLL_DELAY = 1500

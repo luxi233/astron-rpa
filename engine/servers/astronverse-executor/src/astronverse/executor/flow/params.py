@@ -123,7 +123,8 @@ class Param(IParam):
         if need_eval:
             return "+".join(f"str({p})" for p in pieces), need_eval
         else:
-            return "".join(pieces), need_eval, need_eval
+            # 多段纯文本直接拼接; 与其余分支保持一致返回 2 元组(历史版本误返 3 元组导致调用方解包崩溃)
+            return "".join(pieces), need_eval
 
     def parse_param(self, i: dict, token=None, gv: dict = None) -> InputParam:
         name = i.get("name", i.get("key"))

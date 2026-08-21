@@ -2,8 +2,10 @@ import asyncio
 
 from astronverse.browser_bridge.apis.context import ServiceContext, get_svc
 from astronverse.browser_bridge.apis.response import CustomResponse
-from astronverse.browser_bridge.apis.ws_route import error_to_base_error, wsmg
+from astronverse.browser_bridge.apis.ws_route import error_to_base_error, inject_path, wsmg
 from astronverse.browser_bridge.error import *
+from astronverse.browser_bridge.logger import logger
+from astronverse.browser_bridge.security import resolve_inject_path
 from astronverse.websocket_server.ws_service import BaseMsg
 from fastapi import APIRouter, Depends, Request
 
@@ -18,7 +20,16 @@ async def transition(request: Request, svc: ServiceContext = Depends(get_svc)):
     data_path = req_data.get("data_path", "")
     time_out_ws = req_data.get("time_out", 10)
     if data_path and not data:
-        with open(data_path, encoding="utf-8") as file:
+        # 安全加固: data_path 仅允许指向内置 inject 目录下的脚本,
+        # 并做路径规范化防止 ../ 穿越, 避免该接口被用作任意本地文件读取
+        real_path = resolve_inject_path(data_path, inject_path)
+        if not real_path:
+            logger.warning("transition rejected: data_path outside inject dir: {}".format(data_path))
+            raise BaseException(
+                PARAMETER_ERROR_FORMAT.format((key, data_path, "")),
+                "error: data_path must be under inject directory: {}".format(data_path),
+            )
+        with open(real_path, encoding="utf-8") as file:
             # 读取文件内容
             data = file.read()
     browser_type = req_data.get("browser_type", "")

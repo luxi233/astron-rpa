@@ -11,18 +11,18 @@ export const VALID_OPTIONS = [
     label: 'location',
     value: VALID_POSITION,
   },
-  // {
-  //   label: 'click-1',
-  //   value: VALID_CLICK,
-  // },
-  // {
-  //   label: 'input',
-  //   value: VALID_INPUT,
-  // },
-  // {
-  //   label: 'hover',
-  //   value: VALID_HOVER,
-  // },
+  {
+    label: 'click-1',
+    value: VALID_CLICK,
+  },
+  {
+    label: 'input',
+    value: VALID_INPUT,
+  },
+  {
+    label: 'hover',
+    value: VALID_HOVER,
+  },
 ]
 
 export const PICK_WINDOW = 'window' // 桌面窗口拾取

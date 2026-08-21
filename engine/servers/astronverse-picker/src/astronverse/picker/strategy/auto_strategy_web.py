@@ -19,10 +19,8 @@ def auto_default_strategy_web(
     # 延迟导入策略函数避免循环依赖
     from astronverse.picker.strategy.web_strategy import web_default_strategy
 
-    try:
-        from astronverse.picker.strategy.web_ie_strategy import web_ie_default_strategy
-    except Exception as e:
-        logger.info(f"拾取模块导入异常{e}")
+    # 注意: web_ie_strategy 模块当前未实现(历史代码曾引用但仓库中不存在),
+    # IE 场景显式告警后返回 None, 不再静默吞 NameError
 
     # 2. 获取可能的元素
     preliminary_element = None
@@ -52,13 +50,9 @@ def auto_default_strategy_web(
 
             if is_document:
                 if strategy_svc.app == APP.IE:
-                    try:
-                        preliminary_element = web_ie_default_strategy(
-                            service, strategy, strategy_svc, (is_document, menu_top, menu_left, hwnd)
-                        )
-                    except Exception as e:
-                        logger.error(f"auto_default_strategy web_ie_picker error: {e} {traceback.extract_stack()}")
-                        preliminary_element = None
+                    # IE 拾取策略未实现, 明确告警而非静默返回 None
+                    logger.warning("IE 内核页面暂不支持元素级拾取(拾取策略未实现); 如需精确定位请使用 CV 图像拾取")
+                    return None
                 else:
                     web_cache = (is_document, menu_top, menu_left, hwnd)
                     preliminary_element = web_default_strategy(service, strategy_svc, web_cache)

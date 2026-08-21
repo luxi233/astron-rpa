@@ -13,6 +13,10 @@ user32 = ctypes.windll.user32
 
 from astronverse.picker.error import *
 
+# 浏览器扩展请求默认超时(秒): 历史实现不传 timeout 导致 bridge/扩展无响应时
+# requests 无限阻塞, 拾取界面卡死; 需要更长等待的调用方可显式传入 timeout
+DEFAULT_EXTENSION_TIMEOUT = 15.0
+
 
 class Browser:
     """浏览器操作类"""
@@ -33,23 +37,36 @@ class Browser:
 
     @staticmethod
     def send_browser_extension(
-        browser_type: str, data: Any, key: str, gate_way_port: int, data_path: str = "", timeout: float = None
+        browser_type: str,
+        data: Any,
+        key: str,
+        gate_way_port: int,
+        data_path: str = "",
+        timeout: float = DEFAULT_EXTENSION_TIMEOUT,
     ):
         """发送浏览器扩展请求。"""
         max_retries = 3
         retry_interval = 0.5  # 每次重试间隔，可根据实际情况调整
 
         for attempt in range(1, max_retries + 1):
-            response = Browser.send_browser_rpc(
-                {
-                    "browser_type": browser_type,
-                    "data": data,
-                    "key": key,
-                    "data_path": data_path,
-                },
-                timeout,
-                gateway_port=gate_way_port,
-            )
+            try:
+                response = Browser.send_browser_rpc(
+                    {
+                        "browser_type": browser_type,
+                        "data": data,
+                        "key": key,
+                        "data_path": data_path,
+                    },
+                    timeout,
+                    gateway_port=gate_way_port,
+                )
+            except requests.exceptions.Timeout:
+                # 超时不重试直接报错, 避免多次重试叠加等待时间
+                raise Exception(
+                    f"[{browser_type}] 浏览器插件响应超时({timeout}s), 请检查插件是否安装并启用, 或刷新目标页面后重试"
+                )
+            except requests.exceptions.ConnectionError:
+                raise Exception(f"[{browser_type}] 无法连接浏览器插件服务, 请确认 browser-connector 已启动")
 
             if response.status_code != 200:
                 raise Exception("浏览器插件连接器通信通道出错，请重试")
@@ -91,7 +108,14 @@ class Browser:
                 # 避免把可定位的原因笼统替换成"网页元素查找失败"误导排查
                 raise Exception(f"[{browser_type}] {data_msg or fallback_code.message}")
 
-            return res_data.get("data", "")
+            result = res_data.get("data", "")
+            # getElement 的正常返回必须是元素数据 dict; 插件异常时可能返回错误字符串
+            # (如扩展上下文失效), 此时明确报错而非把脏数据传给下游
+            if key == "getElement" and isinstance(result, str):
+                if result:
+                    raise Exception(f"[{browser_type}] 浏览器插件响应异常: {result}")
+                return None
+            return result
 
         # 理论上不会走到这里
         return None

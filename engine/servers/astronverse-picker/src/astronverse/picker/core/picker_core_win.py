@@ -182,6 +182,9 @@ class PickerCore(IPickerCore):
                 # 对应影刀"深度模式", 用于标准捕获失效的复杂桌面软件
                 # (DeepUIAPick为前端原子参数类型名, 透传为pick_mode)
                 domain = PickerDomain.UIA
+                # 写入 deep 标记使 UIA 遍历以更大深度下钻; 浅拷贝避免污染外部入参 dict
+                data = dict(data)
+                data["deep"] = True
             else:
                 domain = PickerDomain.AUTO_DESK
         self.last_strategy_svc = svc.strategy.gen_svc(

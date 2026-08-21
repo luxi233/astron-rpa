@@ -183,7 +183,6 @@ def patch_locator_env(monkeypatch):
         monkeypatch.setattr(uia_mod, "find_window_handles_list", lambda *a, **k: handles)
         monkeypatch.setattr(uia_mod, "find_window_by_enum_list", lambda *a, **k: [])
         monkeypatch.setattr(uia_mod, "ControlFromHandle", lambda handle: handle_map[handle])
-        monkeypatch.setattr(uia_mod, "top_window", lambda **k: None)
         monkeypatch.setattr(uia_mod, "validate_window_rect", lambda *a, **k: True)
         monkeypatch.setattr(uia_mod, "is_desktop_by_handle", lambda *a, **k: False)
         return handle_map

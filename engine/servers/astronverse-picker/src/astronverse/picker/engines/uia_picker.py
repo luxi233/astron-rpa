@@ -1,3 +1,4 @@
+import time
 from typing import Any, Optional
 
 import pyautogui
@@ -191,6 +192,12 @@ class UIAElement(IElement):
                     "value": sibling_value,
                     "index": i,
                 }
+                try:
+                    sibling_automation_id = child.AutomationId
+                    if sibling_automation_id and str(sibling_automation_id).strip():
+                        sibling_attrs["automation_id"] = sibling_automation_id
+                except Exception:
+                    pass
                 sibling_list.append(sibling_attrs)
 
             return sibling_list
@@ -204,7 +211,7 @@ class UIAElement(IElement):
 
         返回：空值属性名列表
         """
-        priority_attrs = ["tag_name", "name", "cls", "value", "index"]
+        priority_attrs = ["automation_id", "tag_name", "name", "cls", "value", "index"]
         empty_attrs = []
         for attr in priority_attrs:
             attr_value = current_attrs.get(attr)
@@ -219,7 +226,7 @@ class UIAElement(IElement):
 
         返回：不需要勾选的属性名列表
         """
-        priority_attrs = ["tag_name", "name", "cls", "value", "index"]
+        priority_attrs = ["automation_id", "tag_name", "name", "cls", "value", "index"]
         empty_attrs = self._get_empty_attrs(current_attrs)
 
         # tag_name 如果非空，只勾选它；否则抛出异常
@@ -234,7 +241,8 @@ class UIAElement(IElement):
     def _calculate_disable_keys_progressive(
         self, current_attrs: dict, parent_control, current_control, is_root_level: bool = False
     ) -> list:
-        priority_attrs = ["tag_name", "cls", "name", "value", "index"]
+        # automation_id 是 UIA 最稳定的唯一标识, 放在首位优先参与渐进式筛选
+        priority_attrs = ["automation_id", "tag_name", "cls", "name", "value", "index"]
 
         empty_attrs = self._get_empty_attrs(current_attrs)
         available_attrs = [attr for attr in priority_attrs if attr not in empty_attrs]
@@ -321,6 +329,14 @@ class UIAElement(IElement):
 
             # 收集当前元素的所有属性（只添加非空属性）
             current_attrs = {}
+
+            # automation_id (UIA 最稳定的唯一标识, 优先采集)
+            try:
+                automation_id = curr_ele.control.AutomationId
+            except Exception:
+                automation_id = None
+            if automation_id and str(automation_id).strip():
+                current_attrs["automation_id"] = automation_id
 
             # tag_name
             tag_name = curr_ele.control.ControlTypeName
@@ -415,6 +431,10 @@ class UIAPicker:
     """
 
     __uia_control_cache__: Optional[UIAElement] = None
+    __uia_cache_key__: Optional[tuple] = None  # (root窗口句柄, 进程id), 窗口切换即失效
+    __uia_cache_time__: float = 0.0
+    UIA_CACHE_TTL = 2.0  # 缓存有效期(秒), 超过后强制重新遍历
+    MAX_SEARCH_DEPTH = 40  # 深度遍历上限, 防深树雪崩
 
     @classmethod
     def _initialize_control(cls, control: auto.Control):
@@ -430,6 +450,14 @@ class UIAPicker:
             logger.info(f"uia初始化异常 {e}")
 
     @classmethod
+    def _cache_key(cls, control) -> Optional[tuple]:
+        """以根窗口句柄+进程id作为缓存失效键"""
+        try:
+            return (control.NativeWindowHandle, control.ProcessId)
+        except Exception:
+            return None
+
+    @classmethod
     def _search_elements_recursively(
         cls,
         res_list: list[UIAElement],
@@ -437,8 +465,15 @@ class UIAPicker:
         point: Point,
         ignore_parent_zero=False,
         deep=1,
+        max_depth=None,
     ):
         """递归深度遍历"""
+
+        if max_depth is None:
+            max_depth = cls.MAX_SEARCH_DEPTH
+        if deep > max_depth:
+            logger.debug(f"UIA遍历达到深度上限 {max_depth}, 停止下钻")
+            return
 
         if deep == 1 and UIAOperate._is_desktop_element(control):
             # 忽略过多的遍历
@@ -454,11 +489,11 @@ class UIAPicker:
 
             # 如果忽略parent的面积，可以递归。否则要包含在内才能递归
             if contains:
-                cls._search_elements_recursively(res_list, child, point, ignore_parent_zero, deep + 1)
+                cls._search_elements_recursively(res_list, child, point, ignore_parent_zero, deep + 1, max_depth)
             else:
                 parent_zero = rect.left == 0 and rect.top == 0 and rect.right == 0 and rect.bottom == 0
                 if parent_zero and ignore_parent_zero:
-                    cls._search_elements_recursively(res_list, child, point, ignore_parent_zero, deep + 1)
+                    cls._search_elements_recursively(res_list, child, point, ignore_parent_zero, deep + 1, max_depth)
 
     @classmethod
     def get_similar_path(cls, strategy_svc, curr_path):
@@ -543,18 +578,27 @@ class UIAPicker:
     @classmethod
     def get_element(cls, root: UIAElement, point: Point, **kwargs) -> UIAElement:
         # 获取配置
-        used_cache = kwargs.get("used_cache", False)
+        used_cache = kwargs.get("used_cache", True)
         root_need_init = kwargs.get("root_need_init", True)
         ignore_parent_zero = kwargs.get("ignore_parent_zero", True)
+        # 深度捕获模式可传入更大的遍历深度上限(缺省 MAX_SEARCH_DEPTH)
+        max_depth = kwargs.get("max_depth")
 
-        # 获取上一个缓存
+        cache_key = cls._cache_key(root.control)
+
+        # 获取上一个缓存: 同一窗口进程且在TTL内且点仍在缓存元素区域内才复用
         if used_cache:
             try:
-                # 如果还在上一个缓存的区域里面就直接返回
                 res = cls.__uia_control_cache__
-                if res and res.rect().contains(point):
+                if (
+                    res
+                    and cache_key is not None
+                    and cls.__uia_cache_key__ == cache_key
+                    and (time.time() - cls.__uia_cache_time__) <= cls.UIA_CACHE_TTL
+                    and res.rect().contains(point)
+                ):
                     return res
-            except Exception as e:
+            except Exception:
                 cls.__uia_control_cache__ = None
 
         # 是否开启root初始化检查
@@ -563,10 +607,17 @@ class UIAPicker:
 
         # 对uia进行深度遍历
         ele_list = [root]
-        cls._search_elements_recursively(ele_list, root.control, point, ignore_parent_zero=ignore_parent_zero)
+        cls._search_elements_recursively(
+            ele_list, root.control, point, ignore_parent_zero=ignore_parent_zero, max_depth=max_depth
+        )
 
         # 获取最小的位置返回
         ele = min(ele_list, key=lambda x: x.rect().area())
+
+        # 回填缓存(窗口句柄+进程id+时间戳失效策略)
+        cls.__uia_control_cache__ = ele
+        cls.__uia_cache_key__ = cache_key
+        cls.__uia_cache_time__ = time.time()
         return ele
 
 

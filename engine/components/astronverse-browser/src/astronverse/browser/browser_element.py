@@ -7,6 +7,7 @@ from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta, AtomicLeve
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.humansim import human_sim
 from astronverse.actionlib.types import PATH, WebPick
+from astronverse.actionlib.report import report as step_report
 from astronverse.baseline.logger.logger import logger
 from astronverse.browser import *
 from astronverse.browser.browser import Browser
@@ -20,7 +21,17 @@ from astronverse.browser.utils.table_filter import (
     table_json_merge_values,
 )
 from astronverse.locator import smooth_move
+from astronverse.locator.core.heal_store import format_report_tips
 from astronverse.locator.locator import locator
+
+
+def _locate_with_report(element_data, **kwargs):
+    """元素定位(带自愈/CV 降级信息回写): 命中时在步骤日志提示用户, 无命中时行为与原调用一致"""
+    locate_report = {}
+    res = locator.locator(element_data, report=locate_report, **kwargs)
+    for tip in format_report_tips(locate_report):
+        step_report.warning(tip)
+    return res
 
 
 def get_browser_instance():
@@ -199,7 +210,7 @@ class BrowserElement:
                 )
             else:
                 # 定位
-                element = locator.locator(
+                element = _locate_with_report(
                     element_data.get("elementData"),
                     cur_target_app=browser_obj.browser_type.value,
                     scroll_into_center=scroll_into_center,
@@ -358,7 +369,7 @@ class BrowserElement:
                 raise BaseException(KEY_PRESS_INTERVAL_MUST_BE_NON_NEGATIVE, "按键输入间隔必须大于等于0")
 
             # 定位
-            element = locator.locator(
+            element = _locate_with_report(
                 element_data.get("elementData"),
                 cur_target_app=browser_obj.browser_type.value,
                 scroll_into_center=scroll_into_center,
@@ -415,7 +426,7 @@ class BrowserElement:
         browser_obj = check_element(browser_obj, element_data, element_timeout)
         # 模拟真人：操作前随机停顿
         human_sim.pre_action_pause()
-        element = locator.locator(
+        element = _locate_with_report(
             element_data.get("elementData"),
             cur_target_app=browser_obj.browser_type.value,
             scroll_into_center=scroll_into_center,
@@ -495,7 +506,7 @@ class BrowserElement:
     ):
         """元素位置截图"""
         browser_obj = check_element(browser_obj, element_data, element_timeout)
-        element = locator.locator(element_data.get("elementData"), cur_target_app=browser_obj.browser_type.value)
+        element = _locate_with_report(element_data.get("elementData"), cur_target_app=browser_obj.browser_type.value)
         if isinstance(element.rect(), list):
             raise Exception("浏览器元素定位不唯一，请检查！")
         rect = element.rect()
@@ -866,13 +877,13 @@ class BrowserElement:
         percent_value = max(0.0, min(1.0, percent_value / 100))
         # 定位滑块和滑条元素
         # 滑块（要拖动的元素）
-        element = locator.locator(element_slider.get("elementData"), cur_target_app=browser_obj.browser_type.value)
+        element = _locate_with_report(element_slider.get("elementData"), cur_target_app=browser_obj.browser_type.value)
         if isinstance(element.rect(), list):
             raise Exception("滑块元素定位不唯一，请检查！")
         slider_center = element.point()
 
         # 滑条（滑块可移动的轨道）
-        element = locator.locator(
+        element = _locate_with_report(
             element_progress.get("elementData"), cur_target_app=browser_obj.browser_type.value, scroll_into_view=False
         )
         if isinstance(element.rect(), list):

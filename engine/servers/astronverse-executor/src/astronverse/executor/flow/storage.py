@@ -1,11 +1,13 @@
 import base64
 import json
+import time
 from abc import ABC, abstractmethod
 from json import JSONDecodeError
 from typing import Any, Optional
 
 import requests
 from astronverse.executor.error import *
+from astronverse.executor.error import BizException
 from astronverse.executor.logger import logger
 
 common_advanced = [
@@ -124,6 +126,10 @@ class IStorage(ABC):
 
 
 class HttpStorage(IStorage):
+    # J3: 连接类错误(网关重启/网络抖动)退避重试间隔(秒), 共 len+1 次尝试;
+    # 业务错误(HTTP 状态码/业务码)不重试, 避免掩盖真实故障
+    HTTP_RETRY_DELAYS = [1, 3]
+
     def __init__(self, svc):
         self.svc = svc
         self.gateway_port = self.svc.conf.gateway_port
@@ -132,14 +138,35 @@ class HttpStorage(IStorage):
         """post 请求"""
         logger.debug("请求开始 {}:{}:{}".format(shot_url, params, data))
 
-        if meta == "post":
-            response = requests.post(
-                "http://127.0.0.1:{}{}".format(self.gateway_port, shot_url), json=data, params=params
-            )
-        else:
-            response = requests.get("http://127.0.0.1:{}{}".format(self.gateway_port, shot_url), params=params)
+        url = "http://127.0.0.1:{}{}".format(self.gateway_port, shot_url)
+        response = None
+        # 统一超时(连接5s/读取30s): 网关无响应时快速失败而非无限挂起执行进程
+        for attempt in range(len(self.HTTP_RETRY_DELAYS) + 1):
+            try:
+                if meta == "post":
+                    response = requests.post(url, json=data, params=params, timeout=(5, 30))
+                else:
+                    response = requests.get(url, params=params, timeout=(5, 30))
+                break
+            except (requests.ConnectionError, requests.Timeout) as e:
+                # 连接类错误才重试: 工程拉取均为只读请求, 重试无副作用
+                if attempt < len(self.HTTP_RETRY_DELAYS):
+                    delay = self.HTTP_RETRY_DELAYS[attempt]
+                    logger.warning(
+                        "网关请求失败({} {}), {}s 后重试({}/{}): {}".format(
+                            shot_url, type(e).__name__, delay, attempt + 1, len(self.HTTP_RETRY_DELAYS), e
+                        )
+                    )
+                    time.sleep(delay)
+                    continue
+                raise BizException(
+                    SERVER_ERROR_FORMAT.format(e),
+                    "网关请求失败(已重试{}次) {} {}".format(len(self.HTTP_RETRY_DELAYS), shot_url, e),
+                )
+            except requests.RequestException as e:
+                raise BizException(SERVER_ERROR_FORMAT.format(e), "网关请求失败 {} {}".format(shot_url, e))
         if response.status_code != 200:
-            raise BaseException(
+            raise BizException(
                 SERVER_ERROR_FORMAT.format(response.status_code), "服务器错误{}".format(response.status_code)
             )
 
@@ -148,7 +175,7 @@ class HttpStorage(IStorage):
         try:
             json_data = response.json()
             if json_data.get("code") != "000000":
-                raise BaseException(
+                raise BizException(
                     SERVER_ERROR_FORMAT.format(json_data.get("message", "")), "服务器错误{}".format(json_data)
                 )
             return json_data.get("data", {})
@@ -221,11 +248,18 @@ class HttpStorage(IStorage):
             else:
                 flow_list = []
         except Exception as e:
-            raise BaseException(PROCESS_ACCESS_ERROR_FORMAT.format(process_id), "工程数据异常 {}".format(e))
+            raise BizException(PROCESS_ACCESS_ERROR_FORMAT.format(process_id), "工程 数据异常 {}".format(e))
 
         # 附加数据
         atom_key_list = []
+        valid_flow_list = []
         for flow in flow_list:
+            # 防护: 缺 key 的节点无法解析原子能力, 跳过并告警, 避免 None.startswith 崩溃拖垮整个工程生成
+            if not flow.get("key"):
+                logger.warning("流程节点缺少key字段, 已跳过: {}".format(flow.get("title", flow.get("id", ""))))
+                continue
+            valid_flow_list.append(flow)
+
             # 兼容代码
             if flow.get("key") == "Code.Process":
                 flow.update({"key": "Script.process"})
@@ -252,6 +286,7 @@ class HttpStorage(IStorage):
                 )
             # 特殊处理结束
             atom_key_list.append(flow.get("key"))
+        flow_list = valid_flow_list
 
         full = self.__process_json_full__(atom_key_list)
         full_dict = {}

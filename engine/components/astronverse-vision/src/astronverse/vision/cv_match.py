@@ -27,8 +27,12 @@ class AnchorMatch:
         if not isinstance(element, np.ndarray):
             element = np.array(element.convert("RGBA"))
         # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # L3修复: 入参均为 RGB(A)(PIL 截图), 统一用 RGB2GRAY; 原 BGR2GRAY 与 element 的 RGB2GRAY
+        # 通道权重不一致, 彩色元素下灰度图错位导致匹配失准
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # L3修复: count 原仅在 if 块内赋值, element 为 None 时 NameError
+        count = 0
         if element is not None:
             small_gray = cv2.cvtColor(element, cv2.COLOR_RGB2GRAY)
             threshold = match_similarity  # Adjust this threshold if needed
@@ -143,13 +147,15 @@ class AnchorMatch:
             # w, h = int(w*rw), int(h*rh)
             w, h = int(element.shape[1] * rw), int(element.shape[0] * rh)
             element = cv2.resize(element, (w, h), interpolation=cv2.INTER_CUBIC)
-            small_gray = cv2.cvtColor(element, cv2.COLOR_RGB2GRAY)
+            # L3修复: element 已转 BGR, 需用 BGR2GRAY(原 RGB2GRAY 通道错位, 与画布灰度图不一致)
+            small_gray = cv2.cvtColor(element, cv2.COLOR_BGR2GRAY)
             if canny_flag:
                 small_gray = cv2.Canny(small_gray, 50, 250)
 
             if anchor is not None:
                 # 要求锚点在屏幕显示且唯一
-                anchor_gray = cv2.cvtColor(anchor, cv2.COLOR_RGB2GRAY)
+                # L3修复: anchor 已转 BGR, 同上用 BGR2GRAY
+                anchor_gray = cv2.cvtColor(anchor, cv2.COLOR_BGR2GRAY)
                 anchor_threshold = match_similarity
                 if canny_flag:
                     anchor_gray = cv2.Canny(anchor_gray, 50, 250)

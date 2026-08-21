@@ -3,7 +3,6 @@
 from astronverse.picker import (
     APP,
     CHROME_LIKE_BROWSER_TYPES,
-    MSAA_APPLICATIONS,
     BROWSER_UIA_POINT_CLASS,
     PICKER_TYPE_DICT,
     OperationResult,
@@ -111,5 +110,8 @@ class TestBrowserConstants:
         for browser in CHROME_LIKE_BROWSER_TYPES:
             assert browser in BROWSER_UIA_POINT_CLASS, f"{browser} 缺少 UIA 点位映射"
 
-    def test_MSAA应用存在(self):
-        assert APP.Thunder.value in MSAA_APPLICATIONS
+    def test_MSAA白名单已移除(self):
+        # Phase H: MSAA 硬白名单改为标准模式运行时双域试探择优, 常量不再存在
+        import astronverse.picker as picker_pkg
+
+        assert not hasattr(picker_pkg, "MSAA_APPLICATIONS")

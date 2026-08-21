@@ -53,14 +53,19 @@ function tagFrameId(frameInfo: typeof currentFrameInfo) {
 }
 function requestFrameId() {
   requestFrame().then((frameId) => {
-    currentFrameInfo.frameId = frameId as number
+    // 类型守卫: 仅接受数字 frameId, 避免错误消息被写入 currentFrameInfo
+    if (typeof frameId !== 'number') {
+      console.warn('requestFrameId got invalid response:', frameId)
+      return
+    }
+    currentFrameInfo.frameId = frameId
     if (frameId !== 0) {
       window.parent.postMessage({
         key: 'bindCurrentWindowIframeInfo',
         data: currentFrameInfo,
       }, '*')
     }
-  })
+  }).catch(error => console.warn('requestFrameId failed:', error))
 }
 function listenMessage(ev: MessageEvent) {
   const { key, data } = ev.data

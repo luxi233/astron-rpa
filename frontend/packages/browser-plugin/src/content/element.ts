@@ -146,7 +146,8 @@ function elementFromPoint(x: number, y: number, docu: Document | ShadowRoot) {
 }
 
 function isUniqueIdFn(id: string) {
-  return id && !Utils.isNumberString(id) && !Utils.isSpecialCharacter(id) && document.querySelectorAll(`#${id}`).length === 1
+  // 含数字的稳定 id(如 tab-1/user-panel)不再弃用, 仅纯数字/uuid/长随机等动态 id 排除
+  return id && !Utils.isDynamicId(id) && !Utils.isSpecialCharacter(id) && document.querySelectorAll(`#${id}`).length === 1
 }
 
 function isHighWeightClass(cls: string) {
@@ -787,6 +788,15 @@ export function getElementFromAllElements(elements: Array<ElementPosition>, rang
 }
 
 /**
+ * 点到矩形的标准距离: 点在矩形内为 0, 否则为点到矩形最近边界的欧氏距离。
+ */
+export function pointToRectDistance(target: Point, rect: { left: number, top: number, right: number, bottom: number }): number {
+  const dx = Math.max(rect.left - target.x, 0, target.x - rect.right)
+  const dy = Math.max(rect.top - target.y, 0, target.y - rect.bottom)
+  return Math.hypot(dx, dy)
+}
+
+/**
  * Returns the closest DOM element to a given point on the page.
  *
  * This function first attempts to find the topmost element at the specified coordinates.
@@ -806,10 +816,15 @@ export function getClosestElementByPoint(target: Point) {
   })
   if (!pointEles.length)
     return ele
+  // 距离相同时优先选面积更小(更具体)的元素; 包含点时距离均为 0, 等价于选最小包含元素
   const closestElement = pointEles.reduce((prev, curr) => {
-    const prevDistance = Math.hypot(prev.left - target.x, prev.top - target.y, prev.right - target.x, prev.bottom - target.y)
-    const currDistance = Math.hypot(curr.left - target.x, curr.top - target.y, curr.right - target.x, curr.bottom - target.y)
-    return prevDistance <= currDistance ? prev : curr
+    const prevDistance = pointToRectDistance(target, prev)
+    const currDistance = pointToRectDistance(target, curr)
+    if (currDistance < prevDistance)
+      return curr
+    if (currDistance === prevDistance && curr.width * curr.height < prev.width * prev.height)
+      return curr
+    return prev
   })
   return closestElement.element
 }
@@ -932,9 +947,13 @@ export function getElementByElementInfo(params: ElementInfo): HTMLElement[] | nu
   if (checkType === 'visualization') {
     return directoryFindElement(pathDirs, onlyPosition)
   }
+  // 降级链: xpath → cssSelector → 纯位置路径(属性变化导致前两级失效时的最后兜底)
   let eles = getElementsByXpath(xpath, onlyPosition)
   if (!eles || eles.length === 0) {
     eles = getElementBySelector(cssSelector, onlyPosition)
+  }
+  if ((!eles || eles.length === 0) && pathDirs && pathDirs.length > 0) {
+    eles = directoryFindElement(pathDirs, true)
   }
   return eles
 }

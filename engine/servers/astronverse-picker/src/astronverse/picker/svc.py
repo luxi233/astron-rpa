@@ -71,10 +71,10 @@ class ServiceContext:
     def load_modules(self):
         """加载系统模块组件"""
 
-        # 高亮
-        from astronverse.picker.core.highlight_client import highlight_client
+        # 高亮(按配置端口注入, 兼容重复加载)
+        from astronverse.picker.core.highlight_client import set_highlight_port
 
-        self.highlight_client = highlight_client
+        self.highlight_client = set_highlight_port(self.highlight_socket_port)
 
         # 策略
         from astronverse.picker.strategy.manager import Strategy

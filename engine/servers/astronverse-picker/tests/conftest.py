@@ -9,6 +9,8 @@ import ctypes
 import sys
 import types
 
+import pytest
+
 
 def _install_win_stubs() -> None:
     # --- ctypes.wintypes: 非Windows平台 import 即抛 ValueError ---
@@ -35,3 +37,13 @@ def _install_win_stubs() -> None:
 
 
 _install_win_stubs()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_heal_store(tmp_path, monkeypatch):
+    """自愈缓存重定向到临时目录(避免用例写入用户目录/互相污染), 指标清零"""
+    monkeypatch.setenv("ASTRON_HEAL_CACHE", str(tmp_path / "heal_cache.json"))
+    from astronverse.locator.core import heal_store
+
+    heal_store.reset_metrics()
+    yield

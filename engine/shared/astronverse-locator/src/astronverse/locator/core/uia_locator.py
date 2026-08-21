@@ -1,4 +1,5 @@
 import dataclasses
+import re
 import time
 from copy import deepcopy
 from typing import Any, Optional, Union
@@ -11,10 +12,32 @@ from astronverse.locator.utils.window import (
     find_window_handles_list,
     is_desktop_by_handle,
     show_desktop_rect,
-    top_window,
     validate_window_rect,
 )
 from uiautomation import Control, ControlFromHandle
+
+# 强匹配属性键: automation_id 是 UIA 最稳定的唯一标识, 放在首位优先参与匹配
+ATTR_MATCH_KEYS = ["automation_id", "tag_name", "name", "cls", "value"]
+
+# E2 selector 自愈: 渐进放宽阶段定义(每阶段为(描述, 需新增禁用的键列表)),
+# 顺序从保守到激进, 窗口层(name)最后放宽, 避免跨窗口误命中
+HEAL_STAGES = [
+    ("放宽动态属性(name/value)", ["name", "value"]),
+    ("放宽类名(cls)", ["cls"]),
+    ("仅保留结构(tag_name)", ["automation_id", "index"]),
+    ("放宽窗口标题(name@root)", ["name"]),
+]
+
+# E2 逐层修复: 针对定位失败层的单步放宽序列(从保守到激进), 最后一步跳层对齐用户手工删层
+LAYER_RELAX_STEPS = [
+    ("放宽name/value", ["name", "value"]),
+    ("放宽cls", ["cls"]),
+    ("放宽automation_id/index", ["automation_id", "index"]),
+    ("跳层(后代搜索)", None),
+]
+
+# 跳层后代搜索的最大深度, 控制遍历成本
+DESCENDANT_SEARCH_MAX_DEPTH = 8
 
 
 class UIALocator(ILocator):
@@ -52,6 +75,9 @@ class UIANode:
     index: int = None  # 索引
     name: str = None
     value: str = None
+    automation_id: str = None  # UIA AutomationId
+    match_types: dict = None  # 各属性匹配方式: exact/contains/regex, 缺省 exact
+    search_descendants: bool = False  # E2自愈跳层: 该层改为在后代中搜索(而非仅直接子控件)
 
 
 class UIAEle:
@@ -66,11 +92,14 @@ class UIAEle:
         self.__name = None
         self.__tag_name = None
         self.__value = None
+        self.__automation_id = None
 
         # 特殊: 这个是相对于UIANode的匹配数据, index的匹配不是强匹配
         self.index_parent_match_sort: str = ""
         # 修复: 构造参数曾被忽略恒为空串, 单层路径排序时 int('') 崩溃
         self.index_match_sort: str = index_match_sort
+        # E2自愈: 属性重合度得分(含已禁用键的实际匹配数), 多候选时择优
+        self.attr_match_score: int = 0
 
     @property
     def rect(self):
@@ -123,6 +152,15 @@ class UIAEle:
         return self.__value
 
     @property
+    def automation_id(self):
+        if self.__automation_id is None:
+            try:
+                self.__automation_id = self.__control.AutomationId
+            except Exception:
+                self.__automation_id = ""
+        return self.__automation_id
+
+    @property
     def control(self):
         return self.__control
 
@@ -137,6 +175,104 @@ class UIAFactory:
         else:
             return cls.__find_one__(ele, picker_type, **kwargs)
 
+    # ---------------- E2: selector 自愈 ----------------
+
+    @classmethod
+    def _relax_node(cls, node: dict, disable_keys: list) -> bool:
+        """对单个路径层追加禁用键, 返回是否有新增放宽"""
+        existing = node.setdefault("disable_keys", [])
+        changed = False
+        for key in disable_keys:
+            if key not in existing:
+                existing.append(key)
+                changed = True
+        return changed
+
+    @classmethod
+    def _relax_path(cls, path_list: list, disable_keys: list, include_root: bool = False) -> None:
+        """对路径各层追加禁用键, 默认不含窗口层(include_root=True 时含, 用于放宽窗口标题)"""
+        nodes = path_list if include_root else path_list[1:]
+        for node in nodes:
+            cls._relax_node(node, disable_keys)
+
+    @classmethod
+    def _try_find(cls, ele: dict, picker_type: str, detail: dict, **kwargs):
+        """自愈内部定位尝试: 失败时通过 detail 回传失败层级, 异常不向上抛"""
+        try:
+            return cls.__find_one__(ele, picker_type=picker_type, _heal_detail=detail, **kwargs)
+        except Exception as e:
+            logger.debug(f"自愈定位失败: {e}")
+            return None
+
+    @classmethod
+    def heal(cls, ele: dict, picker_type: str, **kwargs) -> dict:
+        """selector 自愈, 两阶段策略:
+
+        1. 逐层修复(手术式): 只放宽定位失败的那一层, 依次放宽 name/value → cls →
+           automation_id/index → 跳层(后代搜索), 对齐用户手工修改层级的修复方式;
+        2. 全局放宽(兜底): 逐层修复无解时按 HEAL_STAGES 对全路径渐进放宽。
+
+        Returns:
+            {"locator": ILocator|None, "healed": bool, "relaxations": [描述...],
+             "repair_hint": str, "element": 修复后的元素 dict}
+        """
+        relaxations = []
+        relaxed = deepcopy(ele)
+        relaxed.setdefault("path", [])
+        detail = {}
+
+        # ---- 阶段1: 逐层修复 ----
+        path_list = relaxed["path"]
+        for _ in range(len(path_list) * len(LAYER_RELAX_STEPS) + 1):
+            detail.clear()
+            result = cls._try_find(relaxed, picker_type, detail, **kwargs)
+            if result is not None:
+                return cls._heal_success(relaxations, result, relaxed)
+            fail_layer = detail.get("fail_layer")
+            # 失败层未知/窗口层失败/路径越界: 逐层修复无从下手, 转全局放宽
+            if not fail_layer or fail_layer >= len(path_list):
+                break
+            node = path_list[fail_layer]
+            advanced = False
+            for desc, disable_keys in LAYER_RELAX_STEPS:
+                if disable_keys is not None:
+                    if cls._relax_node(node, disable_keys):
+                        relaxations.append(f"第{fail_layer + 1}层{desc}")
+                        advanced = True
+                        break
+                elif not node.get("search_descendants", False):
+                    # 跳层: 该层改在后代中搜索, 对齐用户手工删除中间层
+                    node["search_descendants"] = True
+                    relaxations.append(f"第{fail_layer + 1}层{desc}")
+                    advanced = True
+                    break
+            if not advanced:
+                break  # 失败层已全部放宽仍失败, 转全局兜底
+
+        # ---- 阶段2: 全局渐进放宽 ----
+        for desc, disable_keys in HEAL_STAGES:
+            # 仅"放宽窗口标题"阶段作用于窗口层, 其余阶段不动窗口层避免跨窗口误命中
+            include_root = "root" in desc
+            cls._relax_path(relaxed["path"], disable_keys, include_root=include_root)
+            relaxations.append(desc)
+            result = cls._try_find(relaxed, picker_type, detail, **kwargs)
+            if result is not None:
+                return cls._heal_success(relaxations, result, relaxed)
+        return {"locator": None, "healed": False, "relaxations": relaxations, "repair_hint": "", "element": relaxed}
+
+    @classmethod
+    def _heal_success(cls, relaxations: list, locator, relaxed: dict) -> dict:
+        """组装自愈成功结果(element 为修复后的元素, 供上层缓存持久化)"""
+        repair_hint = "元素已通过放宽条件定位: " + " → ".join(relaxations) + "; 建议重新拾取或更新元素属性"
+        logger.info(f"selector 自愈成功: {repair_hint}")
+        return {
+            "locator": locator,
+            "healed": True,
+            "relaxations": relaxations,
+            "repair_hint": repair_hint,
+            "element": relaxed,
+        }
+
     @classmethod
     def __get_child_walk_control__(cls, control: Control):
         child = control.GetFirstChildControl()
@@ -146,6 +282,62 @@ class UIAFactory:
             yield uia_ele
             index += 1
             child = child.GetNextSiblingControl()
+
+    @classmethod
+    def __get_descendant_walk_controls__(cls, control: Control, max_depth: int = DESCENDANT_SEARCH_MAX_DEPTH):
+        """BFS 遍历后代控件(E2 自愈跳层), 不含控件自身, 深度受限控制遍历成本"""
+        current_level = [control]
+        index = 0
+        for _ in range(max_depth):
+            next_level = []
+            for parent in current_level:
+                try:
+                    child = parent.GetFirstChildControl()
+                except Exception:
+                    child = None
+                while child:
+                    yield UIAEle(control=child, index=index)
+                    index += 1
+                    next_level.append(child)
+                    try:
+                        child = child.GetNextSiblingControl()
+                    except Exception:
+                        child = None
+            if not next_level:
+                break
+            current_level = next_level
+
+    @classmethod
+    def __attr_overlap_score__(cls, uia_ele: UIAEle, node: UIANode) -> int:
+        """属性重合度得分: 节点有值且实际控件匹配上的属性数(含已禁用键), 多候选时择优"""
+        score = 0
+        for key in ATTR_MATCH_KEYS:
+            v1 = getattr(node, key, None)
+            if v1 is None:
+                continue
+            v1 = str(v1)
+            v2 = getattr(uia_ele, key, None)
+            if v2 is not None:
+                v2 = str(v2)
+            if not v1 and not v2:
+                continue
+            match_type = (node.match_types or {}).get(key, "exact")
+            if cls.__match_value__(v1, v2, match_type):
+                score += 1
+        return score
+
+    @classmethod
+    def __match_value__(cls, v1, v2, match_type: str) -> bool:
+        """按匹配方式比较节点属性值 v1(拾取路径) 与实际控件值 v2"""
+        if match_type == "contains":
+            return bool(v1) and v1 in v2
+        if match_type == "regex":
+            try:
+                return re.search(v1, v2) is not None
+            except re.error:
+                logger.warning(f"非法正则, 退化为精确匹配: {v1}")
+                return v1 == v2
+        return v1 == v2
 
     @classmethod
     def __compare_node_and_uia_ele__(cls, uia_ele: UIAEle, node: UIANode, keys: list[str]) -> bool:
@@ -158,13 +350,17 @@ class UIAFactory:
                 continue
             v1 = getattr(node, key, None)
             v2 = getattr(uia_ele, key, None)
+            # 路径未采集 automation_id(如旧版本拾取数据)时不作为约束条件
+            if v1 is None and key == "automation_id":
+                continue
             if v1 is not None:
                 v1 = str(v1)
             if v2 is not None:
                 v2 = str(v2)
             if not v1 and not v2:
                 continue
-            if v1 != v2:
+            match_type = (node.match_types or {}).get(key, "exact")
+            if not cls.__match_value__(v1, v2, match_type):
                 return False
         return True
 
@@ -181,7 +377,7 @@ class UIAFactory:
     def _format_node_info(cls, node_or_obj) -> str:
         """格式化节点信息为单行字符串"""
         attrs = []
-        for key in ["tag_name", "name", "cls", "value"]:
+        for key in ["automation_id", "tag_name", "name", "cls", "value"]:
             value = getattr(node_or_obj, key, None)
             if value:  # 只显示有值的属性
                 attrs.append(f"{key}={value}")
@@ -234,6 +430,8 @@ class UIAFactory:
                 index=path.get("index", None),
                 name=path.get("name", None),
                 value=path.get("value", None),
+                automation_id=path.get("automation_id", None),
+                match_types=path.get("match_types", None),
             )
 
         # 2.1 降级结构层逐层下钻(全部分支保留, 容错同tag+cls多容器)
@@ -244,7 +442,7 @@ class UIAFactory:
             for ctrl in eff_parents:
                 for child in cls.__get_child_walk_control__(ctrl):
                     child_ele = UIAEle(control=child.control, index=0, index_match_sort="1")
-                    if cls.__compare_node_and_uia_ele__(child_ele, fb_node, ["tag_name", "name", "cls", "value"]):
+                    if cls.__compare_node_and_uia_ele__(child_ele, fb_node, ATTR_MATCH_KEYS):
                         nxt.append(child.control)
             eff_parents = nxt
             if not eff_parents:
@@ -256,7 +454,7 @@ class UIAFactory:
             for root_ctrl in cls.__get_child_walk_control__(eff_root):
                 # 判断第一层子元素是否符合规范
                 root_ele = UIAEle(control=root_ctrl.control, index=0, index_match_sort="1")
-                is_ok = cls.__compare_node_and_uia_ele__(root_ele, node_list[0], ["tag_name", "name", "cls", "value"])
+                is_ok = cls.__compare_node_and_uia_ele__(root_ele, node_list[0], ATTR_MATCH_KEYS)
                 if not is_ok:
                     continue
 
@@ -280,9 +478,7 @@ class UIAFactory:
 
                         # 4.2 基于前端传递的node, 过滤掉不符合要求的, 强匹配
                         child_list = [
-                            item
-                            for item in child_list
-                            if cls.__compare_node_and_uia_ele__(item, node, ["tag_name", "name", "cls", "value"])
+                            item for item in child_list if cls.__compare_node_and_uia_ele__(item, node, ATTR_MATCH_KEYS)
                         ]
 
                         # 4.3 基于前端传递的node, 处理index，弱匹配
@@ -305,10 +501,12 @@ class UIAFactory:
         return res
 
     @classmethod
-    def __find_one__(cls, ele: dict, picker_type: str, **kwargs) -> Union[UIALocator, None]:
+    def __find_one__(cls, ele: dict, picker_type: str, _heal_detail: dict = None, **kwargs) -> Union[UIALocator, None]:
         """
         使用列表遍历的方式查找窗口句柄，当找到元素时停止遍历
         使用 find_window_by_enum_list 和 find_window_handles_list 获取句柄列表
+
+        _heal_detail: 自愈内部传入的可变字典, 失败时回写 fail_layer 供逐层修复定位失败层
         """
         app_name = ele.get("app", "")
         path_list = ele.get("path", [])
@@ -325,6 +523,9 @@ class UIAFactory:
                 index=path.get("index", None),
                 name=path.get("name", None),
                 value=path.get("value", None),
+                automation_id=path.get("automation_id", None),
+                match_types=path.get("match_types", None),
+                search_descendants=path.get("search_descendants", False),
             )
             for path in path_list
         ]
@@ -363,6 +564,8 @@ class UIAFactory:
         root_handles = list(set(root_handles))
 
         if not root_handles:
+            if _heal_detail is not None:
+                _heal_detail["fail_layer"] = 0  # 窗口层未命中
             raise Exception("元素无法找到")
 
         logger.info(f"找到 {len(root_handles)} 个窗口句柄，开始遍历查找")
@@ -372,7 +575,7 @@ class UIAFactory:
             try:
                 logger.debug(f"正在尝试第 {idx + 1} 个句柄: {root_handle}")
                 root_ctrl = ControlFromHandle(handle=root_handle)
-                top_window(handle=root_handle, ctrl=root_ctrl)  # 置顶窗口
+                # 定位链路不再置顶窗口, 避免改变用户前台窗口焦点(原 top_window 副作用)
 
                 # 4. 如果业务类型 WINDOW, 就直接结束
                 if picker_type == PickerType.WINDOW.value:
@@ -385,11 +588,16 @@ class UIAFactory:
                 element_found = True  # 标记是否找到元素
 
                 for i, node in enumerate(node_list[1:]):
-                    # 5.1 遍历查询里面的子集
+                    # 5.1 遍历查询里面的子集; E2自愈跳层时改在后代中搜索(对齐用户手工删层)
                     child_list = []
                     tag_list = []
+                    walk_fn = (
+                        cls.__get_descendant_walk_controls__
+                        if node.search_descendants
+                        else cls.__get_child_walk_control__
+                    )
                     for search in search_list:
-                        for uia_ele in cls.__get_child_walk_control__(search.control):
+                        for uia_ele in walk_fn(search.control):
                             uia_ele.index_parent_match_sort = search.index_match_sort
                             child_list.append(uia_ele)
                             tag_list.append(uia_ele.tag_name)
@@ -401,17 +609,16 @@ class UIAFactory:
                     # 5.2 基于前端传递的node, 过滤掉不符合要求的, 强匹配
                     befor_cmp_child = child_list
                     child_list = [
-                        item
-                        for item in child_list
-                        if cls.__compare_node_and_uia_ele__(item, node, ["tag_name", "name", "cls", "value"])
+                        item for item in child_list if cls.__compare_node_and_uia_ele__(item, node, ATTR_MATCH_KEYS)
                     ]
                     # if len(child_list) > 0:
                     #     logger.info(f'筛选完是{child_list[0].tag_name}')
 
-                    # 5.3 基于前端传递的node, 处理index，弱匹配
+                    # 5.3 基于前端传递的node, 处理index，弱匹配; 并记录属性重合度供多候选择优
                     for item in child_list:
                         index_match = cls.__compare_node_and_uia_ele__(item, node, ["index"])
                         item.index_match_sort = "{}{}".format(item.index_parent_match_sort, "1" if index_match else "0")
+                        item.attr_match_score = cls.__attr_overlap_score__(item, node)
 
                     # 5.4 去一下层又去做比较，直到没有找到任何符合，或者层级结束
                     search_list = child_list
@@ -422,14 +629,16 @@ class UIAFactory:
                             logger.debug(f"  节点{idx_child}: {cls._format_node_info(ni)}")
                         logger.debug(f"拾取节点: {cls._format_node_info(node)}")
                         element_found = False
+                        if _heal_detail is not None:
+                            _heal_detail["fail_layer"] = i + 1  # node_list 中的实际层级(0为窗口层)
                         break
 
                 # 6. 检查是否成功找到元素
                 # 单层路径(仅窗口层): 相似元素父路径截短降级的兜底场景, 直接返回窗口控件
                 # (否则 i==len(node_list)-2 即 0==-1 恒为False, 窗口层永远定位失败)
                 if element_found and search_list and (len(node_list) == 1 or i == (len(node_list) - 2)):
-                    # 7. 处理index
-                    search_list.sort(key=lambda s: -int(s.index_match_sort))
+                    # 7. 处理index: 属性重合度高者优先(自愈放宽后多候选时避免误命中), 其次 index 匹配度
+                    search_list.sort(key=lambda s: (-(getattr(s, "attr_match_score", 0)), -int(s.index_match_sort)))
                     match = search_list[0]
 
                     # 8. 后处理
@@ -471,6 +680,8 @@ class UIAFactory:
                 index=path.get("index", None),
                 name=path.get("name", None),
                 value=path.get("value", None),
+                automation_id=path.get("automation_id", None),
+                match_types=path.get("match_types", None),
             )
             for path in path_list
         ]
@@ -514,7 +725,7 @@ class UIAFactory:
             try:
                 logger.debug(f"正在尝试第 {idx + 1} 个句柄: {root_handle}")
                 root_ctrl = ControlFromHandle(handle=root_handle)
-                top_window(handle=root_handle, ctrl=root_ctrl)  # 置顶窗口
+                # 定位链路不再置顶窗口, 避免改变用户前台窗口焦点(原 top_window 副作用)
 
                 # 5. 忽略index的一层一层查找
                 search_list = [UIAEle(control=root_ctrl, index=0, index_match_sort="1")]
@@ -535,9 +746,7 @@ class UIAFactory:
                     # 5.2 基于前端传递的node, 过滤掉不符合要求的, 强匹配
                     befor_cmp_child = child_list
                     child_list = [
-                        item
-                        for item in child_list
-                        if cls.__compare_node_and_uia_ele__(item, node, ["tag_name", "name", "cls", "value"])
+                        item for item in child_list if cls.__compare_node_and_uia_ele__(item, node, ATTR_MATCH_KEYS)
                     ]
 
                     # 5.3 基于前端传递的node, 处理index，弱匹配

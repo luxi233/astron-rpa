@@ -2,6 +2,7 @@ import json
 import os
 
 from astronverse.executor.error import *
+from astronverse.executor.error import BizException
 from astronverse.executor.flow.syntax.ast import CodeLine
 from astronverse.executor.flow.syntax.lexer import Lexer
 from astronverse.executor.flow.syntax.parser import Parser
@@ -18,20 +19,21 @@ class Flow:
         if component_list:
             for c in component_list:
                 component_id = c.get("componentId")
-                component_name = c.get("componentId")
-                version = c.get("version")
-                requirement = self._requirement_display(component_id, "", version)
+                # 组件显示名优先取 componentName; 回退 componentId 避免字段缺失时名称为空
+                component_name = c.get("componentName") or component_id
+                comp_version = c.get("version")  # 独立命名避免遮蔽外层 version 参数
+                requirement = self._requirement_display(component_id, "", comp_version)
 
                 component_path = os.path.join(path, "c{}".format(component_id))
                 main_params = []
                 self.gen_code(
-                    path=component_path, project_id=component_id, mode="", version=version, main_params=main_params
+                    path=component_path, project_id=component_id, mode="", version=comp_version, main_params=main_params
                 )
                 self.svc.add_component_info(
                     project_id,
                     component_id,
                     component_name,
-                    version,
+                    comp_version,
                     requirement,
                     "c{}.{}".format(component_id, "main.py"),
                     main_params,
@@ -70,7 +72,7 @@ class Flow:
         # 2. 生成流程相关数据
         process_list = self.svc.storage.process_list(project_id=project_id, mode=mode, version=version)
         if len(process_list) == 0:
-            raise BaseException(PROCESS_ACCESS_ERROR_FORMAT, "工程数据异常 {}".format(project_id))
+            raise BizException(PROCESS_ACCESS_ERROR_FORMAT, "工程数据异常 {}".format(project_id))
 
         process_index = 1
         module_index = 1
@@ -165,7 +167,7 @@ class Flow:
                 main_params.extend(param_list)
 
         if not has_main_entry:
-            raise BaseException(PROCESS_ACCESS_ERROR_FORMAT, "工程数据异常 {}".format(project_id))
+            raise BizException(PROCESS_ACCESS_ERROR_FORMAT, "工程数据异常 {}".format(project_id))
 
         # 2.1 生成智能组件
         smart_index = 1
@@ -396,7 +398,7 @@ class Flow:
         parser = Parser(lexer=lexer)
         program = parser.parse_program()
         if len(parser.errors) > 0:
-            raise BaseException(
+            raise BizException(
                 SYNTAX_ERROR_FORMAT.format(" ".join(parser.errors)), "语法错误: {}".format(parser.errors)
             )
         self.svc.ast_curr_info = {

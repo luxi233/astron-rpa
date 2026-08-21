@@ -6,6 +6,7 @@ import time
 import traceback
 from urllib.parse import unquote
 from astronverse.executor.error import *
+from astronverse.executor.error import BizException
 from astronverse.actionlib import ReportFlow, ReportFlowStatus, ReportType
 from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.error import TerminateAppSignal
@@ -237,7 +238,8 @@ def start():
         # 执行代码
         debug_svc = DebugSvc(conf=Config, debug_model=args.debug == "y")
         debug_start(svc=debug_svc, args=args, flow_tip=flow_tip)
-    except BaseException as e:
+    # BizException(业务异常)优先于 Exception 捕获; 不再依赖对内置 BaseException 的遮蔽
+    except BizException as e:
         logger.error("error {} traceback {}".format(e, traceback.format_exc()))
         if debug_svc:
             debug_svc.end(ExecuteStatus.FAIL, reason=e.code.message)

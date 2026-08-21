@@ -68,7 +68,9 @@ class BlockOverlay:
     """
 
     _CLASS_NAME = "AstronRPABlockOverlay"
-    _RPA_WINDOW_KEYWORD = "星辰RPA"
+    _RPA_WINDOW_KEYWORD = "星辰RPA"  # 标题兜底关键字(兼容旧版本)
+    # 客户端进程可执行名(electron-builder productName=astron-rpa), 主判据, 不依赖窗口标题
+    _RPA_PROCESS_KEYWORDS = ("astron-rpa", "astronrpa")
 
     # 区域刷新间隔（毫秒）
     _REGION_UPDATE_MS = 300
@@ -86,6 +88,9 @@ class BlockOverlay:
         # 虚拟屏幕起始坐标（用于坐标转换）
         self._vx = 0
         self._vy = 0
+
+        # 进程名解析缓存(pid -> 可执行文件名)
+        self._pid_exe_cache: dict[int, str] = {}
 
         # 首次搜索标志（控制日志级别）
         self._first_search = True
@@ -304,13 +309,35 @@ class BlockOverlay:
 
     # ───────────── RPA 窗口查找 ─────────────
 
+    def _get_process_name(self, pid: int) -> str:
+        """解析进程可执行文件名(带缓存), 失败返回空串"""
+        cached = self._pid_exe_cache.get(pid)
+        if cached is not None:
+            return cached
+        name = ""
+        try:
+            hproc = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ, False, pid)
+            try:
+                exe = win32process.GetModuleFileNameEx(hproc, 0)
+                name = exe.rsplit("\\", 1)[-1].lower()
+            finally:
+                win32api.CloseHandle(hproc)
+        except Exception:
+            pass
+        self._pid_exe_cache[pid] = name
+        return name
+
+    def _is_rpa_process(self, pid: int) -> bool:
+        proc_name = self._get_process_name(pid)
+        return any(kw in proc_name for kw in self._RPA_PROCESS_KEYWORDS)
+
     def _find_rpa_window_rects(self) -> list[tuple]:
         """
-        查找所有"星辰RPA"相关窗口的屏幕矩形。
+        查找所有客户端相关窗口的屏幕矩形。
 
         策略:
         1. 枚举所有可见顶层窗口
-        2. 找到标题包含"星辰RPA"的窗口，记录其进程 ID
+        2. 主判据: 进程名匹配(astron-rpa), 兜底: 标题包含"星辰RPA"
         3. 收集属于这些进程的所有可见窗口矩形（含弹窗/对话框）
         """
         window_list: list[tuple[int, int, str]] = []  # (hwnd, pid, title)
@@ -335,10 +362,10 @@ class BlockOverlay:
             logger.error(f"[BlockOverlay] 枚举窗口失败: {e}")
             return []
 
-        # ── 阶段1: 收集 RPA 进程 ID ──
+        # ── 阶段1: 收集 RPA 进程 ID(进程名主判据 + 标题兜底) ──
         rpa_pids: set[int] = set()
         for _, pid, title in window_list:
-            if self._RPA_WINDOW_KEYWORD in title:
+            if self._is_rpa_process(pid) or self._RPA_WINDOW_KEYWORD in title:
                 rpa_pids.add(pid)
 
         # ── 首次搜索或未找到时输出详细日志 ──
@@ -350,7 +377,7 @@ class BlockOverlay:
                     logger.info(f"[BlockOverlay] 匹配到RPA窗口: title='{title}', pid={pid}")
             else:
                 logger.warning(
-                    f"[BlockOverlay] 未找到包含'{self._RPA_WINDOW_KEYWORD}'的窗口! 共扫描 {len(window_list)} 个可见窗口"
+                    f"[BlockOverlay] 未找到客户端窗口(进程名{self._RPA_PROCESS_KEYWORDS}/标题'{self._RPA_WINDOW_KEYWORD}')! 共扫描 {len(window_list)} 个可见窗口"
                 )
                 # 输出有标题的窗口帮助调试
                 titled = [(t, p) for _, p, t in window_list if t.strip()]

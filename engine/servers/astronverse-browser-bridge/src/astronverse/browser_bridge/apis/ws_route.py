@@ -1,13 +1,13 @@
 import asyncio
 import os
 import traceback
-from base64 import b64decode
 from typing import Any
 
 from astronverse.browser_bridge.apis.context import ServiceContext, get_svc
 from astronverse.browser_bridge.apis.response import CustomResponse
 from astronverse.browser_bridge.error import *
 from astronverse.browser_bridge.logger import logger
+from astronverse.browser_bridge.security import validate_ws_token
 from astronverse.websocket_server.ws import BaseMsg, Conn, IWebSocket, WsException
 from astronverse.websocket_server.ws_service import WsManager
 from fastapi import APIRouter, Depends
@@ -91,14 +91,14 @@ async def websocket_endpoint(ws: WebSocket, svc: ServiceContext = Depends(get_sv
     await ws.accept()
     if not token:
         token = ws.headers.get("token", "")
-    uuid = ""
-    if token:
-        try:
-            uuid = b64decode(token).decode("utf-8")
-        except Exception as e:
-            pass
+    # 鉴权加固: token 只允许扩展构建变体标识($chrome$ 等)或浏览器原生 userAgent,
+    # 并拒绝 $root$ 等保留标识, 避免本机其他进程伪造身份向已注入页面下发指令
+    uuid = validate_ws_token(token)
     if not uuid:
+        logger.warning("websocket rejected: invalid token identity, client={}".format(ws.client))
+        await ws.close(code=4401)
         return
+    logger.info("websocket accepted: uuid={}, client={}".format(uuid, ws.client))
 
     ws = WsSocket(ws)
     await browser_init_inject(ws, uuid)

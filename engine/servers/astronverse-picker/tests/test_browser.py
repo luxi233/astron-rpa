@@ -73,10 +73,10 @@ class TestSendBrowserExtension:
             Browser.send_browser_extension("chrome", {}, "similarElement", 8003)
 
     def test_getElement豁免插件错误码(self, monkeypatch):
-        """拾取阶段(getElement)的 5002 不抛异常, 由上层判定未命中"""
+        """拾取阶段(getElement)的 5002 不抛异常, 空结果归一化为 None 由上层判定未命中"""
         resp = _resp({"code": "0000", "data": {"code": "5002", "msg": "没找到", "data": ""}})
         monkeypatch.setattr(browser_mod.requests, "post", mock.MagicMock(return_value=resp))
-        assert Browser.send_browser_extension("chrome", {"x": 1, "y": 2}, "getElement", 8003) == ""
+        assert Browser.send_browser_extension("chrome", {"x": 1, "y": 2}, "getElement", 8003) is None
 
     def test_请求体结构(self, monkeypatch):
         resp = _resp({"code": "0000", "data": {"code": "0000", "data": "x"}})

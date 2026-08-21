@@ -19,6 +19,7 @@ export const usePickStore = defineStore('pickStore', () => {
   const isPicking = ref(false) // 正在拾取
   const isChecking = ref(false) // 正在校验
   const isDataPicking = ref(false) // 正在数据抓取
+  const isTreeLoading = ref(false) // 控件树浏览器加载中
   const pickerType = ref('')
 
   const variableStore = useVariableStore()
@@ -178,12 +179,14 @@ export const usePickStore = defineStore('pickStore', () => {
       message.error(t('rpaPickerUnavailable'))
     })
   }
-  // 开始校验
-  const startCheck = (type: string, data: any, callback: (params: { success: boolean, data: any }) => void, finshType = 'maximize') => {
+  // 开始校验 validateMode: 校验模式(位置/点击/输入/悬浮), 见 config/pick.ts VALID_*
+  const startCheck = (type: string, data: any, callback: (params: { success: boolean, data: any }) => void, finshType = 'maximize', validateMode = '') => {
     // console.log('startCheck: ', data)
     type = type.toUpperCase()
     isChecking.value = true
-    const ext_data = { global: variableStore.globalVariableList }
+    const ext_data: Record<string, any> = { global: variableStore.globalVariableList }
+    if (validateMode)
+      ext_data.validate_mode = validateMode
     // 启动校验
     RpaPicker.create(() => {
       windowManager.minimizeWindow()
@@ -258,6 +261,17 @@ export const usePickStore = defineStore('pickStore', () => {
       callback?.()
     })
   }
+  // 深度捕获新建拾取(对应影刀"深度模式"): 跳过策略试探直达 UIA 引擎,
+  // 以更大遍历深度下钻, 用于标准模式选不中/选中范围过大的复杂桌面软件
+  const newDeepPick = (callback?: () => void) => {
+    startPick('', '', (res) => {
+      if (res.success) {
+        useElements.setTempElement(res.data)
+        elementPickModal.show({ isContinue: true })
+      }
+      callback?.()
+    }, 'DeepUIA')
+  }
 
   // groupPick
   const groupPick = (type: string, group: string, callback?: () => void) => {
@@ -277,6 +291,199 @@ export const usePickStore = defineStore('pickStore', () => {
     })
   }
 
+  // ---- E1 控件树浏览器 ----
+  // 打开通道并导出桌面控件树(独立会话, 与拾取/校验互斥使用)
+  const openControlTree = (callback: (params: { success: boolean, data: any }) => void) => {
+    isTreeLoading.value = true
+    RpaPicker.create(() => {
+      setTimeout(() => {
+        RpaPicker.send({ pick_sign: 'CONTROL_TREE', ext_data: { max_depth: 6 } })
+      }, 500)
+    })
+    RpaPicker.bindMessage((res) => {
+      isTreeLoading.value = false
+      if (res && res.key === 'success') {
+        try {
+          callback({ success: true, data: res.data ? JSON.parse(res.data) : null })
+        }
+        catch {
+          message.error(t('rpaPickerUnavailable'))
+          callback({ success: false, data: null })
+        }
+      }
+      else {
+        const { data, err_msg } = res || {}
+        message.error(data || err_msg || t('rpaPickerUnavailable'))
+        callback({ success: false, data: null })
+      }
+    })
+    RpaPicker.bindClose(() => {
+      isTreeLoading.value = false
+      callback({ success: false, data: null })
+    })
+    RpaPicker.bindError(() => {
+      isTreeLoading.value = false
+      message.error(t('rpaPickerUnavailable'))
+    })
+  }
+  // 点选树节点高亮(后端按 rect 直接绘制, 无需重新定位)
+  const highlightTreeNode = (rect: { left: number, top: number, right: number, bottom: number }) => {
+    RpaPicker.bindMessage(() => {}) // 高亮响应无需消费
+    RpaPicker.send({ pick_sign: 'CONTROL_TREE', ext_data: { rect } })
+  }
+  // 树节点点选拾取: 上报窗口层→目标层属性链, 后端构造元素并验证定位(复用树浏览器会话)
+  const pickTreeNode = (chain: any[], callback: (params: { success: boolean, data: any }) => void) => {
+    RpaPicker.bindMessage((res) => {
+      if (res && res.key === 'success' && res.data) {
+        try {
+          const payload = JSON.parse(res.data)
+          callback({ success: true, data: payload })
+          return
+        }
+        catch {}
+      }
+      const { data, err_msg } = res || {}
+      message.error(data || err_msg || t('rpaPickerUnavailable'))
+      callback({ success: false, data: null })
+    })
+    RpaPicker.send({ pick_sign: 'CONTROL_TREE', ext_data: { pick: chain } })
+  }
+  // 关闭控件树浏览器会话
+  const closeControlTree = () => {
+    RpaPicker.destroy()
+  }
+
+  // ---- 批量校验(发布前体检, 独立会话) ----
+  // items: [{id, name, element: 元素json串}], 回调返回逐项报告 [{id, name, success, note|error}]
+  const batchValidate = (items: any[], callback: (params: { success: boolean, data: any }) => void) => {
+    isChecking.value = true
+    RpaPicker.create(() => {
+      setTimeout(() => {
+        RpaPicker.send({ pick_sign: 'BATCH_VALIDATE', data: JSON.stringify(items) })
+      }, 500)
+    })
+    RpaPicker.bindMessage((res) => {
+      isChecking.value = false
+      if (res && res.key === 'success' && res.data) {
+        try {
+          callback({ success: true, data: JSON.parse(res.data) })
+        }
+        catch {
+          callback({ success: false, data: null })
+        }
+      }
+      else {
+        const { data, err_msg } = res || {}
+        message.error(data || err_msg || t('rpaPickerUnavailable'))
+        callback({ success: false, data: null })
+      }
+      RpaPicker.destroy()
+    })
+    RpaPicker.bindClose(() => {
+      isChecking.value = false
+      callback({ success: false, data: null })
+    })
+    RpaPicker.bindError(() => {
+      isChecking.value = false
+      message.error(t('rpaPickerUnavailable'))
+    })
+  }
+
+  // ---- 定位指标面板(I2 可观测性, 独立会话) ----
+  // 回调返回 { metrics: 计数指标, heal_cache: { 缓存键: 条目 } }
+  const pickerMetrics = (callback: (params: { success: boolean, data: any }) => void) => {
+    RpaPicker.create(() => {
+      setTimeout(() => {
+        RpaPicker.send({ pick_sign: 'PICKER_METRICS' })
+      }, 500)
+    })
+    RpaPicker.bindMessage((res) => {
+      if (res && res.key === 'success' && res.data) {
+        try {
+          callback({ success: true, data: JSON.parse(res.data) })
+        }
+        catch {
+          callback({ success: false, data: null })
+        }
+      }
+      else {
+        const { data, err_msg } = res || {}
+        message.error(data || err_msg || t('rpaPickerUnavailable'))
+        callback({ success: false, data: null })
+      }
+      RpaPicker.destroy()
+    })
+    RpaPicker.bindClose(() => {
+      callback({ success: false, data: null })
+    })
+    RpaPicker.bindError(() => {
+      message.error(t('rpaPickerUnavailable'))
+    })
+  }
+
+  // 删除单条自愈缓存(指标面板手动清理, key 为缓存键), 回调返回 { key, dropped }
+  const healCacheDrop = (key: string, callback: (params: { success: boolean, data: any }) => void) => {
+    RpaPicker.create(() => {
+      setTimeout(() => {
+        RpaPicker.send({ pick_sign: 'HEAL_CACHE_DROP', data: key })
+      }, 500)
+    })
+    RpaPicker.bindMessage((res) => {
+      if (res && res.key === 'success' && res.data) {
+        try {
+          callback({ success: true, data: JSON.parse(res.data) })
+        }
+        catch {
+          callback({ success: false, data: null })
+        }
+      }
+      else {
+        const { data, err_msg } = res || {}
+        message.error(data || err_msg || t('rpaPickerUnavailable'))
+        callback({ success: false, data: null })
+      }
+      RpaPicker.destroy()
+    })
+    RpaPicker.bindClose(() => {
+      callback({ success: false, data: null })
+    })
+    RpaPicker.bindError(() => {
+      message.error(t('rpaPickerUnavailable'))
+    })
+  }
+
+  // I1: CV 歧义交互式消歧(用户选定候选后按坐标校验, 一次性决策不写自愈缓存)
+  // item: {id, name, rect: [l,t,r,b], score}, 回调返回 {id, name, success, rect, center, score}
+  const cvDisambiguate = (item: any, callback: (params: { success: boolean, data: any }) => void) => {
+    RpaPicker.create(() => {
+      setTimeout(() => {
+        RpaPicker.send({ pick_sign: 'CV_DISAMBIGUATE', data: JSON.stringify(item) })
+      }, 500)
+    })
+    RpaPicker.bindMessage((res) => {
+      if (res && res.key === 'success' && res.data) {
+        try {
+          callback({ success: true, data: JSON.parse(res.data) })
+        }
+        catch {
+          callback({ success: false, data: null })
+        }
+      }
+      else {
+        const { data, err_msg } = res || {}
+        message.error(data || err_msg || t('rpaPickerUnavailable'))
+        callback({ success: false, data: null })
+      }
+      RpaPicker.destroy()
+    })
+    RpaPicker.bindClose(() => {
+      callback({ success: false, data: null })
+    })
+    RpaPicker.bindError(() => {
+      message.error(t('rpaPickerUnavailable'))
+    })
+  }
+
   watch(isDataPicking, (val) => {
     if (val) {
       $loading.open({ msg: '正在抓取，无法操作客户端', timeout: 100 * 60 })
@@ -290,13 +497,23 @@ export const usePickStore = defineStore('pickStore', () => {
     isPicking,
     isChecking,
     isDataPicking,
+    isTreeLoading,
     startMousePick,
     startPick,
     startCheck,
     repick,
     similarPick,
     newPick,
+    newDeepPick,
     groupPick,
     setDataPicking,
+    openControlTree,
+    highlightTreeNode,
+    pickTreeNode,
+    closeControlTree,
+    batchValidate,
+    pickerMetrics,
+    healCacheDrop,
+    cvDisambiguate,
   }
 })

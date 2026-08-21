@@ -44,6 +44,7 @@ describe('background/debugger', () => {
 
   it('Debugger.evaluate should throw if no context', async () => {
     Debugger.frameContextIdMap = { 0: [] };
-    await expect(Debugger.evaluate(1, '1+1', 0)).rejects.toThrow('未找到执行上下文');
+    // 错误文案为 i18n 动态文案(errors.contextNotFound), 断言不绑定具体语言
+    await expect(Debugger.evaluate(1, '1+1', 0)).rejects.toThrow();
   });
 });

@@ -2,6 +2,7 @@ from typing import Optional
 
 import requests as requests
 from astronverse.picker import APP, IElement, PickerDomain, PickerType, Point, Rect
+from astronverse.picker.logger import logger
 from astronverse.picker.utils.browser import Browser
 from astronverse.picker.utils.cv import screenshot
 
@@ -40,11 +41,19 @@ class WEBElement(IElement):
         pick_type = strategy_svc.data.get("pick_type")
         if pick_type == PickerType.SIMILAR:
             similar_path = WEBPicker.get_similar_path(svc.route_port, strategy_svc)
-            if similar_path:
-                res["path"] = similar_path
-                data_dict = strategy_svc.data.get("data", {})
-                img_dict = data_dict.get("img", {})
-                res["img"]["self"] = img_dict.get("self", "")
+            if not similar_path:
+                raise Exception("找不到相识元素")
+            res["path"] = similar_path
+            data_dict = strategy_svc.data.get("data", {})
+            img_dict = data_dict.get("img", {})
+            res["img"]["self"] = img_dict.get("self", "")
+            # 插件已在泛化后回页统计命中数, 此处验证并透传(与 UIA/MSAA 相似链路对齐)
+            similar_count = similar_path.get("similarCount", 0) if isinstance(similar_path, dict) else 0
+            if not similar_count:
+                raise Exception("找不到相识元素")
+            res["picker_type"] = PickerType.SIMILAR.value  # 提前写入, 供 locator 区分相似定位
+            res["similar_count"] = similar_count
+            logger.info(f"web 相似元素拾取成功, 命中 {similar_count} 个相似元素")
         if pick_type == PickerType.BATCH:
             batch_path = WEBPicker.get_batch_path(svc.route_port, strategy_svc, self)
             if batch_path:

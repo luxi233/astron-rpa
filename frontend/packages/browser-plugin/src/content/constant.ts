@@ -1,7 +1,8 @@
-export const MAX_TEXT_LENGTH = 10
-export const MAX_TEXT_INCLUDE_LENGTH = 64
+// 与 common/constant.ts 保持同步: text 等值匹配阈值 30, 采集阈值 200, deep search 触发 1.2s
+export const MAX_TEXT_LENGTH = 30
+export const MAX_TEXT_INCLUDE_LENGTH = 200
 export const MAX_ATTRIBUTE_LENGTH = 32
-export const DEEP_SEARCH_TRIGGER = 5 * 1000
+export const DEEP_SEARCH_TRIGGER = 1200
 export const ELEMENT_SEARCH_TRIGGER = 200
 export const SCROLL_TIMES = 20
 export const SCROLL_DELAY = 1500

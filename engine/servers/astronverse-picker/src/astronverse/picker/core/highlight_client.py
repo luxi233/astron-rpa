@@ -12,6 +12,10 @@ class HighLightClient:
         self.__socket_port = port
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+    @property
+    def port(self) -> int:
+        return self.__socket_port
+
     def __enter__(self):
         return self
 
@@ -68,3 +72,16 @@ class HighLightClient:
 
 
 highlight_client = HighLightClient()
+
+
+def set_highlight_port(port: int) -> HighLightClient:
+    """用 svc 收取的 highlight_socket_port 重建全局客户端。
+
+    调用时机必须在 picker_server 等模块级引用捕获之前(start.py 解析参数后立即调用),
+    函数内引用请通过模块属性访问 highlight_client 以获取最新实例。
+    """
+    global highlight_client
+    if port and highlight_client.port != port:
+        logger.info(f"高亮 UDP 端口配置为 {port}")
+        highlight_client = HighLightClient(port)
+    return highlight_client

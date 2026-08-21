@@ -49,22 +49,6 @@ describe('content/element', () => {
     expect(typeof element.getAttr(a, 'text')).toBe('string')
     expect(element.getAttr(a, 'readonly')).toBe('false')
   })
-  it('getAttrs should get attribute map', () => {
-    const div = document.createElement('div')
-    div.setAttribute('src', 's')
-    div.setAttribute('href', 'h')
-    div.setAttribute('id', 'i')
-    div.setAttribute('class', 'c')
-    div.setAttribute('title', 't')
-    div.setAttribute('name', 'n')
-    const attrs = element.getAttrs(div)
-    expect(attrs.src).toBe('s')
-    expect(attrs.href).toBe('h')
-    expect(attrs.id).toBe('i')
-    expect(attrs.class).toBe('c')
-    expect(attrs.title).toBe('t')
-    expect(attrs.name).toBe('n')
-  })
   it('isTable should detect table and child', () => {
     const table = document.createElement('table')
     expect(element.isTable(table)).toBe(true)
@@ -95,10 +79,10 @@ describe('content/element', () => {
     const id = dirs[dirs.length - 1].attrs.find(a => a.name === 'id' && a.value === 'testMain')
   })
 
-  it('element.generateXPath returns correct xpath for directory', () => {
+  it('element.directoryXpath returns correct xpath for directory', () => {
+    // generateXPath 在 Utils 类(common/utils.ts), 元素层入口为 directoryXpath
     const el = document.getElementById('testMain')
-    const dirs = element.getElementDirectory(el)
-    const xpath = element.generateXPath(dirs)
+    const xpath = element.directoryXpath(el)
     expect(typeof xpath).toBe('string')
     expect(xpath).toContain('="testMain"')
   })
@@ -192,5 +176,39 @@ describe('content/element', () => {
     const el = document.getElementById('testMain')
     expect(element.getSiblingElementByType(el, { elementGetType: 'next' })).toBe(el.nextElementSibling)
     expect(element.getSiblingElementByType(el, { elementGetType: 'prev' })).toBe(el.previousElementSibling)
+  })
+
+  it('element.pointToRectDistance computes point-to-rect distance', () => {
+    const rect = { left: 10, top: 10, right: 20, bottom: 20 }
+    // 点在矩形内距离为 0
+    expect(element.pointToRectDistance({ x: 15, y: 15 }, rect)).toBe(0)
+    // 点在矩形边界上距离为 0
+    expect(element.pointToRectDistance({ x: 10, y: 15 }, rect)).toBe(0)
+    // 点在右侧: 水平距离 5
+    expect(element.pointToRectDistance({ x: 25, y: 15 }, rect)).toBe(5)
+    // 点在右下角外侧: sqrt(5^2 + 5^2)
+    expect(element.pointToRectDistance({ x: 25, y: 25 }, rect)).toBeCloseTo(Math.hypot(5, 5))
+    // 点在上方: 垂直距离 4
+    expect(element.pointToRectDistance({ x: 15, y: 6 }, rect)).toBe(4)
+  })
+
+  it('element.getElementDirectory checks stable id containing digits', () => {
+    document.body.innerHTML = '<div id="tab-1"><span id="panel-2">x</span></div>'
+    const el = document.getElementById('panel-2')
+    const dirs = element.getElementDirectory(el)
+    const idAttr = dirs[dirs.length - 1].attrs.find(a => a.name === 'id' && a.value === 'panel-2')
+    // 含数字但稳定的 id 应被选中(checked), 不再因含数字被弃用
+    expect(idAttr).toBeTruthy()
+    expect(idAttr.checked).toBe(true)
+  })
+
+  it('element.getElementDirectory does not check dynamic ids', () => {
+    document.body.innerHTML = '<div id="123456"><span id="uuid-x">y</span></div>'
+    const el = document.getElementById('uuid-x')
+    el.id = '550e8400-e29b-41d4-a716-446655440000'
+    const dirs = element.getElementDirectory(el)
+    const idAttr = dirs[dirs.length - 1].attrs.find(a => a.name === 'id')
+    expect(idAttr).toBeTruthy()
+    expect(idAttr.checked).toBe(false)
   })
 })

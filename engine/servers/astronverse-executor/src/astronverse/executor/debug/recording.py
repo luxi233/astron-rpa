@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 
 from astronverse.executor.logger import logger
 
+# J4: 录制收尾轮询等待上限(秒): ffmpeg 转码挂死时不再死等, 超时后继续退出流程
+RECORDING_CLOSE_WAIT_TIMEOUT = 30
+
 
 def folder_empty(folder_path) -> bool:
     contents = os.listdir(folder_path)
@@ -228,6 +231,10 @@ class RecordingTool:
             if now - self.start_time < 3:
                 time.sleep(3 - now + self.start_time)
             self.event.set()
+            deadline = time.time() + RECORDING_CLOSE_WAIT_TIMEOUT
             while self.exec_res is None:
+                if time.time() > deadline:
+                    logger.error("录制收尾等待超时({}s), 放弃等待转码完成继续退出".format(RECORDING_CLOSE_WAIT_TIMEOUT))
+                    break
                 time.sleep(0.1)
             self.exec_res = None

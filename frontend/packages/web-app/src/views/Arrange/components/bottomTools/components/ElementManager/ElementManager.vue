@@ -1,8 +1,9 @@
 <script lang="ts" setup>
+import { DashboardOutlined, SafetyCertificateOutlined } from '@ant-design/icons-vue'
 import { NiceModal } from '@rpa/components'
 import { Image, message } from 'ant-design-vue'
 import type { Ref } from 'vue'
-import { computed, inject, ref, watch } from 'vue'
+import { computed, h, inject, ref, watch } from 'vue'
 
 import { getImageURL } from '@/api/http/env'
 import ElementsTree from '@/components/ElementsTree/Index.vue'
@@ -13,6 +14,8 @@ import { usePickStore } from '@/stores/usePickStore'
 import { useProcessStore } from '@/stores/useProcessStore'
 import type { ElementActionType, ElementsType, GroupContextMenuType } from '@/types/resource.d'
 import { ElementPickModal } from '@/views/Arrange/components/pick'
+import { BatchValidateModal } from '@/views/Arrange/components/pick/batchValidateModal'
+import { PickerMetricsModal } from '@/views/Arrange/components/pick/pickerMetricsModal'
 import { useCreateWindow } from '@/views/Arrange/hook/useCreateWindow'
 import { quoteManage } from '@/views/Arrange/hook/useQuoteManage'
 
@@ -85,6 +88,16 @@ function handleDelete(data: ElementsType) {
 function handleSelect(data) {
   console.log('选择的', data)
   useElements.setSelectedElement(data)
+}
+
+// 批量校验元素库(发布前体检)
+function handleBatchValidate() {
+  NiceModal.show(BatchValidateModal)
+}
+
+// 定位指标面板(I2 可观测性: 自愈/CV 统计与缓存清理)
+function handlePickerMetrics() {
+  NiceModal.show(PickerMetricsModal)
 }
 
 function handleContextMenu(data: { key: GroupContextMenuType, data: ElementsType }) {
@@ -163,6 +176,28 @@ function handleAction(data: { keys: ElementActionType[], data: ElementsType }) {
         <div class="postElement-content_pickNew">
           <div class="pickBut">
             <span class="element-title">{{ useElements.selectedElement.name }}</span>
+            <a-tooltip :title="$t('batchValidateTip')">
+              <a-button
+                size="small"
+                type="link"
+                :icon="h(SafetyCertificateOutlined)"
+                :disabled="usePick.isChecking || usePick.isPicking"
+                @click="handleBatchValidate"
+              >
+                {{ $t('batchValidate') }}
+              </a-button>
+            </a-tooltip>
+            <a-tooltip :title="$t('pickerMetricsTip')">
+              <a-button
+                size="small"
+                type="link"
+                :icon="h(DashboardOutlined)"
+                :disabled="usePick.isChecking || usePick.isPicking"
+                @click="handlePickerMetrics"
+              >
+                {{ $t('pickerMetrics') }}
+              </a-button>
+            </a-tooltip>
             <!-- <div class="pickBut-btns normal">
               <a-button :loading="defaultPickLoading" size="small" :disabled="pickBtnDisabled" :icon="h(PlusOutlined)" type="link" @click="pickNew">
                 {{ $t("pickupNewElement") }}

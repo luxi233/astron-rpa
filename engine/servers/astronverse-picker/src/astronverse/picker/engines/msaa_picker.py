@@ -12,7 +12,7 @@ import comtypes
 import comtypes.automation
 import comtypes.client
 import uiautomation as auto
-from astronverse.picker import IElement, PickerDomain, Point, Rect
+from astronverse.picker import IElement, PickerDomain, PickerType, Point, Rect
 from astronverse.picker.engines.uia_picker import UIAOperate
 from astronverse.picker.logger import logger
 from astronverse.picker.utils.cv import screenshot
@@ -139,7 +139,9 @@ class MSAAElement(IElement):
         return self.__tag
 
     def path(self, svc=None, strategy_svc=None):
-        self_img = screenshot(self.__rect) if self.__rect else None
+        # 修复: 原实现用未初始化的 self.__rect 截图恒为 None, 先主动计算 rect
+        rect = self.rect()
+        self_img = screenshot(rect) if rect else None
         path_list = MSAAPickerUtil.get_element_path(self.ia_ele)
         res = {
             "version": "1",
@@ -148,6 +150,21 @@ class MSAAElement(IElement):
             "path": path_list,
             "img": {"self": self_img},
         }
+        pick_type = strategy_svc.data.get("pick_type") if strategy_svc else None
+        if pick_type == PickerType.SIMILAR:
+            from astronverse.locator.locator import LocatorManager
+
+            similar_path = MSAAPicker.get_similar_path(strategy_svc, res)
+            if similar_path is None:
+                raise Exception("找不到相识元素")
+            res["path"] = similar_path
+            res["img"]["self"] = strategy_svc.data.get("data", {}).get("img", {}).get("self", "")
+            res["picker_type"] = PickerType.SIMILAR.value  # 这个需要在这里提前写好，才能交给locator使用
+            similar_list = LocatorManager().locator(res, timeout=10)
+            if isinstance(similar_list, list) and similar_list:
+                res["similar_count"] = len(similar_list)
+            else:
+                raise Exception("找不到相识元素")
         return res
 
     def rect(self) -> Rect:
@@ -594,7 +611,7 @@ class MSAAPickerUtil:
                 # 防止无限循环
                 if len(path) > 40:
                     logger.info(path)
-                    logger.info("当前拾取深度超过20，存在死循环风险")
+                    logger.info("当前拾取深度超过40，存在死循环风险")
                     break
 
         except Exception as e:
@@ -662,8 +679,84 @@ class MSAAPickerUtil:
 class MSAAPicker:
     @classmethod
     def get_similar_path(cls, strategy_svc, curr_path):
-        """用户给定两个相似元素"""
-        raise Exception("msaa暂不支持相似元素")
+        """用户给定两个相似元素, 生成泛化路径(与 UIA 宽松语义对齐)。
+
+        MSAA 路径由两段组成: 前段 UIA 补足的窗口层(含 cls) + 后段 MSAA 角色层(无 cls)。
+        判定放宽点:
+        - 根层(窗口层)不比较 name: 窗口标题动态/多实例, name 差异通过 disable_keys
+          交给定位阶段按窗口类名跨实例匹配
+        - 中间层逐层比较公共前缀, 第一个属性差异层即区分层:
+          首个区分层仅按角色(tag_name)区分(MSAA 无 cls, 放宽 name/value/index),
+          后续区分层放宽 name/value
+        - 深度不同时参照路径多出的尾部层全部作为区分层
+        - 祖先关系/完全同路径判不相似
+        """
+        old_ele = strategy_svc.data["data"]
+        new_ele = curr_path
+
+        # 过滤
+        if old_ele.get("app", "") != new_ele.get("app", ""):
+            return None
+        if old_ele.get("type", "") != PickerDomain.MSAA.value or new_ele.get("type", "") != PickerDomain.MSAA.value:
+            return None
+        path1 = old_ele.get("path", [])
+        path2 = new_ele.get("path", [])
+        if not path1 or not path2:
+            return None
+
+        match_similar = False
+        is_first = True
+
+        def _mark_distinguish(idx: int):
+            nonlocal is_first
+            if is_first:
+                # 首个区分层仅按角色区分: MSAA 无 cls, 放宽 name/value/index
+                is_first = False
+                path1[idx]["disable_keys"] = ["name", "value", "index"]
+            else:
+                # 后续子层剔除 name/value 做区分
+                path1[idx]["disable_keys"] = ["name", "value"]
+
+        # 根层(窗口层, UIA 补足): 只比较 tag_name/cls, name 不参与
+        for attr in ["tag_name", "cls"]:
+            self_attr = path1[0].get(attr, None)
+            other_attr = path2[0].get(attr, None)
+            if self_attr and other_attr and self_attr != other_attr:
+                return None
+        if path1[0].get("name") != path2[0].get("name"):
+            # 窗口标题不同 → 定位阶段按窗口类名跨实例匹配
+            path1[0]["disable_keys"] = ["name"]
+        path1[0]["similar_parent"] = True
+
+        # 中间层: 逐层比较公共前缀, 第一个出现属性差异的层即区分层
+        common_len = min(len(path1), len(path2))
+        for i in range(1, common_len):
+            is_eq = True
+            attrs = ["tag_name", "cls", "name", "value", "index"]
+            for attr in attrs:
+                self_attr = path1[i].get(attr, None)
+                other_attr = path2[i].get(attr, None)
+                if self_attr is not None and other_attr is not None and self_attr != other_attr:
+                    is_eq = False
+                    break
+            if is_eq and not match_similar:
+                path1[i]["similar_parent"] = True  # similar_parent 标识共同祖先层
+            else:
+                match_similar = True
+                _mark_distinguish(i)
+
+        # 深度不同时, 参照路径多出的尾部层(公共前缀之外)全部作为区分层
+        if len(path1) > common_len:
+            if not match_similar:
+                # path2 是 path1 的真前缀且无分叉 → 祖先关系, 非相似元素
+                return None
+            for i in range(common_len, len(path1)):
+                _mark_distinguish(i)
+
+        if not match_similar:
+            # 完全同路径(同一元素)或 path1 是 path2 的真前缀 → 不构成相似样例
+            return None
+        return path1
 
     @classmethod
     def get_element(cls, point: Point, pid, **kwargs):
