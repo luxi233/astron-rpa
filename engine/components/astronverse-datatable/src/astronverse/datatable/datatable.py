@@ -2172,9 +2172,7 @@ class DataTable:
                         min_row=1, max_row=max_row, min_col=1, max_col=max_col, values_only=True
                     )
                 )
-                cols_to_delete = [
-                    c for c in range(1, max_col + 1) if all(is_empty_value(row[c - 1]) for row in grid)
-                ]
+                cols_to_delete = [c for c in range(1, max_col + 1) if all(is_empty_value(row[c - 1]) for row in grid)]
                 # 从大到小删除避免列号位移; 合并连续区间减少delete_cols次数(openpyxl内部逐列移位为O(n))
                 for start, amount in _to_desc_ranges(cols_to_delete):
                     PyxlWrapper.delete_cols(idx=start, amount=amount)

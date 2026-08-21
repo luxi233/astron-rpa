@@ -68,8 +68,7 @@ def grid_of(w: OpenpyxlWrapper) -> list:
     if max_row < 1 or max_col < 1:
         return []
     return [
-        list(r)
-        for r in w.sheet.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col, values_only=True)
+        list(r) for r in w.sheet.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col, values_only=True)
     ]
 
 

@@ -60,7 +60,9 @@ class WEBElement(IElement):
             res["picker_type"] = PickerType.SIMILAR.value  # 提前写入, 供 locator 区分相似定位
             res["similar_count"] = similar_count
             # 增量折叠样本计数: 插件返回累积计数(旧数据缺省按本轮首次折叠计 2)
-            res["similar_sample_count"] = similar_path.get("similarSampleCount", 2) if isinstance(similar_path, dict) else 2
+            res["similar_sample_count"] = (
+                similar_path.get("similarSampleCount", 2) if isinstance(similar_path, dict) else 2
+            )
             logger.info(f"智能组件 web 相似元素拾取成功, 命中 {similar_count} 个相似元素")
         if pick_type == PickerType.BATCH:
             batch_path = WEBPicker.get_batch_path(svc.route_port, strategy_svc, self)
