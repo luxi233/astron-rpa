@@ -165,6 +165,8 @@ class MSAAElement(IElement):
                 res["similar_count"] = len(similar_list)
             else:
                 raise Exception("找不到相识元素")
+            # 增量折叠样本计数: 参照元素携带累积计数, 本轮 +1(旧数据缺省按 1)
+            res["similar_sample_count"] = int(strategy_svc.data.get("data", {}).get("similar_sample_count", 1)) + 1
         return res
 
     def rect(self) -> Rect:
@@ -690,6 +692,10 @@ class MSAAPicker:
           后续区分层放宽 name/value
         - 深度不同时参照路径多出的尾部层全部作为区分层
         - 祖先关系/完全同路径判不相似
+
+        增量折叠(影刀式多样本): 参照路径可携带上一轮泛化标记(disable_keys/
+        similar_parent), 本轮只在其上继续求交集 —— disable_keys 并集追加只增不减,
+        区分层及之后的过期 similar_parent 清除, 保证规则单调放宽
         """
         old_ele = strategy_svc.data["data"]
         new_ele = curr_path
@@ -706,16 +712,22 @@ class MSAAPicker:
 
         match_similar = False
         is_first = True
+        first_distinguish_idx = None
 
         def _mark_distinguish(idx: int):
-            nonlocal is_first
+            nonlocal is_first, first_distinguish_idx
+            if first_distinguish_idx is None:
+                first_distinguish_idx = idx
             if is_first:
                 # 首个区分层仅按角色区分: MSAA 无 cls, 放宽 name/value/index
                 is_first = False
-                path1[idx]["disable_keys"] = ["name", "value", "index"]
+                keys = ["name", "value", "index"]
             else:
                 # 后续子层剔除 name/value 做区分
-                path1[idx]["disable_keys"] = ["name", "value"]
+                keys = ["name", "value"]
+            # 增量折叠: 与已有 disable_keys 并集(只增不减), 避免覆盖收窄上一轮已放宽的键
+            existing = path1[idx].get("disable_keys") or []
+            path1[idx]["disable_keys"] = existing + [k for k in keys if k not in existing]
 
         # 根层(窗口层, UIA 补足): 只比较 tag_name/cls, name 不参与
         for attr in ["tag_name", "cls"]:
@@ -725,7 +737,9 @@ class MSAAPicker:
                 return None
         if path1[0].get("name") != path2[0].get("name"):
             # 窗口标题不同 → 定位阶段按窗口类名跨实例匹配
-            path1[0]["disable_keys"] = ["name"]
+            existing = path1[0].get("disable_keys") or []
+            if "name" not in existing:
+                path1[0]["disable_keys"] = existing + ["name"]
         path1[0]["similar_parent"] = True
 
         # 中间层: 逐层比较公共前缀, 第一个出现属性差异的层即区分层
@@ -756,6 +770,11 @@ class MSAAPicker:
         if not match_similar:
             # 完全同路径(同一元素)或 path1 是 path2 的真前缀 → 不构成相似样例
             return None
+
+        # 增量折叠: 清除首个区分层及之后的过期 similar_parent 标记,
+        # 否则下一轮更早分叉时残留标记会把区分层误并入定位锚定父路径
+        for i in range(first_distinguish_idx, len(path1)):
+            path1[i].pop("similar_parent", None)
         return path1
 
     @classmethod

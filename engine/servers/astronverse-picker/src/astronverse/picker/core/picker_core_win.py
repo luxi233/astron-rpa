@@ -1,4 +1,5 @@
 import ctypes
+import json
 import threading
 import time
 from typing import Optional
@@ -66,6 +67,10 @@ class PickerCore(IPickerCore):
         self.last_valid_rect: Optional[Rect] = None
         self.last_valid_tag: str = ""
         self.last_valid_domain: Optional[str] = None
+
+        # 深度捕获实时控件树推送: 指纹去重(焦点控件+矩形) + 时间节流
+        self._live_tree_fp: Optional[tuple] = None
+        self._live_tree_last_ts: float = 0.0
 
     def _get_element_domain(self, element: IElement) -> str:
         """根据元素类型确定实际使用的 domain"""
@@ -215,12 +220,58 @@ class PickerCore(IPickerCore):
         # 绘制
         highlight_client.draw_wnd(current_rect, msgs=current_tag)
 
+        # 深度捕获实时控件树: 仅 deep 会话且推送通道已注册时增量推送(失败永不阻断拾取)
+        if data.get("deep"):
+            self._push_live_tree(svc, self.last_element)
+
         return DrawResult(
             success=True,
             rect=current_rect,
             app=self.last_strategy_svc.app.value,
             domain=actual_domain,
         )
+
+    def _push_live_tree(self, svc, element) -> None:
+        """深度捕获侧边实时树推送: 指纹去重 + 150ms 节流后构树入队。
+
+        推送泵在 ws 事件循环侧消费队列; 本方法任何异常均静默吞掉,
+        实时树是增强能力, 不得影响拾取主流程。
+        """
+        try:
+            queue = getattr(svc, "deep_tree_queue", None)
+            if queue is None or getattr(svc, "deep_tree_ws", None) is None:
+                return
+            control = getattr(element, "control", None)
+            if control is None:
+                return
+
+            # 去重: 焦点控件身份 + 矩形指纹与上次推送一致则跳过
+            try:
+                fp_id = "-".join(str(x) for x in control.GetRuntimeId())
+            except Exception:
+                fp_id = str(getattr(control, "NativeWindowHandle", ""))
+            rect = element.rect()
+            fp = (fp_id, rect.left, rect.top, rect.right, rect.bottom)
+            now = time.time()
+            # 去重: 焦点未变不重推
+            if fp == self._live_tree_fp:
+                return
+            # 节流: 距上次推送不足 150ms 则跳过(下一轮绘制焦点仍在时会再尝试)
+            if now - self._live_tree_last_ts < 0.15:
+                return
+
+            from astronverse.picker.core.control_tree import dump_live_tree
+
+            tree = dump_live_tree(control)
+            # 非阻塞入队: 推送泵消费不及时则丢弃旧帧(实时树只关心最新状态), 绝不阻塞绘制线程
+            try:
+                queue.put_nowait(json.dumps(tree, ensure_ascii=False))
+            except Exception:
+                return
+            self._live_tree_fp = fp
+            self._live_tree_last_ts = now
+        except Exception as e:
+            logger.debug(f"实时树推送跳过: {e}")
 
     def call_pluguin(self, svc, high_light, data: dict):
         """为单独向插件通信定制"""

@@ -175,26 +175,26 @@ class TestPickStart:
     def test_成功带picker_type(self, fake_ui):
         svc = _FakeSvc(sign_result={"element": "x"})
         handler = PickerRequestHandler(svc)
-        result = _run(handler._handle_pick_start(self._req()))
+        result = _run(handler._handle_pick_start(_FakeWS(), self._req()))
         assert result["success"] is True
         assert result["data"]["picker_type"] == "ELEMENT"
 
     def test_取消(self, fake_ui):
         svc = _FakeSvc(sign_result="cancel")
         handler = PickerRequestHandler(svc)
-        result = _run(handler._handle_pick_start(self._req()))
+        result = _run(handler._handle_pick_start(_FakeWS(), self._req()))
         assert result == {"success": False, "cancel": True}
 
     def test_字符串错误(self, fake_ui):
         svc = _FakeSvc(sign_result="拾取超时")
         handler = PickerRequestHandler(svc)
-        result = _run(handler._handle_pick_start(self._req()))
+        result = _run(handler._handle_pick_start(_FakeWS(), self._req()))
         assert result == {"success": False, "error": "拾取超时"}
 
     def test_异常转错误响应(self, fake_ui):
         svc = _FakeSvc(sign_result=RuntimeError("boom"))
         handler = PickerRequestHandler(svc)
-        result = _run(handler._handle_pick_start(self._req()))
+        result = _run(handler._handle_pick_start(_FakeWS(), self._req()))
         assert result["success"] is False
         assert "boom" in result["error"]
 
@@ -212,7 +212,7 @@ class TestPickStart:
         svc = _FakeSvc(sign_result={"ok": 1})
         handler = PickerRequestHandler(svc)
         req = self._req(pick_type=PickerType.SIMILAR, data='{"raw": 1}', pick_mode="auto")
-        _run(handler._handle_pick_start(req))
+        _run(handler._handle_pick_start(_FakeWS(), req))
         # send_sign 收到的 data 里元素 JSON 已解析 + pick_mode 注入
         sign, payload = svc.signs[0]
         assert sign == PickerSign.START

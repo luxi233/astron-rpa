@@ -1,5 +1,6 @@
 import asyncio
 import json
+import queue
 import time
 import uuid
 from enum import Enum
@@ -114,6 +115,7 @@ class PushKey(Enum):
     RECORD_PAUSE = "record_pause"
     RECORD_AUTOMIC_CHOICE = "record_automic_start"
     RECORD_AUTOMIC_DRAW_END = "record_automic_draw_end"
+    PICK_TREE_UPDATE = "pick_tree_update"  # 深度捕获实时控件树(会话内持续推送, 无需ack)
 
 
 class PickerMessage(BaseModel):
@@ -248,7 +250,7 @@ class PickerRequestHandler:
     async def _handle_picker_request(self, ws, input_data: PickerRequire):
         """处理普通拾取请求"""
         if input_data.pick_sign == PickerSign.START:
-            result = await self._handle_pick_start(input_data)
+            result = await self._handle_pick_start(ws, input_data)
         elif input_data.pick_sign == PickerSign.STOP:
             result = await self._handle_pick_stop(input_data)
         elif input_data.pick_sign == PickerSign.VALIDATE:
@@ -276,7 +278,7 @@ class PickerRequestHandler:
 
         await self._send_response(ws, result)
 
-    async def _handle_pick_start(self, input_data: PickerRequire) -> dict[str, Any]:
+    async def _handle_pick_start(self, ws, input_data: PickerRequire) -> dict[str, Any]:
         """处理拾取开始"""
         try:
             from astronverse.picker.core.highlight_client import highlight_client
@@ -290,9 +292,27 @@ class PickerRequestHandler:
                     if input_data.pick_mode:
                         input_data.data["pick_mode"] = input_data.pick_mode
 
-                # 发送拾取开始信号
-                self.svc.tag(SVCSign.PICKER)
-                res = await self.svc.send_sign(PickerSign.START, input_data.model_dump())
+                # 深度捕获实时控件树: 注册推送通道并启动推送泵(send_sign 挂起期间
+                # 事件循环空闲, 泵协程可并发向同一连接推送; 会话结束后清理)
+                deep_tree_task = None
+                if input_data.pick_mode in ("DeepUIA", "DeepUIAPick"):
+                    self.svc.deep_tree_ws = ws
+                    self.svc.deep_tree_queue = queue.Queue(maxsize=4)
+                    deep_tree_task = asyncio.create_task(self._deep_tree_pump(ws, self.svc.deep_tree_queue))
+
+                try:
+                    # 发送拾取开始信号
+                    self.svc.tag(SVCSign.PICKER)
+                    res = await self.svc.send_sign(PickerSign.START, input_data.model_dump())
+                finally:
+                    # 无论结果/异常/超时, 都要摘除推送通道让泵退出
+                    self.svc.deep_tree_ws = None
+                    self.svc.deep_tree_queue = None
+                    if deep_tree_task is not None:
+                        try:
+                            await asyncio.wait_for(asyncio.shield(deep_tree_task), timeout=1.0)
+                        except Exception:
+                            deep_tree_task.cancel()
                 highlight_client.hide_wnd()
 
                 if res == "cancel":
@@ -306,6 +326,33 @@ class PickerRequestHandler:
         except Exception as e:
             logger.error(f"拾取开始处理失败: {e}")
             return OperationResult.error(str(e)).to_dict()
+
+    async def _deep_tree_pump(self, ws, tree_queue) -> None:
+        """深度捕获实时树推送泵: 消费绘制线程入队的局部树 JSON, 直接推送到会话连接。
+
+        高频增量数据不走 push_manager 的 ack 跟踪(避免 pending_pushes 无限膨胀);
+        连接断开/发送异常即退出泵, 不影响拾取主流程。
+        """
+        try:
+            while self.svc.deep_tree_ws is ws:
+                try:
+                    payload = tree_queue.get_nowait()
+                except queue.Empty:
+                    await asyncio.sleep(0.05)
+                    continue
+                try:
+                    push_msg = PickerMessage.create_push(PushKey.PICK_TREE_UPDATE, data=payload)
+                    await ws.send(push_msg.model_dump_json())
+                except Exception as e:
+                    logger.info(f"实时树推送中断(连接可能已关闭): {e}")
+                    break
+        finally:
+            # 排干残留数据避免脏队列泄漏
+            try:
+                while not tree_queue.empty():
+                    tree_queue.get_nowait()
+            except Exception:
+                pass
 
     async def _handle_pick_stop(self, input_data: PickerRequire) -> dict[str, Any]:
         """处理拾取停止"""
