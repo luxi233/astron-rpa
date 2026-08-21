@@ -212,6 +212,25 @@ def sync_data_table_head():
     PyxlHeadWrapper.save(path=_head_file_path)
 
 
+def _to_desc_ranges(indexes: list) -> list:
+    """将索引列表合并为连续区间, 返回[(区间起始索引, 区间长度), ...]按起始索引从大到小排序;
+    供从大到小删除行/列时批量调用delete_rows/delete_cols, 减少逐条删除的重复移位开销"""
+    ranges = []
+    start = amount = None
+    for idx in sorted(indexes):
+        if start is None:
+            start, amount = idx, 1
+        elif idx == start + amount:
+            amount += 1
+        else:
+            ranges.append((start, amount))
+            start, amount = idx, 1
+    if start is not None:
+        ranges.append((start, amount))
+    ranges.reverse()
+    return ranges
+
+
 def _to_enum(value, enum_cls):
     """将参数规范化为枚举成员(兼容直接传枚举值字符串)"""
     if isinstance(value, enum_cls):
@@ -2107,6 +2126,91 @@ class DataTable:
         for r in sorted(rows_to_delete, reverse=True):
             PyxlWrapper.delete_rows(idx=r, amount=1)
         return len(rows_to_delete)
+
+    @staticmethod
+    @auto_save
+    @atomicMg.atomic(
+        "DataTable",
+        inputList=[
+            atomicMg.param("remove_rows", required=False),
+            atomicMg.param("remove_cols", required=False),
+        ],
+        outputList=[
+            atomicMg.param("removed_row_count", types="Int"),
+            atomicMg.param("removed_col_count", types="Int"),
+        ],
+    )
+    def remove_empty_rows_cols(remove_rows: bool = True, remove_cols: bool = True) -> tuple:
+        """
+        一次性删除数据表格中的所有空行/空列
+        :param remove_rows: 是否删除空行(整行无数据的行)
+        :param remove_cols: 是否删除空列(整列无数据的列)
+        :return: (删除的空行数, 删除的空列数)
+        """
+        if not remove_rows and not remove_cols:
+            raise DATAFRAME_EXPECTION(
+                PARAMS_ERROR.format("删除空行与删除空列至少勾选一项"),
+                "删除空行与删除空列至少勾选一项",
+            )
+
+        def is_empty_value(value) -> bool:
+            # 与 get_first_available_row/col 判空口径一致: None或空字符串视为空(空白字符串视为有数据)
+            return value is None or value == ""
+
+        removed_cols = 0
+        # 删列前先快照非空行边界: delete_cols清空全部单元格后openpyxl会把max_row一并收缩,
+        # 且空字符串单元格在openpyxl dimension语义下算有数据(last_nonempty_row返回0), 事后重算会漏删空行
+        initial_max_row = last_nonempty_row()
+        if remove_cols:
+            # max_row可能含delete_rows残留的幻影空行, 以最后一个非空行为界截断幻影空行(不影响判定正确性, 避免无效扫描)
+            max_row = initial_max_row
+            max_col = PyxlWrapper.get_max_column()
+            if max_row >= 1 and max_col >= 1:
+                # values_only 一次性批量取值, 避免逐格属性访问开销
+                grid = list(
+                    PyxlWrapper.sheet.iter_rows(
+                        min_row=1, max_row=max_row, min_col=1, max_col=max_col, values_only=True
+                    )
+                )
+                cols_to_delete = [
+                    c for c in range(1, max_col + 1) if all(is_empty_value(row[c - 1]) for row in grid)
+                ]
+                # 从大到小删除避免列号位移; 合并连续区间减少delete_cols次数(openpyxl内部逐列移位为O(n))
+                for start, amount in _to_desc_ranges(cols_to_delete):
+                    PyxlWrapper.delete_cols(idx=start, amount=amount)
+                    PyxlHeadWrapper.delete_cols(idx=start, amount=amount)
+                if cols_to_delete:
+                    sync_data_table_head()
+                removed_cols = len(cols_to_delete)
+
+        removed_rows = 0
+        if remove_rows:
+            max_col = PyxlWrapper.get_max_column()
+            # 用删列前快照的行边界: 列删空后边界收缩/归零会导致漏删(见initial_max_row注释)
+            max_row = initial_max_row
+            if max_row >= 1:
+                if max_col >= 1:
+                    grid = list(
+                        PyxlWrapper.sheet.iter_rows(
+                            min_row=1, max_row=max_row, min_col=1, max_col=max_col, values_only=True
+                        )
+                    )
+                    if grid:
+                        rows_to_delete = [
+                            r for r in range(1, max_row + 1) if all(is_empty_value(value) for value in grid[r - 1])
+                        ]
+                    else:
+                        # 无单元格可读(列已删空等): 剩余行全部为空行; openpyxl空表max_column下限为1不会走else
+                        rows_to_delete = list(range(1, max_row + 1))
+                else:
+                    # 列已删空: 剩余行全部为空行
+                    rows_to_delete = list(range(1, max_row + 1))
+                # 从大到小删除避免行号位移; 合并连续区间减少delete_rows次数
+                for start, amount in _to_desc_ranges(rows_to_delete):
+                    PyxlWrapper.delete_rows(idx=start, amount=amount)
+                removed_rows = len(rows_to_delete)
+
+        return removed_rows, removed_cols
 
     @staticmethod
     @validate_cell

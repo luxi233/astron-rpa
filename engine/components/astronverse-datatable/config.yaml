@@ -534,6 +534,25 @@ atomic:
       - key: removed_count
         title: 删除行数
         tip: 返回删除的重复行数量，类型为整数
+  DataTable.remove_empty_rows_cols:
+    title: 数据表格删除空行/列
+    comment: 一次性删除数据表格中的所有空行/列，删除空行 @{remove_rows}，删除空列 @{remove_cols}，删除数量输出到 @{removed_row_count} 与 @{removed_col_count}
+    icon: delete_data_table
+    helpManual: ''
+    inputList:
+      - key: remove_rows
+        title: 删除空行
+        tip: 勾选后删除所有整行无数据的行
+      - key: remove_cols
+        title: 删除空列
+        tip: 勾选后删除所有整列无数据的列，列头信息同步删除
+    outputList:
+      - key: removed_row_count
+        title: 删除空行数
+        tip: 返回删除的空行数量，类型为整数
+      - key: removed_col_count
+        title: 删除空列数
+        tip: 返回删除的空列数量，类型为整数
   DataTable.sort_data_table:
     title: 数据表格排序
     comment: 按列 @{sort_cols} 以 @{sort_orders} 方式排序数据表格，@{has_header:含}表头行
