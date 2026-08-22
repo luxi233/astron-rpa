@@ -16,9 +16,9 @@ def picker_start(svc: Svc = Depends(get_svc)):
     if svc.picker.app_picker.is_alive():
         return res_msg(msg="启动成功", data=None)
 
-    svc.picker.highlighter.run()
-    svc.picker.app_picker.run()
-    svc.picker.vision_picker.run()
+    svc.picker.start_component(svc.picker.highlighter)
+    svc.picker.start_component(svc.picker.app_picker)
+    svc.picker.start_component(svc.picker.vision_picker)
     svc.picker.set_start(True)
 
     tag = True

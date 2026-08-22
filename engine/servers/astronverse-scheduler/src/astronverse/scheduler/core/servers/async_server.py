@@ -81,13 +81,13 @@ class CheckPickProcessAliveServer(IServer):
                 if self.svc.picker.start:
                     if self.svc.picker.vision_picker:
                         if not self.svc.picker.vision_picker.is_alive():
-                            self.svc.picker.vision_picker.run()
+                            self.svc.picker.start_component(self.svc.picker.vision_picker)
                     if self.svc.picker.app_picker:
                         if not self.svc.picker.app_picker.is_alive():
-                            self.svc.picker.app_picker.run()
+                            self.svc.picker.start_component(self.svc.picker.app_picker)
                     if self.svc.picker.highlighter:
                         if not self.svc.picker.highlighter.is_alive():
-                            self.svc.picker.highlighter.run()
+                            self.svc.picker.start_component(self.svc.picker.highlighter)
             except Exception as e:
                 logger.exception("check_pick_process error: {}".format(e))
             finally:

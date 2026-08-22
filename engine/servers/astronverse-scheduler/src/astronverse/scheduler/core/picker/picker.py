@@ -3,7 +3,7 @@ import platform
 import sys
 
 from astronverse.scheduler import ComponentType
-from astronverse.scheduler.utils.subprocess import SubPopen
+from astronverse.scheduler.utils.subprocess import SubPopen, get_log_dir
 
 
 class Picker:
@@ -17,6 +17,10 @@ class Picker:
 
     def set_start(self, start):
         self.start = start
+
+    def start_component(self, proc: SubPopen):
+        """启动拾取组件, stderr 重定向到日志文件(崩溃留痕: 进程死亡时调度器可回读崩溃信息)"""
+        proc.run(stderr_log=os.path.join(get_log_dir(), "{}-stderr.log".format(proc.name)))
 
     def init(self):
         python_executable = self.svc.config.python_core

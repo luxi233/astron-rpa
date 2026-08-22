@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 import psutil
 from astronverse.scheduler.logger import logger
@@ -46,6 +47,17 @@ def async_default_output_callback(msg, error):
         logger.info("[RES]{}".format(msg))
 
 
+def get_log_dir() -> str:
+    """日志目录(与 scheduler 自身日志同目录): <cwd>/logs"""
+    log_dir = os.path.join(os.getcwd(), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    return log_dir
+
+
+# 崩溃留痕: 进程死亡时回读子进程 stderr 文件尾部的字节数上限(超长的仅取尾部)
+CRASH_TAIL_BYTES = 8192
+
+
 class SubPopen:
     def __init__(self, name: str = None, cmd: list = None, params: dict = None):
         if not params:
@@ -58,6 +70,7 @@ class SubPopen:
         self.proc = None
         self.start_time = 0
         self.__log__ = None
+        self.__stderr_file__ = None
 
     def logger_handler(self, output_callback=default_output_callback, timeout=None) -> (str, str):
         if self.__log__:
@@ -111,8 +124,12 @@ class SubPopen:
         stdout_thread.start()
         return
 
-    def run(self, shell: bool = None, log: bool = False, encoding="utf-8", env=None) -> "SubPopen":
+    def run(
+        self, shell: bool = None, log: bool = False, encoding="utf-8", env=None, stderr_log: str = None
+    ) -> "SubPopen":
         disable_cmd_quick_edit()
+        # 上一轮进程死亡时先收殓退出码与 stderr 尾部(崩溃留痕, 避免静默死亡无诊断信息)
+        self._harvest_previous()
 
         # shell 默认值
         if shell is None:
@@ -141,18 +158,52 @@ class SubPopen:
 
         self.__log__ = log
 
+        # 崩溃留痕: 不开全量日志时, 可将 stderr 重定向到文件捕获崩溃信息(如 Python traceback)
+        self.__stderr_file__ = None
+        if not log and stderr_log:
+            try:
+                self.__stderr_file__ = open(stderr_log, "w", encoding=encoding, errors="replace")  # noqa: SIM115
+            except Exception as e:
+                logger.warning("stderr 重定向文件打开失败 {}: {}".format(stderr_log, e))
+
         self.proc = subprocess.Popen(
             cmd,
             shell=shell,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE if log else subprocess.DEVNULL,
-            stderr=subprocess.PIPE if log else subprocess.DEVNULL,
+            stderr=subprocess.PIPE if log else (self.__stderr_file__ or subprocess.DEVNULL),
             text=True,
             env=env,
             encoding=encoding,
             errors="replace",
         )
         return self
+
+    def _harvest_previous(self):
+        """重启前收殓上一轮子进程: 记录退出码, 并回读 stderr 重定向文件尾部写入调度器日志"""
+        if self.proc is None:
+            return
+        returncode = self.proc.poll()
+        if returncode is None:
+            return
+        tail = ""
+        if self.__stderr_file__:
+            path = getattr(self.__stderr_file__, "name", "")
+            try:
+                self.__stderr_file__.close()
+            except Exception:
+                pass
+            self.__stderr_file__ = None
+            try:
+                content = Path(path).read_text(encoding="utf-8", errors="replace")
+                tail = content[-CRASH_TAIL_BYTES:] if content else ""
+            except Exception:
+                pass
+        logger.error(
+            "子进程 {} 已退出, returncode={}{}".format(
+                self.name, returncode, ", stderr尾部:\n{}".format(tail) if tail.strip() else ""
+            )
+        )
 
     def set_param(self, key, val):
         """
