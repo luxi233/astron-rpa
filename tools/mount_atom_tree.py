@@ -18,6 +18,7 @@ METAS = {
     "browser": json.load(open(f"{COMP}/astronverse-browser/meta.json", encoding="utf-8")),
     "database": json.load(open(f"{COMP}/astronverse-database/meta.json", encoding="utf-8")),
     "dataprocess": json.load(open(f"{COMP}/astronverse-dataprocess/meta.json", encoding="utf-8")),
+    "datatable": json.load(open(f"{COMP}/astronverse-datatable/meta.json", encoding="utf-8")),
     "dialog": json.load(open(f"{COMP}/astronverse-dialog/meta.json", encoding="utf-8")),
     "encrypt": json.load(open(f"{COMP}/astronverse-encrypt/meta.json", encoding="utf-8")),
     "image": json.load(open(f"{COMP}/astronverse-image/meta.json", encoding="utf-8")),
@@ -29,15 +30,13 @@ METAS = {
 }
 
 # (分组key, 锚点原子key, [(组件, 新原子key)])
-# M11: P5-7 进度条×3 → dialog 分组 message_notification 后追加
+# M12: 数据表格删除空行/列 → datatable 分组 remove_duplicate_rows 后插入(字母序: remove_d < remove_e < rename)
 MOUNTS = [
     (
-        "dialog",
-        "Dialog.message_notification",
+        "datatable",
+        "DataTable.remove_duplicate_rows",
         [
-            ("dialog", "Dialog.init_progress_bar"),
-            ("dialog", "Dialog.update_progress"),
-            ("dialog", "Dialog.set_progress_description"),
+            ("datatable", "DataTable.remove_empty_rows_cols"),
         ],
     ),
 ]
@@ -61,6 +60,7 @@ GROUP_TITLES = {
     "video": "视频处理",
     "database": "数据库",
     "ftp": "FTP",
+    "datatable": "数据表格",
 }
 
 

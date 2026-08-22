@@ -21,6 +21,7 @@ COMPONENTS = {
     "browser": f"{COMP}/astronverse-browser/meta.json",
     "database": f"{COMP}/astronverse-database/meta.json",
     "dataprocess": f"{COMP}/astronverse-dataprocess/meta.json",
+    "datatable": f"{COMP}/astronverse-datatable/meta.json",
     "dialog": f"{COMP}/astronverse-dialog/meta.json",
     "encrypt": f"{COMP}/astronverse-encrypt/meta.json",
     "image": f"{COMP}/astronverse-image/meta.json",
@@ -33,38 +34,13 @@ COMPONENTS = {
 }
 metas = {name: json.load(open(p, encoding="utf-8")) for name, p in COMPONENTS.items()}
 
-# 本批次无新行
-NEW_ROWS = {}
-
-# WPS wps_client 强类型修复: 26 行 inputList/outputList types Any -> WpsHookClient (ids 743-768)
-UPDATE_ROWS = {
-    743: ("kdocs", "WPS.create_client"),
-    744: ("kdocs", "WPS.read_range"),
-    745: ("kdocs", "WPS.write_range"),
-    746: ("kdocs", "WPS.get_count"),
-    747: ("kdocs", "WPS.get_first_available"),
-    748: ("kdocs", "WPS.get_image"),
-    749: ("kdocs", "WPS.insert_image"),
-    750: ("kdocs", "WPS.get_hyperlink"),
-    751: ("kdocs", "WPS.list_sheets"),
-    752: ("kdocs", "WPS.create_sheet"),
-    753: ("kdocs", "WPS.delete_sheet"),
-    754: ("kdocs", "WPS.replace"),
-    755: ("kdocs", "WPS.copy_paste"),
-    756: ("kdocs", "WPS.insert_cells"),
-    757: ("kdocs", "WPS.delete_cells"),
-    758: ("kdocs", "WPS.clear_range"),
-    759: ("kdocs", "WPS.merge_cells"),
-    760: ("kdocs", "WPS.set_format"),
-    761: ("kdocs", "WPS.get_color"),
-    762: ("kdocs", "WPS.formula"),
-    763: ("kdocs", "WPS.save_workbook"),
-    764: ("kdocs", "WPS.rename_sheet"),
-    765: ("kdocs", "WPS.move_sheet"),
-    766: ("kdocs", "WPS.auto_fit"),
-    767: ("kdocs", "WPS.get_file_info"),
-    768: ("kdocs", "WPS.calc_function"),
+# M12: 数据表格删除空行/列新原子(id 1100, 追加末尾)
+NEW_ROWS = {
+    1100: ("datatable", "DataTable.remove_empty_rows_cols"),
 }
+
+# 本批次无改行
+UPDATE_ROWS = {}
 
 missing = []
 for id_, (comp, key) in {**NEW_ROWS, **UPDATE_ROWS}.items():
