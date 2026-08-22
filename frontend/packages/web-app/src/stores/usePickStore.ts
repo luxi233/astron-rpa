@@ -55,14 +55,20 @@ export const usePickStore = defineStore('pickStore', () => {
   const DEEP_SIDEBAR_WIDTH = 320
   async function enterDeepSidebarMode() {
     try {
+      // 修复: 最大化状态下 Electron 的 setBounds/setPosition 被忽略, 必须先还原,
+      // 否则窗口保持全屏盖住整个屏幕(鼠标落点永远在设计器自身, 深度遍历自身窗口树失败致会话数秒内退出)
+      if (await windowManager.isMaximized())
+        await windowManager.restoreWindow()
       const workArea: any = await windowManager.getScreenWorkArea()
       const scale = await windowManager.scaleFactor()
+      // workArea(screen.getPrimaryDisplay) 与 setBounds 均为逻辑像素, 面板宽高直接用逻辑像素;
+      // 仅 setWindowPosition(SDK 内部按 dpr 除回逻辑像素)需传物理像素, 对逻辑坐标整体乘缩放系数
       const width = workArea?.width || window.screen.availWidth
       const height = workArea?.height || window.screen.availHeight
-      // setWindowPosition 为物理像素, 需乘缩放系数; 宽度用物理像素保持面板实际 320dp
-      const physWidth = Math.round(DEEP_SIDEBAR_WIDTH * scale)
-      await windowManager.setWindowPosition((workArea?.x || 0) + (width - DEEP_SIDEBAR_WIDTH) * scale, (workArea?.y || 0) * scale)
-      await windowManager.setWindowSize({ width: physWidth, height: Math.round(height * scale) })
+      const logicalX = (workArea?.x || 0) + width - DEEP_SIDEBAR_WIDTH
+      const logicalY = workArea?.y || 0
+      await windowManager.setWindowPosition(Math.round(logicalX * scale), Math.round(logicalY * scale))
+      await windowManager.setWindowSize({ width: DEEP_SIDEBAR_WIDTH, height: Math.round(height) })
       await windowManager.setWindowAlwaysOnTop(true)
     }
     catch {
