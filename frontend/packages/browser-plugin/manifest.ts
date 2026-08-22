@@ -6,13 +6,15 @@ export function generateManifest(mode: string, environment) {
   const packageJson = readFileSync('./package.json', 'utf-8')
   const { version } = JSON.parse(packageJson)
   const isFirefox = mode === 'firefox'
-  const appName = environment.VITE_APP_NAME
-  const appDescription = environment.VITE_APP_NAME
-  const appHomePage = environment.VITE_APP_HOMEPAGE
+  // 修复: 本地无 .env 时 VITE_* 为 undefined, description 会拼出 "undefined-xxx" 污染提交产物;
+  // 全部字段加兜底, 且 description 不带模式后缀(与历史发布产物一致)
+  const appName = environment.VITE_APP_NAME || 'Browser-Plugin'
+  const appDescription = environment.VITE_APP_DESCRIPTION || appName
+  const appHomePage = environment.VITE_APP_HOMEPAGE || 'https://www.iflyrpa.com'
   let manifest = {
     manifest_version: 3,
     name: appName,
-    description: mode !== 'production' ? `${appDescription}-${mode}` : appDescription,
+    description: appDescription,
     homepage_url: appHomePage,
     version,
     icons: {
