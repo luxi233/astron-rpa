@@ -203,6 +203,8 @@ class PickerSign(Enum):
 
     SWITCH_MODE = "SWITCH_MODE"  # I4 会话内捕获模式切换(标准/深度/CV, 就地改写会话 pick_mode)
 
+    TREE_PICK = "TREE_PICK"  # 深度捕获实时树节点点选: 会话内按属性链构造元素, 主循环以捕获成功结束
+
 
 class RecordAction(Enum):
     """录制动作 - 专门处理录制相关的子操作"""

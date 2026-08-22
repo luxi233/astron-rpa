@@ -52,7 +52,6 @@ class Socket {
   }
 
   eventId = '' // 消息id
-  msgStack: any = [] // 消息栈
 
   constructor(router: string, params: SocketParamsType) {
     const port = storage.get('route_port') || params.port || this.OPTIONS.port
@@ -118,7 +117,6 @@ class Socket {
       clearTimeout(this.timer) // 清除超时定时器
       if (this.OPTIONS.isHeart)
         this.heart()
-      this.msgStack = []
       clearTimeout(this.RECONNEC_TTIMER) // 清除重连定时器
       this.OPENCALLBACK
         ? this.OPENCALLBACK(event)
@@ -136,7 +134,6 @@ class Socket {
       this.ws.onclose = (event: any) => {
         console.log('onclose:', event)
         clearTimeout(this.timer) // 清除超时定时器
-        this.msgStack = []
         if (this.OPTIONS.isHeart)
           clearTimeout(this.HEART_TIMER)
         if (!this.OPTIONS.isDestory && this.OPTIONS.isReconnect) {
@@ -159,7 +156,6 @@ class Socket {
     this.ws.onerror = (event: any) => {
       console.log('onerror:', event)
       clearTimeout(this.timer)
-      this.msgStack = []
       this.ERRORCALLBACK ? this.ERRORCALLBACK(event) : typeof callback === 'function' && callback(event)
     }
   }
@@ -217,7 +213,6 @@ class Socket {
   sendText(data: string) {
     if (typeof data !== 'string')
       throw new Error('请发送文本消息')
-    this.msgStack.pop()
     this.ws.send(data)
   }
 
@@ -268,7 +263,6 @@ class Socket {
     this.CLOSECALLBACK = null
     this.ERRORCALLBACK = null
     this.ws = null
-    this.msgStack = []
   }
 
   /**

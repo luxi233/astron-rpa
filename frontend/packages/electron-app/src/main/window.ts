@@ -1,12 +1,12 @@
 import path from 'node:path'
 
-import { app, BrowserWindow, screen } from 'electron'
 import type { CreateWindowOptions } from '@rpa/shared/platform'
+import { app, BrowserWindow, screen } from 'electron'
 import { isUndefined } from 'lodash'
 
 import { APP_ICON_PATH, MAIN_WINDOW_LABEL } from './config'
-import { resourcePath } from './path'
 import logger from './log'
+import { resourcePath } from './path'
 
 export const WindowStack: Map<string, BrowserWindow> = new Map()
 
@@ -132,40 +132,42 @@ export function createSubWindow(options: CreateWindowOptions) {
     ...restOptions
   } = options
 
-  const display = screen.getPrimaryDisplay()
-  const { width: screenWidth, height: screenHeight } = display.workAreaSize
+  // 跟随鼠标所在显示器(而非固定主屏), 多屏时子窗口出现在用户操作的屏幕上;
+  // 非主屏 workArea 原点可能非 (0,0), 各方位需叠加 workArea.x/y 偏移
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  const { x: areaX, y: areaY, width: screenWidth, height: screenHeight } = display.workArea
 
   let x: number | undefined = _x
   let y: number | undefined = _y
 
   switch (position) {
     case 'left_top':
-      x = 2
-      y = 2
+      x = areaX + 2
+      y = areaY + 2
       break
     case 'right_top':
-      x = screenWidth - width - 2
-      y = 2
+      x = areaX + screenWidth - width - 2
+      y = areaY + 2
       break
     case 'left_bottom':
-      x = 2
-      y = screenHeight - height - 2
+      x = areaX + 2
+      y = areaY + screenHeight - height - 2
       break
     case 'right_bottom':
-      x = screenWidth - width - 2
-      y = screenHeight - height - 2
+      x = areaX + screenWidth - width - 2
+      y = areaY + screenHeight - height - 2
       break
     case 'top_center':
-      x = Math.round((screenWidth - width) / 2)
-      y = 2
+      x = areaX + Math.round((screenWidth - width) / 2)
+      y = areaY + 2
       break
     case 'center':
-      x = Math.round((screenWidth - width) / 2)
-      y = Math.round((screenHeight - height) / 2)
+      x = areaX + Math.round((screenWidth - width) / 2)
+      y = areaY + Math.round((screenHeight - height) / 2)
       break
     case 'right_center':
-      x = screenWidth - width - offset
-      y = screenHeight / 2 - height / 2
+      x = areaX + screenWidth - width - offset
+      y = areaY + screenHeight / 2 - height / 2
       break
     default:
       break

@@ -273,6 +273,8 @@ class PickerRequestHandler:
             result = await self._handle_cv_disambiguate(input_data)
         elif input_data.pick_sign == PickerSign.SWITCH_MODE:
             result = await self._handle_switch_mode(input_data)
+        elif input_data.pick_sign == PickerSign.TREE_PICK:
+            result = await self._handle_tree_pick(input_data)
         else:
             result = OperationResult.error("pick_sign没有实现").to_dict()
 
@@ -646,6 +648,59 @@ class PickerRequestHandler:
             )
             return OperationResult.success(data=json.dumps(result, ensure_ascii=False)).to_dict()
         except Exception as e:
+            return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_tree_pick(self, input_data: PickerRequire) -> dict[str, Any]:
+        """深度捕获实时树节点点选拾取: 按节点属性链构造元素并验证定位。
+
+        data: JSON 属性链(窗口层→目标层, 字段同 CONTROL_TREE pick: tag_name/cls/name/automation_id)。
+        定位成功 → 写 TREE_PICK_DONE 信号供绘制主循环消费, 会话以捕获成功结束(与 Ctrl+点击同路径);
+        定位失败 → 不结束会话, 回带 located=False 供前端提示换节点重试。
+        ack 的 data 为 {tree_pick, located} JSON, 前端据此与真正的捕获结果区分。
+        """
+        try:
+            sign = self.svc.sign()
+            if PickerSign.START.value not in sign:
+                return OperationResult.error("无进行中的拾取会话, 无法点选树节点").to_dict()
+
+            chain = json.loads(input_data.data) if isinstance(input_data.data, str) else (input_data.data or [])
+            if not isinstance(chain, list) or not chain:
+                return OperationResult.error("节点属性链为空, 无法点选拾取").to_dict()
+
+            from astronverse.locator.locator import LocatorManager
+
+            path = [
+                {
+                    "tag_name": node.get("tag_name"),
+                    "cls": node.get("cls"),
+                    "name": node.get("name"),
+                    "automation_id": node.get("automation_id"),
+                    "checked": True,
+                    "disable_keys": [],
+                }
+                for node in chain
+            ]
+            element = {
+                "app": (chain[0].get("name") or ""),
+                "version": "1",
+                "type": "uia",
+                "path": path,
+                "picker_type": "",
+            }
+            located = False
+            try:
+                located = LocatorManager().locator(element, self_heal=False, cv_fallback=False) is not None
+            except Exception as e:
+                logger.warning(f"树点选元素验证定位失败: {e}")
+
+            if located:
+                # 主循环消费信号: 绘制循环下一轮以此为捕获结果结束会话(先于 is_focus 判定)
+                sign["TREE_PICK_DONE"] = element
+            return OperationResult.success(
+                data=json.dumps({"tree_pick": True, "located": located}, ensure_ascii=False)
+            ).to_dict()
+        except Exception as e:
+            logger.error(f"树点选拾取处理失败: {e}")
             return OperationResult.error(str(e)).to_dict()
 
     async def _handle_pick_highlight(self, input_data: PickerRequire) -> dict[str, Any]:

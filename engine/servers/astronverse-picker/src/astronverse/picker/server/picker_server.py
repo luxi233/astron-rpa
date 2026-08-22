@@ -61,21 +61,28 @@ class PickerServer:
                     # 轮询兜底: UIPI(管理员目标窗口)隔离钩子时, 钩子回调不触发,
                     # 用GetAsyncKeyState轮询感知Esc/Ctrl+左键(详见poll_fallback注释)
                     event_core.poll_fallback()
-                    if event_core.is_cancel() or event_core.is_focus():
+                    if event_core.is_cancel() or event_core.is_focus() or "TREE_PICK_DONE" in sign:
                         # 退出
 
                         try:
                             # 1.隐藏画框
                             # highlight_client.hide_wnd()
                             # time.sleep(0.1)  # 等待画框真正隐藏
-                            if event_core.is_cancel() or (
-                                event_core.is_focus() and self.service_context.event_tag == SVCSign.PICKER
+                            if (
+                                event_core.is_cancel()
+                                or (event_core.is_focus() and self.service_context.event_tag == SVCSign.PICKER)
+                                or "TREE_PICK_DONE" in sign
                             ):
                                 highlight_client.hide_wnd()
                                 time.sleep(0.1)
 
                             # 收集返回数据
-                            if self.service_context.event_core.is_focus():
+                            if "TREE_PICK_DONE" in sign:
+                                # 深度捕获树节点点选: ws 侧已构造元素并验证定位,
+                                # 直接以捕获成功结束会话(与 Ctrl+点击同路径回传)
+                                result = sign["TREE_PICK_DONE"]
+                                del sign["TREE_PICK_DONE"]
+                            elif self.service_context.event_core.is_focus():
                                 picker_data = sign[PickerSign.START.value]
                                 result = self.service_context.picker_core.element(self.service_context, picker_data)
                             else:

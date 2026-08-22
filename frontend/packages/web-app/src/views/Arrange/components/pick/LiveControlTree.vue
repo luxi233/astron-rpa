@@ -16,39 +16,53 @@ interface LiveTreeNode {
   children: LiveTreeNode[]
 }
 
+// 优先用外部传入的树数据(独立面板窗口经 w2w 转发), 未传时回退读全局 store(主窗口内联场景);
+// pickable 开启树节点点选捕获(点击节点标题即按祖先属性链完成拾取)
+const props = defineProps<{
+  treeData?: any
+  pickable?: boolean
+}>()
+const emit = defineEmits<{
+  (e: 'pick-node', chain: LiveTreeNode[]): void
+}>()
 const usePick = usePickStore()
 const fieldNames = { children: 'children', title: 'title', key: 'key' }
+
+const sourceTreeData = computed(() => props.treeData !== undefined ? props.treeData : usePick.liveTreeData)
 
 const treeData = ref<any[]>([])
 const expandedKeys = ref<string[]>([])
 const selectedKeys = ref<string[]>([])
 
 /**
- * 实时树 → antd 树数据; 顺带收集祖先链 key 供自动展开到聚焦节点
+ * 实时树 → antd 树数据; 顺带收集祖先链 key 供自动展开到聚焦节点,
+ * 并为每个节点附带祖先属性链 chain(窗口层→自身, 供点选捕获上报)
  */
-function convertNode(node: LiveTreeNode, key: string, ancestry: string[], focusedKeys: string[], focusedKey: { value: string }) {
+function convertNode(node: LiveTreeNode, key: string, ancestry: string[], chain: LiveTreeNode[], focusedKeys: string[], focusedKey: { value: string }) {
   if (node.focused) {
     focusedKey.value = key
     focusedKeys.push(...ancestry, key)
   }
+  const nodeChain = [...chain, node]
   return {
     key,
     title: node.tag_name || 'Control',
     isLeaf: !node.children || node.children.length === 0,
     raw: node,
-    children: (node.children || []).map((child, idx) => convertNode(child, `${key}-${idx}`, [...ancestry, key], focusedKeys, focusedKey)),
+    chain: nodeChain,
+    children: (node.children || []).map((child, idx) => convertNode(child, `${key}-${idx}`, [...ancestry, key], nodeChain, focusedKeys, focusedKey)),
   }
 }
 
 // 每帧推送到达后重建树并自动展开/选中聚焦节点(引擎已做指纹去重+节流, 此处直接替换即可)
-watch(() => usePick.liveTreeData, (raw) => {
+watch(sourceTreeData, (raw) => {
   if (!raw) {
     treeData.value = []
     return
   }
   const focusedKeys: string[] = []
   const focusedKey = { value: '' }
-  treeData.value = [convertNode(raw, '0', [], focusedKeys, focusedKey)]
+  treeData.value = [convertNode(raw, '0', [], [], focusedKeys, focusedKey)]
   expandedKeys.value = focusedKeys.length ? focusedKeys : ['0']
   selectedKeys.value = focusedKey.value ? [focusedKey.value] : []
 })
@@ -92,7 +106,11 @@ const focusedRaw = computed<LiveTreeNode | null>(() => {
         :open-animation="null"
       >
         <template #title="{ data }">
-          <span class="font-size-12" :class="{ 'focused-node': data.raw.focused }">
+          <span
+            class="font-size-12"
+            :class="{ 'focused-node': data.raw.focused, 'pickable-node': props.pickable }"
+            @click="props.pickable && emit('pick-node', data.chain)"
+          >
             <span class="node-tag">{{ data.raw.tag_name || 'Control' }}</span>
             <span v-if="data.raw.name" class="node-name">"{{ data.raw.name }}"</span>
             <span v-if="data.raw.automation_id" class="node-attr">[{{ data.raw.automation_id }}]</span>
@@ -192,6 +210,16 @@ const focusedRaw = computed<LiveTreeNode | null>(() => {
 
   .node-tag {
     font-weight: 600;
+  }
+}
+
+.pickable-node {
+  display: inline-block;
+  width: 100%;
+  cursor: pointer;
+
+  &:hover {
+    color: #1677ff;
   }
 }
 </style>

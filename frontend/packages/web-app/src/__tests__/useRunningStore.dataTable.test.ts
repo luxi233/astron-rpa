@@ -156,7 +156,6 @@ describe('useRunningStore 数据表格数据流', () => {
   it('t4: updateDataTableCell 乐观更新本地数据并收敛边界(区域外 null 不扩容)', async () => {
     mockUpdateDataTable.mockResolvedValue({})
     const store = useRunningStore()
-    // @ts-expect-error 测试直接注入表格状态
     store.dataTable = {
       name: 'Sheet1',
       data: [['a', 'b'], [null, 'd']],

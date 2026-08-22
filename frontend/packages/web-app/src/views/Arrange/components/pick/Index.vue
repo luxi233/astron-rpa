@@ -35,10 +35,10 @@ import {
   elementDirectoryFormatRecover,
 } from '@/views/Arrange/utils/elementsUtils'
 
+import { ControlTreeModal } from './controlTreeModal'
 import CustomTable from './CustomTable.vue'
 import DirectoryTable from './DirectoryTable.vue'
 import PickForm from './PickForm.vue'
-import { ControlTreeModal } from './controlTreeModal'
 
 defineProps({
   isContinue: {
