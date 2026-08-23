@@ -13,4 +13,6 @@ export enum DEEP_PICK_EVENT {
   TREE_PROPS = 'deep-pick-tree-props', // 面板 → 主窗口: 查询选中节点 UIA 属性(携带节点属性链)
   TREE_PROPS_RESULT = 'deep-pick-tree-props-result', // 主窗口 → 面板: 属性查询结果({props} 或 null=定位失败)
   READY = 'deep-pick-ready', // 面板 → 主窗口: 面板挂载就绪, 请求重发当前树快照(首帧可能先于面板监听注册到达而被丢弃)
+  AI_SEARCH = 'deep-pick-ai-search', // 面板 → 主窗口: AI 查找元素(携带自然语言描述, 主窗口代理调云端 AI)
+  AI_SEARCH_RESULT = 'deep-pick-ai-search-result', // 主窗口 → 面板: AI 查找结果(命中节点 key 或 null=未找到/失败)
 }

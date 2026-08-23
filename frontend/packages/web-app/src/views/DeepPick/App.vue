@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { CloseOutlined } from '@ant-design/icons-vue'
-import { onMounted, ref } from 'vue'
+import { message } from 'ant-design-vue'
+import { useTranslation } from 'i18next-vue'
+import { nextTick, onMounted, ref } from 'vue'
 
 import ConfigProvider from '@/components/ConfigProvider/index.vue'
 import { WINDOW_NAME } from '@/constants'
@@ -24,6 +26,13 @@ const treePicking = ref(false)
 const treeFrozen = ref(false)
 // 选中节点 UIA 属性(右栏面板): 主窗口经 w2w 回传引擎查询结果, null=未查询/定位失败(前端回退节点自带字段)
 const nodeProps = ref<Record<string, any> | null>(null)
+// AI 查找: 自然语言描述(经主窗口代理调云端 AI), 命中节点 key 驱动树选中展开
+const aiQuery = ref('')
+const aiSearching = ref(false)
+const aiFocusKey = ref('')
+// 超时兜底: 主窗口取消捕获后不回执 AI_SEARCH 时解锁输入(避免 loading 永挂)
+let aiSearchTimer: ReturnType<typeof setTimeout> | null = null
+const { t } = useTranslation()
 
 utilsManager.listenEvent('w2w', ({ from, target, type, data }: W2WType) => {
   if (from !== WINDOW_NAME.MAIN || target !== WINDOW_NAME.DEEP_PICK)
@@ -46,6 +55,23 @@ utilsManager.listenEvent('w2w', ({ from, target, type, data }: W2WType) => {
   else if (type === DEEP_PICK_EVENT.TREE_PROPS_RESULT) {
     // 属性查询结果: null=定位失败, 面板回退显示节点自带字段
     nodeProps.value = data
+  }
+  else if (type === DEEP_PICK_EVENT.AI_SEARCH_RESULT) {
+    // AI 查找结果: key=命中节点(先清空再赋值, 连续命中同一节点也能触发聚焦), null=未找到/失败
+    if (aiSearchTimer) {
+      clearTimeout(aiSearchTimer)
+      aiSearchTimer = null
+    }
+    aiSearching.value = false
+    if (typeof data === 'string' && data) {
+      aiFocusKey.value = ''
+      void nextTick(() => {
+        aiFocusKey.value = data
+      })
+    }
+    else {
+      message.info(t('deepCaptureAiSearchNotFound'))
+    }
   }
   else if (type === DEEP_PICK_EVENT.FINISH) {
     windowManager.closeWindow(WINDOW_NAME.DEEP_PICK)
@@ -71,6 +97,19 @@ function handleSelectNode(chain: any[]) {
   emitToMain(DEEP_PICK_EVENT.TREE_PROPS, chain)
 }
 
+// AI 查找元素: 面板无 http 上下文, query 经主窗口代理调云端 AI(树摘要→序号→节点 key)
+function handleAiSearch() {
+  const query = aiQuery.value.trim()
+  if (!query || aiSearching.value)
+    return
+  aiSearching.value = true
+  aiSearchTimer = setTimeout(() => {
+    aiSearchTimer = null
+    aiSearching.value = false
+  }, 20000)
+  emitToMain(DEEP_PICK_EVENT.AI_SEARCH, query)
+}
+
 // 关闭面板 = 取消捕获: 通知主窗口销毁拾取会话(引擎会话随 WS 断连清理)
 function handleClose() {
   emitToMain(DEEP_PICK_EVENT.CANCEL)
@@ -89,8 +128,19 @@ function handleClose() {
           </template>
         </a-button>
       </div>
+      <div class="deep-pick-ai-search">
+        <a-input-search
+          v-model:value="aiQuery"
+          :placeholder="$t('deepCaptureAiSearchPlaceholder')"
+          :loading="aiSearching"
+          size="small"
+          :disabled="!liveTreeData"
+          allow-clear
+          @search="handleAiSearch"
+        />
+      </div>
       <div class="flex-1 overflow-hidden">
-        <LiveControlTree :tree-data="liveTreeData" :pickable="!treePicking" :frozen="treeFrozen" :node-props="nodeProps" @pick-node="handlePickNode" @select-node="handleSelectNode" />
+        <LiveControlTree :tree-data="liveTreeData" :pickable="!treePicking" :frozen="treeFrozen" :node-props="nodeProps" :focus-key="aiFocusKey" @pick-node="handlePickNode" @select-node="handleSelectNode" />
       </div>
     </div>
   </ConfigProvider>
@@ -113,5 +163,10 @@ function handleClose() {
 
 .deep-pick-close {
   flex-shrink: 0;
+}
+
+.deep-pick-ai-search {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f0f0;
 }
 </style>

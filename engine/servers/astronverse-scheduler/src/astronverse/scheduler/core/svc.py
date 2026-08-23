@@ -1,6 +1,7 @@
 import sys
 import threading
 import time
+from pathlib import Path
 
 import requests
 from astronverse.scheduler import ComponentType
@@ -28,6 +29,8 @@ class Svc:
         self.__local_port__: int = 13158
         # 路由端口[随机分配]
         self.rpa_route_port: int = self.get_validate_port(ComponentType.ROUTE)
+        # 网关端口落盘: 非流程上下文组件(ai_heal 等)凭 ~/.astronverse/gateway.json 免注入解析端口
+        self.write_gateway_json(self.rpa_route_port)
         # 调度器端口[随机分配]
         self.scheduler_port: int = self.get_validate_port(ComponentType.SCHEDULER)
         # trigger端口[随机分配]
@@ -88,6 +91,21 @@ class Svc:
                     if component_type is not None:
                         self.port_dict[component_type.name.lower()] = self.__local_port__
                     return self.__local_port__
+
+    @staticmethod
+    def write_gateway_json(route_port: int):
+        """网关端口写入本地网关清单(原子替换), 供独立组件解析本地网关地址"""
+        import json
+        import os
+
+        try:
+            path = Path.home() / ".astronverse" / "gateway.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps({"route_port": route_port}), encoding="utf-8")
+            os.replace(tmp, path)
+        except Exception as e:
+            logger.warning("网关端口落盘失败(不影响调度): {}".format(e))
 
     def register_server(self):
         def register_component(component, port: int):

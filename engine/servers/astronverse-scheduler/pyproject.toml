@@ -13,7 +13,6 @@ dependencies = [
     "requests",
     "importlib_metadata",
     "pyperclip",
-    "sseclient",
     "websocket-client",
     "websockify",
     "pyautogui",

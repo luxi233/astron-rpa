@@ -15,6 +15,8 @@ class AIBaseError(BaselineBaseException):
 
 
 LLM_NO_RESPONSE_ERROR: ErrorCode = ErrorCode(BizCode.LocalErr, _("大模型无返回结果，请重试") + ": {}")
+LLM_REQUEST_ERROR: ErrorCode = ErrorCode(BizCode.LocalErr, _("大模型请求失败，请检查本地网关与 AI 服务配置") + ": {}")
+LLM_RESPONSE_FORMAT_ERROR: ErrorCode = ErrorCode(BizCode.LocalErr, _("大模型响应格式不正确，请重试"))
 
 # 保留兼容：外部仍可能引用 BaseException，这里导出 Baseline 基类
 BaseException = BaselineBaseException  # type: ignore

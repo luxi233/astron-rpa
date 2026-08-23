@@ -29,6 +29,8 @@ _metrics = {
     "heal_cache_invalidated": 0,
     "cv_fallback_attempt": 0,
     "cv_fallback_success": 0,
+    "ai_heal_attempt": 0,
+    "ai_heal_success": 0,
     "last_locate_ms": 0,
 }
 
@@ -76,7 +78,10 @@ def format_report_tips(report) -> list:
     tips = []
     if report.get("heal_cache"):
         tips.append("命中自愈缓存: 直接复用此前自动修复的元素路径")
-    if report.get("healed"):
+    if report.get("ai_healed"):
+        # AI 修复与规则自愈共用 repair_hint 字段, 此处兜底文案区分来源
+        tips.append(report.get("repair_hint") or "元素定位失败, 已通过 AI 修复定位路径")
+    elif report.get("healed"):
         # repair_hint 为自愈引擎生成的具体修复描述(放宽了哪些匹配条件)
         tips.append(report.get("repair_hint") or "元素定位失败, 已自动修复")
     if report.get("cv_fallback"):

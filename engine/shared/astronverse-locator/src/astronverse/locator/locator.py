@@ -5,6 +5,7 @@
 """
 
 import json
+import os
 import re
 import time
 import traceback
@@ -147,12 +148,16 @@ class LocatorManager:
         picker_type = element.get("picker_type", "")
         report = kwargs.get("report")
         heal_eligible = kwargs.get("self_heal", True) and locator_type == PickerDomain.UIA.value and not picker_type
+        # 自愈缓存快路径适用于 UIA(规则自愈) 与 Web(AI 修复) 两域
+        cache_eligible = heal_eligible or (
+            locator_type in (PickerDomain.WEB.value, PickerDomain.WEB_IE.value) and not picker_type
+        )
         # report 仅供上层回写, 不透传给定位器回调
         handler_kwargs = {k: v for k, v in kwargs.items() if k != "report"}
 
         try:
             # 自愈缓存快路径: 上次自愈成功的修复版路径直接复用, 免重复探索
-            if heal_eligible:
+            if cache_eligible:
                 healed_path = heal_store.heal_cache_get(element)
                 if healed_path is not None:
                     cached_element = dict(element)
@@ -208,6 +213,31 @@ class LocatorManager:
                     if isinstance(report, dict):
                         report["cv_fallback"] = True
                     return fallback
+
+            # E4 AI 修复元素: 规则自愈与 CV 降级均未命中时, 交 LLM 修正定位路径后重试。
+            # Web 域无 E2/E3 规则降级, AI 修复是其唯一自愈手段;
+            # 网关不可达/未配置上游时 ai_heal 快速放弃, 不影响原失败链路。
+            # (ASTRON_AI_HEAL=0 全局止血开关提前到入口, 避免关闭后指标仍累加失真)
+            if kwargs.get("ai_heal", True) and not picker_type and os.environ.get("ASTRON_AI_HEAL") != "0":
+                from astronverse.locator.core.ai_heal import ai_heal as _ai_heal
+
+                heal_store.record_metric("ai_heal_attempt")
+                ai_result = _ai_heal(element, locator_type, last_error, report)
+                if ai_result is not None:
+                    try:
+                        verified = self._run_handlers(ai_result["element"], picker_type, handler_kwargs)
+                    except Exception as e:
+                        logger.warning(f"AI 修复路径验证异常, 放弃: {e}")
+                        verified = None
+                    if verified is not None:
+                        heal_store.record_metric("ai_heal_success")
+                        # 持久化修复结果: 下次定位走缓存快路径, 不再重复调 LLM
+                        heal_store.heal_cache_put(element, ai_result["element"]["path"], ["AI修复定位路径"])
+                        if isinstance(report, dict):
+                            report["healed"] = True
+                            report["ai_healed"] = True
+                            report["repair_hint"] = ai_result["repair_hint"]
+                        return verified
 
             if last_error:
                 raise last_error

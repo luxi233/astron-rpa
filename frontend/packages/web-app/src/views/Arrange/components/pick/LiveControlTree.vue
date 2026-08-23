@@ -27,6 +27,8 @@ const props = defineProps<{
   pickable?: boolean
   frozen?: boolean
   nodeProps?: Record<string, any> | null
+  /** AI 查找等外部指定聚焦的节点 key('0-1-2' 路径键): 展开祖先并选中展示属性 */
+  focusKey?: string
 }>()
 const emit = defineEmits<{
   (e: 'pick-node', chain: LiveTreeNode[]): void
@@ -66,8 +68,34 @@ function convertNode(node: LiveTreeNode, key: string, ancestry: string[], chain:
   }
 }
 
+// 按路径 key 在当前树中查找节点
+function findNodeByKey(nodes: any[], key: string): any {
+  for (const n of nodes) {
+    if (n.key === key)
+      return n
+    const hit = findNodeByKey(n.children || [], key)
+    if (hit)
+      return hit
+  }
+  return null
+}
+
+// 外部指定聚焦节点(如 AI 查找命中): 展开祖先链并选中展示属性
+function applyFocusKey(key: string) {
+  if (!key)
+    return
+  const target = findNodeByKey(treeData.value, key)
+  if (!target)
+    return
+  // 展开祖先链('0-1-2' → ['0', '0-1'])并选中
+  const ancestors = key.split('-').slice(0, -1).map((_, i, arr) => arr.slice(0, i + 1).join('-'))
+  expandedKeys.value = [...new Set([...expandedKeys.value, ...ancestors])]
+  handleSelectNode(target)
+}
+
 // 每帧推送到达后重建树并自动展开/选中聚焦节点(引擎已做指纹去重+节流, 此处直接替换即可);
-// 树结构已变化, 选中节点的属性随旧树失效, 一并清空
+// 树结构已变化, 选中节点的属性随旧树失效, 一并清空; AI 查找焦点在新树上仍命中时重新应用,
+// 避免 AI 结果在途/完成后被下一帧树推送清掉
 watch(sourceTreeData, (raw) => {
   selectedRaw.value = null
   displayProps.value = {}
@@ -79,6 +107,10 @@ watch(sourceTreeData, (raw) => {
   const focusedKeys: string[] = []
   const focusedKey = { value: '' }
   treeData.value = [convertNode(raw, '0', [], [], focusedKeys, focusedKey, true)]
+  if (props.focusKey && findNodeByKey(treeData.value, props.focusKey)) {
+    applyFocusKey(props.focusKey)
+    return
+  }
   expandedKeys.value = focusedKeys.length ? focusedKeys : ['0']
   selectedKeys.value = focusedKey.value ? [focusedKey.value] : []
 })
@@ -88,6 +120,9 @@ watch(() => props.nodeProps, (v) => {
   if (v && Object.keys(v).length)
     displayProps.value = v
 })
+
+// 外部指定聚焦节点变化(如 AI 查找命中): 展开祖先链并选中展示属性
+watch(() => props.focusKey, key => applyFocusKey(key))
 
 // 单击节点的属性查询延迟派发: 双击(捕获)时取消挂起的查询, 避免 2 次属性查询 + 1 次捕获的串行定位
 let selectTimer: ReturnType<typeof setTimeout> | null = null

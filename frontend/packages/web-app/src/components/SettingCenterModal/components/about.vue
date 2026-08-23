@@ -2,8 +2,9 @@
 import { message } from 'ant-design-vue'
 import { useTranslation } from 'i18next-vue'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
+import { apiGetAIConfig } from '@/api/aiSetting'
 import { useAppConfigStore } from '@/stores/useAppConfig'
 
 import Card from '../components/card.vue'
@@ -11,6 +12,17 @@ import Card from '../components/card.vue'
 const { t } = useTranslation()
 const appStore = useAppConfigStore()
 const { appInfo, updaterState } = storeToRefs(appStore)
+
+// 底部合规声明展示的模型: 读取 AI 设置的默认模型(未配置/接口失败回退 Spark)
+const aiModel = ref('Spark')
+onMounted(async () => {
+  try {
+    const res = await apiGetAIConfig()
+    if (res.data?.DEFAULT_MODEL)
+      aiModel.value = res.data.DEFAULT_MODEL
+  }
+  catch {}
+})
 
 const textItems = computed(() => [
   {
@@ -87,7 +99,7 @@ async function checkUpdate() {
     <div
       class="absolute w-full bottom-0 text-center text-text-tertiary text-xs"
     >
-      {{ $t('settingCenter.about.aiServiceBy', { model: 'Spark' }) }}
+      {{ $t('settingCenter.about.aiServiceBy', { model: aiModel }) }}
     </div>
   </div>
 </template>

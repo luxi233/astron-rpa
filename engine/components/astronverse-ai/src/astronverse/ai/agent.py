@@ -6,12 +6,14 @@ from astronverse.actionlib.atomic import atomicMg
 from astronverse.actionlib.types import PATH
 from astronverse.ai import DifyFileTypes
 from astronverse.ai.api.dify import Dify
+from astronverse.ai.api.llm import resolve_gateway_port
 from astronverse.ai.api.xcagent import xcAgent
 from astronverse.baseline.logger.logger import logger
 
-AUTH_URL = "http://127.0.0.1:{}/api/rpa-openapi/api-keys/get-astron-by-id".format(
-    atomicMg.cfg().get("GATEWAY_PORT") if atomicMg.cfg().get("GATEWAY_PORT") else "13159"
-)
+
+def _auth_url() -> str:
+    # 网关端口运行期解析(流程配置/环境变量/gateway.json), 避免模块导入时固化错误端口
+    return "http://127.0.0.1:{}/api/rpa-openapi/api-keys/get-astron-by-id".format(resolve_gateway_port())
 
 
 class Agent:
@@ -237,12 +239,14 @@ class Agent:
     def call_astron_agent(astron_workflow: dict = {}):
         auth_id = astron_workflow.get("authId")
         workflow_id = astron_workflow.get("agentId")
-        inputs = astron_workflow.get("inputs")
+        inputs = astron_workflow.get("inputs") or []
 
-        response = requests.get(AUTH_URL, params={"id": auth_id})
+        response = requests.get(_auth_url(), params={"id": auth_id})
         response_data = response.json().get("data")
         logger.info(response_data)
 
         xc_agent = xcAgent(response_data.get("api_key"), response_data.get("api_secret"))
-        xc_agent_result = xc_agent.run_astron_flow(workflow_id, False, inputs)
+        # inputs 为前端 AI 工作流组件回传的 [{key, value, type}] 列表, 转为星环接口的参数字典
+        parameters = {item["key"]: item["value"] for item in inputs if item.get("key")}
+        xc_agent_result = xc_agent.run_flow_with_params(workflow_id, parameters, False)
         return xc_agent_result

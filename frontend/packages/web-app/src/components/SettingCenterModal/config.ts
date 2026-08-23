@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 
 import About from './components/about.vue'
+import AiSetting from './components/aiSetting/index.vue'
 import ApiKeyManage from './components/apiKeyManage/index.vue'
 import CommonSetting from './components/commonSetting/index.vue'
 import LogSetting from './components/logSetting.vue'
@@ -30,6 +31,12 @@ export const menuConfig: MenuItem[] = [
     icon: 'setting-1',
     name: 'generalSettings',
     component: CommonSetting,
+  },
+  {
+    key: 'aiSetting',
+    icon: 'api-key',
+    name: 'aiSetting',
+    component: AiSetting,
   },
   {
     key: 'videoSetting',

@@ -7,13 +7,10 @@ from app.dependencies.points import PointChecker, PointsContext
 from app.logger import get_logger
 from app.schemas import ResCode, StandardResponse
 from app.schemas.chat import ChatCompletionParam, ChatPromptParam
+from app.services import ai_config
 from app.services.chat import chat_completions
 from app.services.point import PointTransactionType
 from app.utils.prompt import format_prompt, get_available_prompts, prompt_dict
-from app.utils.url import join_api_url
-
-API_KEY = get_settings().AICHAT_API_KEY
-API_ENDPOINT = join_api_url(get_settings().AICHAT_BASE_URL, "chat/completions")
 
 logger = get_logger(__name__)
 
@@ -32,7 +29,12 @@ async def chat(
         ),
     ),
 ):
-    response = await chat_completions(params, API_KEY, API_ENDPOINT)
+    # 每请求现读配置(热更新); 请求未指定模型时用配置的默认模型
+    config = await ai_config.get_ai_config()
+    if not params.model:
+        params.model = config.get(ai_config.DEFAULT_MODEL, "")
+    api_key, endpoint = await ai_config.resolve_llm()
+    response = await chat_completions(params, api_key, endpoint)
 
     # 处理成功，扣除积分，返回响应
     await points_context.deduct_points()
@@ -70,6 +72,11 @@ async def chat_prompt(
     # 构造消息
     messages = [{"role": "user", "content": formatted_prompt}]
 
+    # 每请求现读配置(热更新); 请求未指定模型时用配置的默认模型
+    config = await ai_config.get_ai_config()
+    if not params.model:
+        params.model = config.get(ai_config.DEFAULT_MODEL, "")
+
     data = {
         "model": params.model,
         "messages": messages,
@@ -79,7 +86,8 @@ async def chat_prompt(
     logger.info(f"Request data: {data}")
 
     chat_model = ChatCompletionParam.model_validate(data)
-    response = await chat_completions(chat_model, API_KEY, API_ENDPOINT)
+    api_key, endpoint = await ai_config.resolve_llm()
+    response = await chat_completions(chat_model, api_key, endpoint)
     # logger.info("response: %s", response)
 
     await points_context.deduct_points()

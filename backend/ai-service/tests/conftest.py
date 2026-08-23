@@ -1,14 +1,30 @@
+import os
+
+# 必须在 import app 之前注入: Settings 在模块导入时实例化(lru_cache 固化),
+# 缺少基础设施连接配置会在收集阶段直接崩溃。本地默认指向 docker 测试容器
+# (rpa-test-mysql:3307 / rpa-test-redis:6380), CI/开发机可用环境变量覆盖
+os.environ.setdefault("DATABASE_URL", "mysql+aiomysql://{username}:{password}@localhost:3307/test_db")
+os.environ.setdefault("DATABASE_USERNAME", "test_user")
+os.environ.setdefault("DATABASE_PASSWORD", "test_password")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6380/0")
+# LOG_DIR 默认 /app/log 为容器内路径, 本地测试改指临时目录
+os.environ.setdefault("LOG_DIR", os.path.join(os.path.dirname(__file__), ".logs"))
+# 哨兵上游地址: test_chat 的 mock_upstream 据此拦截 httpx 外呼, 不会真发请求
+os.environ.setdefault("AICHAT_BASE_URL", "http://localhost:1/v1")
+os.environ.setdefault("AICHAT_API_KEY", "test-key")
+
+from contextlib import asynccontextmanager
+
 import pytest
 import pytest_asyncio
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from httpx import ASGITransport, AsyncClient
 from redis.asyncio import ConnectionPool, Redis
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
+from app.database import Base, get_db
 from app.main import app
-from app.database import get_db, Base
 from app.redis_op import get_redis
 
 # 测试环境配置 (驱动用 aiomysql, 与 pyproject 声明一致)
@@ -81,9 +97,7 @@ async def test_db_engine():
 @pytest_asyncio.fixture(scope="function")  # 改为 function 级别确保测试隔离
 async def test_get_db(test_db_engine):
     """提供干净的数据库会话"""
-    TestingSessionLocal = sessionmaker(
-        test_db_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    TestingSessionLocal = sessionmaker(test_db_engine, class_=AsyncSession, expire_on_commit=False)
 
     async with TestingSessionLocal() as session:
         # 开始事务

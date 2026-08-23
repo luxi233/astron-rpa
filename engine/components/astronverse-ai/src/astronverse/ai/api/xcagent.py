@@ -37,6 +37,10 @@ class xcAgent:  # pylint: disable=invalid-name
                 parameters = {"AGENT_USER_INPUT": content, variable_name: file_url}
             else:
                 parameters = {"AGENT_USER_INPUT": content, variable_name: variable_value}
+        return self.run_flow_with_params(flow_id, parameters, is_stream)
+
+    def run_flow_with_params(self, flow_id, parameters: dict, is_stream=False):
+        """以完整参数字典执行星环工作流(AI 工作流原子组件入口)"""
         logger.info("parameters: {}".format(parameters))
 
         data = {
@@ -148,14 +152,3 @@ class xcAgent:  # pylint: disable=invalid-name
             except requests.exceptions.RequestException as e:
                 logger.info(f"上传失败: {e}")
                 raise
-
-
-if __name__ == "__main__":
-    api_key = "20xxxxxxxxxxxx0083741"
-    api_secret = "ZjcxxxxxxxxxxxUyNjI2"
-    agent = xcAgent(api_key, api_secret)
-    inputs = [
-        {"key": "AGENT_USER_INPUT", "value": "value1", "type": "string"},
-        {"key": "nihao", "value": r"C:\Users\xxxx\Downloads\中环项目运行问题.pdf", "type": "file"},
-    ]
-    agent.run_astron_flow("735xxxxxxx170", False, inputs)

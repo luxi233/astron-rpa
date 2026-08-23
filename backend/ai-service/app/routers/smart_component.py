@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.models.smart_component import SmartChatRequest, SmartChatResponse, SmartElementInfo
 from app.schemas.chat import ChatCompletionParam
+from app.services import ai_config
 from app.services.chat import chat_completions
 from app.utils.prompt import format_prompt
 
@@ -77,9 +78,10 @@ def build_messages(request: SmartChatRequest) -> list[dict]:
 
 @router.post("/chat/stream")
 async def smart_chat_stream(request: SmartChatRequest):
+    # 模型每请求现读 AI 配置(默认 maas/deepseek-v3.2, 可经管理接口热切换)
+    config = await ai_config.get_ai_config()
     llm_params = ChatCompletionParam(
-        # model='claude-4.5-sonnet',
-        model="maas/deepseek-v3.2",
+        model=config.get(ai_config.SMART_MODEL, ""),
         stream=True,
         temperature=0.15,
         max_tokens=8192,
@@ -91,9 +93,9 @@ async def smart_chat_stream(request: SmartChatRequest):
 
 @router.post("/chat", response_model=SmartChatResponse)
 async def smart_chat(request: SmartChatRequest):
+    config = await ai_config.get_ai_config()
     llm_params = ChatCompletionParam(
-        # model='claude-4.5-sonnet',
-        model="maas/deepseek-v3.2",
+        model=config.get(ai_config.SMART_MODEL, ""),
         stream=False,
         temperature=0.15,
         max_tokens=8192,

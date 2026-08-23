@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Any
 
 import requests
-import sseclient
 
 
 class InputType(Enum):
@@ -106,16 +105,15 @@ def extract_docx(path: str) -> str:
     return "\n\n".join([para.text for para in document.paragraphs])
 
 
-def chat_sse(inputs: Any, route_port: int):
-    url = "http://127.0.0.1:{}/api/rpaai/chat".format(route_port)
-    response = requests.post(url, json=inputs, stream=True)
-    if response.status_code == 200:
-        client = sseclient.SSEClient(response)
-        for event in client.events():
-            if event:
-                yield event.data
-    else:
-        pass
+def chat_completion(inputs: Any, route_port: int) -> str:
+    """经本地网关调用云端大模型 chat/completions(非流式), 返回完整回复文本"""
+    url = "http://127.0.0.1:{}/api/rpa-ai-service/v1/chat/completions".format(route_port)
+    data = {"messages": inputs, "stream": False}
+    response = requests.post(url, json=data, timeout=120)
+    response.raise_for_status()
+    response_json = response.json()
+    # 网关透传 OpenAI 风格响应: choices[0].message.content
+    return response_json["choices"][0]["message"]["content"]
 
 
 def get_factors(
@@ -159,15 +157,7 @@ def get_factors(
     user_input = CONTRACT_COMMON_PROMPT.replace("{factors}", str(factors)).replace("{parsed_content}", contract_content)
 
     inputs = [
-        {"role": "user", "content": user_input},
         {"role": "system", "content": system_input},
+        {"role": "user", "content": user_input},
     ]
-    s = []
-    for i in chat_sse(inputs, route_port):
-        content = i.split("<$start>")[1].split("<$end>")[0]
-        if content == "start" or content == "end":
-            continue
-        s.append(content)
-    reply = "".join(s)
-
-    return reply
+    return chat_completion(inputs, route_port)

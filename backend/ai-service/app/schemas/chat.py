@@ -2,7 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-DEFAULT_MODEL = "maas/deepseek-v3.2"
+# 空串 = 未指定, 由路由层用 AI 配置的 DEFAULT_MODEL 填充(支持热更新)
+DEFAULT_MODEL = ""
 
 
 class ChatCompletionParam(BaseModel):

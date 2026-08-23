@@ -19,6 +19,10 @@ prompt_dict = {
     "recruit_rating_default": "recruit/recruit_rating_prompt_default.md",
     # 合同相关
     "contract": "contract/contract_common_prompt.md",
+    # 元素智能定位
+    "element_heal": "element_heal_prompt.md",
+    "element_search": "element_search_prompt.md",
+    "flow_generate": "flow_generate_prompt.md",
     # 智能组件
     "smart_web_auto": "smart/web_auto_prompt.md",
     "smart_data_process": "smart/data_process_prompt.md",

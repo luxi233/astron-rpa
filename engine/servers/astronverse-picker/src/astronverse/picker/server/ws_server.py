@@ -58,7 +58,9 @@ def _validate_one_element(manager: Any, item: dict) -> dict:
         record: dict[str, Any] = {"id": item.get("id", ""), "name": item.get("name", "")}
         try:
             report: dict[str, Any] = {}
-            res = manager.locator(item.get("element"), report=report)
+            # ai_heal=False: 校验/批量校验是用户排查坏元素的场景, 不触发 E4 LLM 修复
+            # (避免每项最长 15s 网关往返拖住 UI/线程池, 及重复计费; 自愈缓存快路径仍可用)
+            res = manager.locator(item.get("element"), report=report, ai_heal=False)
             if res is None:
                 error_msg = "元素未找到"
                 if report.get("cv_ambiguous"):

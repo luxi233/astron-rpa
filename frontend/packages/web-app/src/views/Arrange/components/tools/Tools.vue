@@ -10,6 +10,7 @@ import type { ArrangeTools } from '@/views/Arrange/types/arrangeTools'
 import ProjectName from '../../components/projectName/Index.vue'
 
 import { useHotkey } from './hooks/useHotkey'
+import { useToolsAiFlow } from './hooks/useToolsAiFlow'
 import { useToolsBack } from './hooks/useToolsBack'
 import { useToolsCustomComp } from './hooks/useToolsCustomComp'
 import { useToolsDataPick } from './hooks/useToolsDataPick'
@@ -49,6 +50,7 @@ const btnList = [
   useToolsRedo(),
   useToolsRecorder(),
   useToolsDataPick(),
+  useToolsAiFlow(),
   useToolsGroup(),
   useToolsUnGroup(),
   useToolsMultiSelect(),
@@ -68,6 +70,7 @@ const [
   toolsRedo,
   toolsRecorder,
   toolsDataPick,
+  toolsAiFlow,
   toolsGroup,
   toolsUnGroup,
   toolsMultiSelect,
@@ -147,6 +150,7 @@ const [DefineTool, ReuseTool] = createReusableTemplate<{ item: ReturnType<typeof
       <a-divider type="vertical" class="h-4 border-s-[#000000]/[.16] dark:border-s-[#FFFFFF]/[.16]" />
       <ReuseTool :item="toolsRecorder" />
       <ReuseTool :item="toolsDataPick" />
+      <ReuseTool :item="toolsAiFlow" />
       <ReuseTool :item="toolsCustomComp" />
     </section>
     <section class="tools-box flex items-center justify-center">

@@ -726,7 +726,6 @@ dependencies = [
     { name = "python-lsp-server", extra = ["mccabe", "pyflakes"] },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "requests" },
-    { name = "sseclient" },
     { name = "uvicorn" },
     { name = "watchdog" },
     { name = "websocket-client" },
@@ -748,7 +747,6 @@ requires-dist = [
     { name = "python-lsp-server", extras = ["pyflakes", "mccabe"] },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "requests" },
-    { name = "sseclient" },
     { name = "uvicorn" },
     { name = "watchdog" },
     { name = "websocket-client" },
@@ -5881,16 +5879,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/89/23/adf3796d740536d63
 wheels = [
     { url = "https://files.pythonhosted.org/packages/48/f3/b67d6ea49ca9154453b6d70b34ea22f3996b9fa55da105a79d8732227adc/soupsieve-2.8.1-py3-none-any.whl", hash = "sha256:a11fe2a6f3d76ab3cf2de04eb339c1be5b506a8a47f2ceb6d139803177f85434", size = 36710, upload-time = "2025-12-18T13:50:33.267Z" },
 ]
-
-[[package]]
-name = "sseclient"
-version = "0.0.27"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/6c/fa601216344952be8f9a51a3f49b4274bbbc58bd395f87f67f6131726358/sseclient-0.0.27.tar.gz", hash = "sha256:b2fe534dcb33b1d3faad13d60c5a7c718e28f85987f2a034ecf5ec279918c11c", size = 7465, upload-time = "2020-09-25T02:46:41.997Z" }
 
 [[package]]
 name = "sseclient-py"

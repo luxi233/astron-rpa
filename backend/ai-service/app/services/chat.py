@@ -2,13 +2,9 @@ import httpx
 from fastapi import HTTPException
 from fastapi.responses import Response, StreamingResponse
 
-from app.config import get_settings
 from app.logger import get_logger
 from app.schemas.chat import ChatCompletionParam
-from app.utils.url import join_api_url
-
-API_KEY = get_settings().AICHAT_API_KEY
-API_ENDPOINT = join_api_url(get_settings().AICHAT_BASE_URL, "chat/completions")
+from app.services.ai_config import resolve_llm
 
 logger = get_logger(__name__)
 
@@ -21,8 +17,15 @@ long_timeout = httpx.Timeout(
 
 
 async def chat_completions(
-    params: ChatCompletionParam, key: str = API_KEY, endpoint: str = API_ENDPOINT
+    params: ChatCompletionParam, key: str | None = None, endpoint: str | None = None
 ):
+    # 未显式指定上游时现读配置(支持热更新); 便于调用方与测试覆盖注入
+    if key is None or endpoint is None:
+        resolved_key, resolved_endpoint = await resolve_llm()
+        key = key if key is not None else resolved_key
+        endpoint = endpoint if endpoint is not None else resolved_endpoint
+    if not endpoint:
+        raise HTTPException(status_code=503, detail="大模型上游未配置, 请在 AI 设置中配置 AICHAT_BASE_URL")
     logger.info("Processing chat completion request...")
     logger.info(f"Request params: {params}")
     # 构造请求参数

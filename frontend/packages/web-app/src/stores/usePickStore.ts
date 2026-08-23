@@ -17,6 +17,7 @@ import type { CreateWindowOptions } from '@/platform'
 import { useElementsStore } from '@/stores/useElementsStore'
 import type { PickParams } from '@/types/resource'
 import { ElementPickModal } from '@/views/Arrange/components/pick'
+import { aiSearchElement } from '@/views/DeepPick/aiSearch'
 
 import { useVariableStore } from './useVariableStore'
 
@@ -117,6 +118,12 @@ export const usePickStore = defineStore('pickStore', () => {
       // 面板挂载就绪: 重发当前树快照(首帧推送可能先于面板监听注册到达, ipc 无排队即丢)
       if (isDeepPicking.value && liveTreeData.value)
         emitToDeepPickWindow(DEEP_PICK_EVENT.TREE_UPDATE, liveTreeData.value)
+    }
+    else if (type === DEEP_PICK_EVENT.AI_SEARCH && typeof data === 'string' && data.trim()) {
+      // AI 查找元素: 面板无 http 上下文, 主窗口代理调云端 AI(树摘要→序号→节点 key), 结果回面板选中展开
+      aiSearchElement(data.trim(), liveTreeData.value)
+        .then(key => emitToDeepPickWindow(DEEP_PICK_EVENT.AI_SEARCH_RESULT, key ?? null))
+        .catch(() => emitToDeepPickWindow(DEEP_PICK_EVENT.AI_SEARCH_RESULT, null))
     }
   })
 

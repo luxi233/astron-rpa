@@ -105,3 +105,22 @@ async def test_chat_completion_stream(client: AsyncClient, mock_upstream):
     assert content.startswith("data: ")
     assert content.endswith("\n\n")
     assert "Paris" in content  # Check if the response contains the expected answer
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_default_user_id_fallback(client: AsyncClient, mock_upstream, monkeypatch):
+    """引擎链路无登录态: 缺 user_id header 时按 DEFAULT_USER_ID 兜底计费"""
+    from app.dependencies import get_user_id_from_header  # noqa: F401
+
+    request_data = VALID_CHAT_REQUEST.copy()
+    request_data["stream"] = False
+
+    # 默认(未配置) 仍 401
+    monkeypatch.setattr("app.dependencies.get_settings", lambda: type("S", (), {"DEFAULT_USER_ID": ""})())
+    resp = await client.post("/v1/chat/completions", json=request_data)
+    assert resp.status_code == 401
+
+    # 配置默认用户后放行
+    monkeypatch.setattr("app.dependencies.get_settings", lambda: type("S", (), {"DEFAULT_USER_ID": "1"})())
+    resp = await client.post("/v1/chat/completions", json=request_data)
+    assert resp.status_code == 200
