@@ -157,7 +157,7 @@ export async function createAgentAPI<T>(params: T) {
 /**
  * @description: 更新Agent API Key
  * @param params
- * @returns
+ * @returns 更新后的 id
  */
 export async function updateAgentApi<T>(params: T) {
   const res = await http.post<{ id: number }>('/api/rpa-openapi/api-keys/update-astron', params)

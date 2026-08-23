@@ -315,7 +315,7 @@ export async function getDataTable(projectId: string) {
  * 更新数据表格单元格
  * @param projectId
  * @param data
- * @returns
+ * @returns 更新结果响应
  */
 export async function updateDataTable(projectId: string, data: RPA.IUpdateDataTableCell[]) {
   const res = await http.post(
@@ -349,7 +349,7 @@ export async function closeDataTable(projectId: string) {
 /**
  * 删除数据表格
  * @param projectId
- * @returns
+ * @returns 删除结果响应
  */
 export async function deleteDataTable(projectId: string) {
   const res = await http.post(
@@ -367,7 +367,7 @@ export async function deleteDataTable(projectId: string) {
  * 监听数据表格
  * @param projectId
  * @param callback
- * @returns
+ * @returns SSE 取消监听函数
  */
 export function startDataTableListener<T>(projectId: string, callback?: (data: { event: string, data: T }) => void) {
   return sseRequest.get(

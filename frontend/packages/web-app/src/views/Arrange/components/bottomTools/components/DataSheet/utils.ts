@@ -6,7 +6,7 @@ const DEFAULT_EXCEL_NAME = 'datatable.xlsx'
 /**
  * 将后端保存的 datatable 数据转成 univer 工作簿数据
  * @param data
- * @returns
+ * @returns univer 工作簿数据
  */
 export function transformToWorkbookData(data: RPA.IDataTableSheet): Partial<ISheetWorkbookData> {
   if (!data?.data) {

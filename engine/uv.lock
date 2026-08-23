@@ -237,6 +237,9 @@ requires-dist = [
     { name = "psutil" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
+
 [[package]]
 name = "astronverse-cua"
 version = "1.0.1"
@@ -688,6 +691,9 @@ requires-dist = [
     { name = "websockets" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "opencv-python", specifier = ">=5.0.0.93" }]
+
 [[package]]
 name = "astronverse-report"
 version = "1.0.1"
@@ -748,6 +754,9 @@ requires-dist = [
     { name = "websocket-client" },
     { name = "websockify" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "astronverse-script"
@@ -1076,6 +1085,9 @@ requires-dist = [
     { name = "astronverse-actionlib", editable = "shared/astronverse-actionlib" },
     { name = "requests" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "attrs"

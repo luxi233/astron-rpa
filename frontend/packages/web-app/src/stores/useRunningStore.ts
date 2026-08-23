@@ -461,7 +461,7 @@ export const useRunningStore = defineStore('running', () => {
 
   /**
    * 关闭数据表格监听
-   * @returns
+   * @returns 关闭结果 Promise
    */
   const closeDataTableListener = () => closeDataTable(processStore.project.id)
 

@@ -16,7 +16,7 @@ async function phoneValidate(_rule: Rule, value: string) {
  * 账户空格校验
  */
 async function validateTrim(_rule: Rule, value: string) {
-  const trimReg = /\s+/g // 匹配空格
+  const trimReg = /\s+/ // 匹配空格
   if (trimReg.test(value)) {
     return Promise.reject(new Error('请输入正确的密码'))
   }
@@ -29,8 +29,7 @@ async function validateTrim(_rule: Rule, value: string) {
  * 账户校验
  */
 async function validateAccount(_rule: Rule, value: string) {
-  console.log('validateAccount: ', value)
-  const accountReg = /\s+/g // 匹配空格
+  const accountReg = /\s+/ // 匹配空格
   if (!value) {
     return Promise.reject(new Error('账号不能为空'))
   }

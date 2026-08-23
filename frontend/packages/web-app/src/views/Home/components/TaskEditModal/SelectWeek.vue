@@ -3,7 +3,7 @@ import { useTranslation } from 'i18next-vue'
 
 import { WEEK_MAP_EN, WEEK_OPTIONS } from '../../config/task'
 
-const { value = [] } = defineProps<{ value: Array<string | number> }>()
+const { value = [] } = defineProps<{ value?: Array<string | number> }>()
 
 defineEmits(['update:value'])
 

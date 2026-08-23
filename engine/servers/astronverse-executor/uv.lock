@@ -77,6 +77,7 @@ dependencies = [
     { name = "dogtail", marker = "sys_platform == 'linux'" },
     { name = "keyring" },
     { name = "pandas" },
+    { name = "pillow" },
     { name = "requests" },
 ]
 
@@ -91,6 +92,7 @@ requires-dist = [
     { name = "dogtail", marker = "sys_platform == 'linux'" },
     { name = "keyring" },
     { name = "pandas" },
+    { name = "pillow" },
     { name = "requests" },
 ]
 

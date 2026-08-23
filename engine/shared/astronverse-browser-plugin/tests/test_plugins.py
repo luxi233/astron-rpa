@@ -1,7 +1,17 @@
+import os
+import sys
 from unittest import TestCase
 
-from astronverse.browser_plugin import BrowserType
-from astronverse.browser_plugin.browser import ExtensionManager, UpdateManager
+import pytest
+
+# 真机手动冒烟脚本(无断言, install() 会真实安装浏览器插件并写注册表):
+# 仅 Windows 且手动执行才有意义, 自动化测试默认整体跳过;
+# utils.py 顶层 import winreg, 非 Windows 收集期即 ImportError, 须在 import 之前跳过
+if sys.platform != "win32" or os.environ.get("PLUGIN_SMOKE") != "1":
+    pytest.skip("真机插件安装冒烟测试, 仅 Windows 手动执行(PLUGIN_SMOKE=1)", allow_module_level=True)
+
+from astronverse.browser_plugin import BrowserType  # noqa: E402
+from astronverse.browser_plugin.browser import ExtensionManager, UpdateManager  # noqa: E402
 
 
 class TestPlugins(TestCase):

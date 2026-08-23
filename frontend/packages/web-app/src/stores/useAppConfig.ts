@@ -96,7 +96,7 @@ export const useAppConfigStore = defineStore('appConfig', () => {
   /**
    * 检查更新
    * @param manualCheck 是否手动检查更新
-   * @returns
+   * @returns 更新状态 Promise
    */
   const checkUpdate = async (manualCheck = false) => {
     if (updaterState.checkLoading)

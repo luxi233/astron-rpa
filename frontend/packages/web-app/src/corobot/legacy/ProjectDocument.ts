@@ -163,7 +163,7 @@ export class ProjectDocument implements IProjectDocument {
    * 获取 nodeAbility，如果指定版本不存在，则使用最新版本
    * @param key
    * @param version
-   * @returns
+   * @returns nodeAbility 数据
    */
   static getNodeAbilityWithFallback(key: string, version: string): any {
     const specificKey = `${key}***${version}`

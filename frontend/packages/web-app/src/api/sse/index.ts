@@ -9,7 +9,7 @@ import { isFunction } from 'lodash-es'
  * @param options 请求配置
  * @param sCB 成功回调
  * @param eCB 失败回调
- * @returns
+ * @returns 中止请求的控制器
  */
 function SSERequest(
   url: string,

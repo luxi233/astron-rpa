@@ -11,7 +11,7 @@ export interface IMenuItem {
 
 interface DropdownMenuProps {
   trigger?: Trigger
-  menus: IMenuItem[]
+  menus?: IMenuItem[]
 }
 
 const props = withDefaults(defineProps<DropdownMenuProps>(), {
