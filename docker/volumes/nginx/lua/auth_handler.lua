@@ -162,12 +162,17 @@ local function authenticate_user()
         return ngx.exit(ngx_HTTP_UNAUTHORIZED)
     end
 
-    local user_id = userResponse.data and userResponse.data["id"]
+    -- 注意: lua-cjson 把 JSON null 解码为 cjson.null 哨兵(userdata, 真值)而非 nil,
+    -- `data and data["id"]` 的判空写法仍会因 index userdata 抛 Lua 错误(access 阶段崩溃 → 5xx);
+    -- 必须显式判 type(data) == "table" 才索引。
+    -- 会话失效场景(rpa-auth 重启丢 HttpSession 后 code=000000 + data=null)按未认证处理:
+    -- 返回 401 而非 500, 前端可引导用户重新登录而不是看到神秘 5xx
+    local user_id = type(userResponse.data) == "table" and userResponse.data["id"] or nil
     if not user_id then
         ngx_log(ngx_ERR, "robot-service response missing 'id' in 'data' field for " .. ctx_type .. " auth: " .. json.encode(userResponse))
-        ngx.status = ngx_HTTP_INTERNAL_SERVER_ERROR
-        ngx.say(json.encode({code = "5000", message = "Internal Server Error: Auth service response missing user_id"}))
-        return ngx.exit(ngx_HTTP_INTERNAL_SERVER_ERROR)
+        ngx.status = ngx_HTTP_UNAUTHORIZED
+        ngx.say(json.encode({code = "4001", message = "Session invalid or expired, please re-login"}))
+        return ngx.exit(ngx_HTTP_UNAUTHORIZED)
     end
 
     ngx_log(ngx_WARN, "User authenticated successfully. user_id: " .. user_id .. " in " .. ctx_type .. " context. Setting headers.")

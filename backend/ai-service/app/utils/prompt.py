@@ -23,6 +23,7 @@ prompt_dict = {
     "element_heal": "element_heal_prompt.md",
     "element_search": "element_search_prompt.md",
     "flow_generate": "flow_generate_prompt.md",
+    "flow_fill_params": "flow_fill_params_prompt.md",
     # 智能组件
     "smart_web_auto": "smart/web_auto_prompt.md",
     "smart_data_process": "smart/data_process_prompt.md",

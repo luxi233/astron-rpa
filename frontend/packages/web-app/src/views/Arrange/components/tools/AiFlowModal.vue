@@ -7,8 +7,9 @@ import { computed, ref } from 'vue'
 import { useFlowStore } from '@/stores/useFlowStore'
 import { useProcessStore } from '@/stores/useProcessStore'
 import { addAtomData } from '@/views/Arrange/components/flow/hooks/useFlow'
-import { aiGenerateFlow } from '@/views/Arrange/utils/aiFlow'
+import { aiFillFlowParams, aiGenerateFlow, applyStepParams } from '@/views/Arrange/utils/aiFlow'
 import type { AiFlowStep } from '@/views/Arrange/utils/aiFlow'
+import { getAtomByKey, loopAtomByKey } from '@/views/Arrange/utils/generateData'
 
 const modal = NiceModal.useModal()
 const processStore = useProcessStore()
@@ -27,7 +28,10 @@ const titleByKey = computed(() => {
   return map
 })
 
-/** AI 生成流程: 需求 → 步骤预览(不直接插入, 用户确认后再写入流程) */
+/**
+ * AI 生成流程(两阶段): 需求 → 编排步骤(flow_generate) → 拉取所选原子参数 schema
+ * 并让 AI 填值(flow_fill_params); 第二阶段失败降级为仅骨架(元素拾取类参数本就需手动选择)。
+ */
 async function handleGenerate() {
   const text = requirement.value.trim()
   if (!text || generating.value)
@@ -40,27 +44,65 @@ async function handleGenerate() {
       message.warning(t('arrange.aiFlowGenerateEmpty'))
       return
     }
-    steps.value = result
+    steps.value = await fillStepParams(text, result)
   }
   finally {
     generating.value = false
   }
 }
 
-/** 确认插入: 依次追加到流程末尾(多节点原子插入后列表长度变化, 每步重取末尾位置) */
+/** 第二阶段参数填值: 逐个拉取原子能力 schema(单个失败跳过不影响其余步骤) */
+async function fillStepParams(description: string, result: AiFlowStep[]): Promise<AiFlowStep[]> {
+  const abilities: Record<string, any> = {}
+  for (const step of result) {
+    try {
+      await loopAtomByKey(step.key)
+      abilities[step.key] = getAtomByKey(step.key)
+    }
+    catch {
+      // 单个原子能力拉取失败仅影响该步填参, 插入骨架不受影响
+    }
+  }
+  return await aiFillFlowParams(description, result, abilities) ?? result
+}
+
+function paramCount(step: AiFlowStep) {
+  return step.params ? Object.keys(step.params).length : 0
+}
+
+/**
+ * 确认插入: 依次追加到流程末尾(多节点原子插入后列表长度变化, 每步重取末尾位置),
+ * 插入后把 AI 填写的参数回填到节点 inputList 并持久化。
+ */
 async function handleInsert() {
   if (!steps.value.length || inserting.value)
     return
   inserting.value = true
+  let filledCount = 0
   try {
-    for (const step of steps.value)
-      await addAtomData(step.key, flowStore.simpleFlowUIData.length)
-    message.success(t('arrange.aiFlowInsertDone', { count: steps.value.length }))
+    for (const step of steps.value) {
+      const nodes = await addAtomData(step.key, flowStore.simpleFlowUIData.length)
+      const node = Array.isArray(nodes) ? nodes[0] : null
+      if (node && step.params) {
+        filledCount += applyStepParams(node, step.params)
+        persistNodeParams(node)
+      }
+    }
+    message.success(t('arrange.aiFlowInsertDone', { count: steps.value.length, params: filledCount }))
     modal.hide()
   }
   finally {
     inserting.value = false
   }
+}
+
+/** 参数回填后持久化到流程文档并刷新节点必填校验状态 */
+function persistNodeParams(node: any) {
+  const idx = flowStore.simpleFlowUIData.findIndex(i => i.id === node.id)
+  if (idx < 0)
+    return
+  flowStore.updataOriginFlowData([{ node, index: idx, process: processStore.activeProcessId }])
+  flowStore.gainLastError(node.id)
 }
 </script>
 
@@ -102,6 +144,7 @@ async function handleInsert() {
       <div v-for="(step, idx) in steps" :key="idx" class="ai-flow-step flex items-center">
         <span class="step-idx">{{ idx + 1 }}</span>
         <span class="step-title" :title="step.key">{{ titleByKey.get(step.key) || step.key }}</span>
+        <span v-if="paramCount(step)" class="step-params">{{ $t('arrange.aiFlowParamsTag', { count: paramCount(step) }) }}</span>
         <span class="step-reason" :title="step.reason">{{ step.reason }}</span>
       </div>
       <div class="flex justify-end mt-3">
@@ -154,6 +197,15 @@ async function handleInsert() {
     font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .step-params {
+    flex-shrink: 0;
+    margin-left: 6px;
+    padding: 0 6px;
+    color: var(--primaryColor, #1677ff);
+    background: rgb(22 119 255 / 8%);
+    border-radius: 8px;
   }
 
   .step-reason {

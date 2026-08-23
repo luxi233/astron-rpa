@@ -7,6 +7,10 @@
  * T3. buildTreeSummary 树摘要(序号/截断/key 映射/节点数上限) 与 parseAiNodes 容错解析
  * T4. buildAtomList 原子清单摘要 与 parseAiSteps 容错解析
  * T5. aiGenerateFlow 步骤过滤(LLM 编造 key 丢弃)/失败返回 null
+ * T6. buildStepParamList 参数 schema(可填类型过滤/选项枚举/截断)
+ * T7. parseAiParams 容错解析(非法 index/空 params 丢弃)
+ * T8. applyStepParams 参数回填(INPUT 数组结构/SELECT 选项匹配/不可填类型跳过)
+ * T9. aiFillFlowParams 第二阶段合并/降级语义
  */
 import { describe, expect, it, vi } from 'vitest'
 
@@ -25,7 +29,7 @@ vi.mock('@/api/http', () => ({
 const { apiGetAIConfig, apiSaveAIConfig, apiTestAIConfig } = await import('@/api/aiSetting')
 const { apiChatPrompt } = await import('@/api/aiCapability')
 const { buildTreeSummary, parseAiNodes } = await import('@/views/DeepPick/aiSearch')
-const { buildAtomList, parseAiSteps, aiGenerateFlow } = await import('@/views/Arrange/utils/aiFlow')
+const { buildAtomList, parseAiSteps, aiGenerateFlow, buildStepParamList, parseAiParams, applyStepParams, aiFillFlowParams } = await import('@/views/Arrange/utils/aiFlow')
 
 describe('t1. aiSetting API 封装', () => {
   it('apiGetAIConfig 走 GET /admin/ai-config', () => {
@@ -163,6 +167,131 @@ describe('t5. aiGenerateFlow 过滤与失败语义', () => {
   it('空原子清单直接返回 null(不发请求)', async () => {
     mockPost.mockClear()
     expect(await aiGenerateFlow('需求', [])).toBeNull()
+    expect(mockPost).not.toHaveBeenCalled()
+  })
+})
+
+describe('t6. buildStepParamList 参数 schema', () => {
+  const steps = [{ key: 'web_open', reason: '打开' }]
+  const abilities = {
+    web_open: {
+      title: '打开网页',
+      inputList: [
+        { key: 'url', title: '网址', types: 'Str', formType: { type: 'INPUT' } },
+        { key: 'browser', title: '浏览器', types: 'Str', formType: { type: 'SELECT' }, options: [
+          { label: 'Chrome', value: 'chrome' },
+          { label: 'Edge', value: 'edge' },
+        ] },
+        // 以下三类不应出现在 schema 中
+        { key: 'element', title: '目标元素', formType: { type: 'ELEMENT' } },
+        { key: 'adv', title: '高级项', level: 'advanced', formType: { type: 'INPUT' } },
+        { key: 'handle', title: '浏览器对象', types: 'Browser', formType: { type: 'INPUT_VARIABLE' } },
+      ],
+    },
+  }
+
+  it('只列可自动填写参数, 选项枚举为 值:标签', () => {
+    const schema = buildStepParamList(steps, abilities)
+    const lines = schema.split('\n')
+    expect(lines[0]).toBe('1. web_open|打开网页')
+    expect(lines[1]).toBe('   url=网址(INPUT)')
+    expect(lines[2]).toBe('   browser=浏览器(SELECT, 选项: chrome:Chrome|edge:Edge)')
+    expect(lines).toHaveLength(3)
+  })
+
+  it('原子能力缺失时仅输出步骤行(无参数行)', () => {
+    const schema = buildStepParamList(steps, {})
+    expect(schema).toBe('1. web_open|web_open')
+  })
+})
+
+describe('t7. parseAiParams 容错解析', () => {
+  it('提取 index/params 并丢弃非法项', () => {
+    expect(parseAiParams('```json\n{"steps": [{"index": 1, "params": {"url": "https://baidu.com"}}]}\n```'))
+      .toEqual([{ index: 1, params: { url: 'https://baidu.com' } }])
+    expect(parseAiParams('{"steps": [{"index": 0, "params": {"a": 1}}, {"index": 2, "params": {}}, {"params": {"b": 2}}]}'))
+      .toEqual([])
+    expect(parseAiParams('not json')).toEqual([])
+    expect(parseAiParams(null)).toEqual([])
+  })
+})
+
+describe('t8. applyStepParams 参数回填', () => {
+  const node = () => ({
+    inputList: [
+      { key: 'url', types: 'Str', formType: { type: 'INPUT' }, value: [{ type: 'other', value: '' }] },
+      { key: 'browser', types: 'Str', formType: { type: 'SELECT' }, options: [
+        { label: 'Chrome', value: 'chrome' },
+        { label: 'Edge', value: 'edge' },
+      ], value: '' },
+      { key: 'headless', types: 'Bool', formType: { type: 'SWITCH' }, value: false },
+      { key: 'element', formType: { type: 'ELEMENT' }, value: null },
+    ],
+  })
+
+  it('iNPUT 回填为 [{type:other,value}] 结构', () => {
+    const n = node()
+    expect(applyStepParams(n, { url: 'https://www.baidu.com' })).toBe(1)
+    expect(n.inputList[0].value).toEqual([{ type: 'other', value: 'https://www.baidu.com' }])
+  })
+
+  it('sELECT 按标签/值匹配选项, 非法选项与未知 key 跳过', () => {
+    const n = node()
+    expect(applyStepParams(n, { browser: 'Chrome', url: 'x', nope: 'y' })).toBe(2)
+    expect(n.inputList[1].value).toBe('chrome')
+    const n2 = node()
+    expect(applyStepParams(n2, { browser: 'firefox' })).toBe(0)
+    expect(n2.inputList[1].value).toBe('')
+  })
+
+  it('sWITCH 字符串布尔与不可填类型处理', () => {
+    const n = node()
+    expect(applyStepParams(n, { headless: 'true', element: 'fake' })).toBe(1)
+    expect(n.inputList[2].value).toBe(true)
+    expect(n.inputList[3].value).toBeNull()
+    expect(applyStepParams(null, { a: 1 })).toBe(0)
+    expect(applyStepParams(node(), undefined)).toBe(0)
+  })
+})
+
+describe('t9. aiFillFlowParams 合并与降级', () => {
+  const steps = [
+    { key: 'web_open', reason: '打开' },
+    { key: 'web_input', reason: '输入' },
+  ]
+  const abilities = {
+    web_open: { title: '打开网页', inputList: [{ key: 'url', title: '网址', types: 'Str', formType: { type: 'INPUT' } }] },
+    web_input: { title: '输入内容', inputList: [{ key: 'text', title: '内容', types: 'Str', formType: { type: 'INPUT' } }] },
+  }
+
+  it('按 index 合并 params 到步骤', async () => {
+    mockPost.mockReturnValueOnce(Promise.resolve({
+      data: '{"steps": [{"index": 1, "params": {"url": "https://www.baidu.com"}}, {"index": 9, "params": {"text": "编造"}}]}',
+    }))
+    const merged = await aiFillFlowParams('打开百度', steps, abilities)
+    expect(merged).toEqual([
+      { key: 'web_open', reason: '打开', params: { url: 'https://www.baidu.com' } },
+      { key: 'web_input', reason: '输入' },
+    ])
+    expect(mockPost).toHaveBeenCalledWith('/api/rpa-ai-service/v1/chat/prompt', {
+      prompt_type: 'flow_fill_params',
+      params: { description: '打开百度', steps: expect.stringContaining('url=网址(INPUT)') },
+      stream: false,
+    })
+  })
+
+  it('解析失败/接口异常返回 null(降级为仅骨架)', async () => {
+    mockPost.mockReturnValueOnce(Promise.resolve({ data: 'not json' }))
+    expect(await aiFillFlowParams('需求', steps, abilities)).toBeNull()
+    mockPost.mockRejectedValueOnce(new Error('network'))
+    expect(await aiFillFlowParams('需求', steps, abilities)).toBeNull()
+  })
+
+  it('无可填参数时不发请求直接返回 null', async () => {
+    mockPost.mockClear()
+    const onlyPick = [{ key: 'web_click', reason: '点击' }]
+    const pickOnly = { web_click: { title: '点击元素', inputList: [{ key: 'element', title: '目标元素', formType: { type: 'ELEMENT' } }] } }
+    expect(await aiFillFlowParams('需求', onlyPick, pickOnly)).toBeNull()
     expect(mockPost).not.toHaveBeenCalled()
   })
 })
