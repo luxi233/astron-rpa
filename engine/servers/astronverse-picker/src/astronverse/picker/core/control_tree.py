@@ -14,15 +14,24 @@ DEFAULT_MAX_DEPTH = 6
 MAX_NODE_COUNT = 2000
 
 # 实时树(深度捕获侧边面板)参数: 聚焦链每层兄弟窗口半径/聚焦点子树深度/节点总数上限
+# 根层(桌面)不裁剪全量列出顶层窗口, 上限放宽到 500 容纳全窗口层
 LIVE_SIBLING_SPAN = 3
-LIVE_CHILD_DEPTH = 2
-LIVE_MAX_NODE_COUNT = 300
+LIVE_CHILD_DEPTH = 3
+LIVE_MAX_NODE_COUNT = 500
 
 
 def _safe_attr(control, attr: str) -> Optional[str]:
     try:
         value = getattr(control, attr)
         return str(value) if value else None
+    except Exception:
+        return None
+
+
+def _safe_attr_raw(control, attr: str):
+    """安全读属性保留原始值: IsEnabled/IsOffscreen 等 False 是有意义值, 不做 falsy 丢弃"""
+    try:
+        return getattr(control, attr)
     except Exception:
         return None
 
@@ -154,8 +163,11 @@ def _build_ancestor_level(ancestor, chain: list, idx: int, sibling_span: int, co
         focus_id = _safe_runtime_id(focus_child)
         focus_idx = next((i for i, c in enumerate(children_src) if _safe_runtime_id(c) == focus_id), -1)
 
-    # 兄弟窗口裁剪: 聚焦子节点前后各保留 sibling_span 个
-    if focus_idx >= 0:
+    # 根层(运行时为桌面)全量列出所有顶层窗口, 打开面板即可见全部窗口;
+    # 其余聚焦链层做兄弟窗口裁剪: 聚焦子节点前后各保留 sibling_span 个
+    if idx == 0:
+        windowed = children_src
+    elif focus_idx >= 0:
         lo = max(0, focus_idx - sibling_span)
         hi = min(len(children_src), focus_idx + sibling_span + 1)
         windowed = children_src[lo:hi]
@@ -180,7 +192,8 @@ def _build_ancestor_level(ancestor, chain: list, idx: int, sibling_span: int, co
 def dump_live_tree(control, sibling_span: int = LIVE_SIBLING_SPAN, child_depth: int = LIVE_CHILD_DEPTH) -> dict:
     """导出以 control 为焦点的实时局部树(深度捕获侧边面板用)。
 
-    结构: 从窗口根到焦点的祖先链, 链上每层附带聚焦子节点前后各 sibling_span 个兄弟,
+    结构: 桌面根 → 全部顶层窗口(根层全量) → 聚焦窗口沿祖先链展开至焦点,
+    链上每层附带聚焦子节点前后各 sibling_span 个兄弟,
     焦点节点另展开 child_depth 层子节点。节点总数上限 LIVE_MAX_NODE_COUNT。
 
     Args:
@@ -190,14 +203,14 @@ def dump_live_tree(control, sibling_span: int = LIVE_SIBLING_SPAN, child_depth: 
 
     Returns:
         树形 dict, 节点含 id/tag_name/cls/name/automation_id/rect/focused/children,
-        根节点附 truncated 标记(达上限时为 True)
+        根节点附 root/truncated 标记(达上限时 truncated 为 True)
     """
     if control is None:
         raise Exception("实时树导出失败: 未获取到焦点控件")
     if child_depth < 1:
         child_depth = LIVE_CHILD_DEPTH
 
-    # 祖先链: 焦点 -> ... -> 窗口根(向上回溯, 上限 32 层防环路)
+    # 祖先链: 焦点 -> ... -> 树根(向上回溯到 UIA 顶层, 运行时即桌面根; 上限 32 层防环路)
     chain = [control]
     cur = control
     for _ in range(32):
@@ -209,7 +222,7 @@ def dump_live_tree(control, sibling_span: int = LIVE_SIBLING_SPAN, child_depth: 
             break
         chain.append(parent)
         cur = parent
-    chain.reverse()  # 窗口根 -> ... -> 焦点
+    chain.reverse()  # 树根 -> ... -> 焦点
 
     counter = [0]
     counter[0] += 1  # 根节点自身
@@ -217,6 +230,81 @@ def dump_live_tree(control, sibling_span: int = LIVE_SIBLING_SPAN, child_depth: 
     if root is None:
         # 极端大树首层即超限: 仅返回聚焦节点自身
         root = _live_node(control, focused=True)
+    root["root"] = True
     root["truncated"] = counter[0] >= LIVE_MAX_NODE_COUNT
     logger.debug(f"实时树导出完成: 祖先链 {len(chain)} 层, 共 {counter[0]} 个节点")
     return root
+
+
+def dump_desktop_tree(root=None) -> dict:
+    """导出桌面级全窗口树(深度捕获会话开始时的首帧)。
+
+    结构: 桌面根 → 全部顶层窗口(单层不展开, 后续帧随鼠标聚焦展开祖先链),
+    节点字段与 dump_live_tree 一致, 根节点附 root/truncated 标记。
+
+    Args:
+        root: 根控件(可注入测试桩), 缺省取 UIA 桌面根
+    """
+    if root is None:
+        import uiautomation as auto  # noqa: PLC0415
+
+        root = auto.GetRootControl()
+    counter = [1]  # 根节点自身
+    node = _live_node(root)
+    for child in _safe_children(root):
+        if counter[0] >= LIVE_MAX_NODE_COUNT:
+            logger.warning(f"桌面树导出达到节点上限 {LIVE_MAX_NODE_COUNT}, 已截断")
+            break
+        counter[0] += 1
+        node["children"].append(_live_node(child))
+    node["root"] = True
+    node["truncated"] = counter[0] >= LIVE_MAX_NODE_COUNT
+    logger.debug(f"桌面树导出完成: 共 {counter[0]} 个节点")
+    return node
+
+
+# 属性面板展示的 UIA 静态属性(均为 property 直读, 不触发 Pattern 调用)
+_PROPS_ATTRS = (
+    "ControlTypeName",
+    "LocalizedControlType",
+    "Name",
+    "ClassName",
+    "AutomationId",
+    "FrameworkId",
+    "IsEnabled",
+    "IsOffscreen",
+    "HelpText",
+)
+
+
+def dump_control_props(control) -> dict:
+    """导出控件属性面板数据(UIA 属性名 → 值字符串)。
+
+    深度捕获面板右栏展示; 另附 ProcessId/进程名/RuntimeId/BoundingRectangle,
+    任何属性读取失败跳过该项, 不抛异常。
+    """
+    props: dict = {}
+    for attr in _PROPS_ATTRS:
+        value = _safe_attr_raw(control, attr)
+        if value is not None:
+            props[attr] = str(value)
+    process_id = _safe_attr_raw(control, "ProcessId")
+    if process_id is not None:
+        props["ProcessId"] = str(process_id)
+        try:
+            from astronverse.picker.utils.process import find_real_application_process  # noqa: PLC0415
+
+            info = find_real_application_process(int(process_id)) or {}
+            if info.get("name"):
+                props["ProcessName"] = info["name"]
+        except Exception:
+            pass
+    runtime_id = _safe_runtime_id(control)
+    if runtime_id:
+        props["RuntimeId"] = runtime_id
+    rect = _safe_rect(control)
+    if rect:
+        props["BoundingRectangle"] = "({}, {}) - ({}, {})".format(
+            rect["left"], rect["top"], rect["right"], rect["bottom"]
+        )
+    return props

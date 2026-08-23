@@ -31,6 +31,9 @@ class EventCore(IEventCore):
         self.__init = False
         # 新增的标志位
         self.__f4_pressed = False  # F4键按下标志
+        # 轮询兑底上一轮的 Ctrl+左键组合状态(沿边检测用): 冻结 toggle 场景下标志会被消费重置,
+        # 若按住期间每轮重复置位会反复 toggle, 必须只在“未按→按下”跳变时触发一次
+        self.__poll_combo_prev = False
         # 键鼠启动的上层应用
         self.domain = None
 
@@ -86,13 +89,19 @@ class EventCore(IEventCore):
         不经过钩子链、不受UIPI影响, 每轮主循环调用一次作为兜底:
         - Esc按下 → 置取消标志(解决退不出去, 兜底生效时点击已穿透只能事后拾取)
         - Ctrl+左键同时按下 → 置拾取标志(点击虽穿透, 但用当前鼠标坐标完成事后拾取)
-        注: 正常场景下钩子先于轮询置位, 二者语义一致不冲突; 触发后主循环即退出会话, 无重复消费
+        Ctrl+左键采用沿边检测(未按→按下跳变才置位): 深度捕获冻结场景下 focus 标志会被
+        主循环消费重置后继续轮询, 若按住期间每轮重复置位会反复 toggle 固定/解冻;
+        非深度场景会话在首次置位即结束, 行为与旧的电平置位等价。
+        注: 正常场景下钩子先于轮询置位, 二者语义一致不冲突; 钩子路径一次点击只触发一次
         """
         if win32api.GetAsyncKeyState(VK_ESCAPE) & 0x8000:
             self.__esc = True
-        if any(win32api.GetAsyncKeyState(vk) & 0x8000 for vk in _CTRL_VKS):
-            if win32api.GetAsyncKeyState(VK_LBUTTON) & 0x8000:
-                self.__control_left_down = True
+        combo_now = any(win32api.GetAsyncKeyState(vk) & 0x8000 for vk in _CTRL_VKS) and bool(
+            win32api.GetAsyncKeyState(VK_LBUTTON) & 0x8000
+        )
+        if combo_now and not self.__poll_combo_prev:
+            self.__control_left_down = True
+        self.__poll_combo_prev = combo_now
         if win32api.GetAsyncKeyState(VK_F4) & 0x8000:
             self.__f4_pressed = True
 
@@ -114,6 +123,14 @@ class EventCore(IEventCore):
         """重置ESC取消标志位"""
         self.__esc = False
 
+    def reset_focus_flag(self):
+        """重置 Ctrl+左键拾取标志位。
+
+        深度捕获会话不再以 Ctrl+左键结束会话, 而是 toggle 树固定/解冻;
+        消费后必须重置, 否则标志一旦置位每轮主循环都会重复触发。
+        """
+        self.__control_left_down = False
+
     def start(self, domain=MKSign.PICKER):
         if not self.__closed:
             return False
@@ -127,6 +144,7 @@ class EventCore(IEventCore):
         self.__control_left_down = False
         self.__esc = False
         self.__f4_pressed = False
+        self.__poll_combo_prev = False
         self.__closed = False
 
         while not self.__init:

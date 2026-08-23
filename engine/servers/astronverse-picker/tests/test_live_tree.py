@@ -116,14 +116,14 @@ def test_live树_焦点子树展开():
 
 
 def test_live树_节点上限截断():
-    children = [LiveControl("ButtonControl", name=f"b{i}") for i in range(350)]
+    children = [LiveControl("ButtonControl", name=f"b{i}") for i in range(600)]
     btn = LiveControl("PaneControl")
     btn._children = children
     for c in children:
         c._parent = btn
     tree = dump_live_tree(btn)
     assert tree["truncated"] is True
-    assert len(tree["children"]) < 350
+    assert len(tree["children"]) < 600
 
 
 def test_live树_None控件报错():

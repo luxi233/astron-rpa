@@ -108,6 +108,16 @@ export const usePickStore = defineStore('pickStore', () => {
       // 树节点点选捕获: 属性链随 TREE_PICK sign 发给引擎, 定位成功后引擎以捕获成功结束会话(走下方 success 主路径)
       RpaPicker.send({ pick_sign: 'TREE_PICK', data: JSON.stringify(data) })
     }
+    else if (type === DEEP_PICK_EVENT.TREE_PROPS && Array.isArray(data) && data.length) {
+      // 选中节点查 UIA 属性: 属性链随 TREE_PROPS sign 发给引擎, ack 经 TREE_PROPS_RESULT 回显面板右栏
+      // (依赖引擎侧深度 START 并发化: 拾取会话挂起期间仍可处理会话内请求)
+      RpaPicker.send({ pick_sign: 'TREE_PROPS', data: JSON.stringify(data) })
+    }
+    else if (type === DEEP_PICK_EVENT.READY) {
+      // 面板挂载就绪: 重发当前树快照(首帧推送可能先于面板监听注册到达, ipc 无排队即丢)
+      if (isDeepPicking.value && liveTreeData.value)
+        emitToDeepPickWindow(DEEP_PICK_EVENT.TREE_UPDATE, liveTreeData.value)
+    }
   })
 
   // 兜底: 面板被直接关闭(如 Alt+F4/任务栏关闭, CANCEL 的 w2w 可能来不及送达)时, 主进程 close 事件仍会经 window-close 到达;
@@ -275,7 +285,8 @@ export const usePickStore = defineStore('pickStore', () => {
         RpaPicker.send(sendParams)
         if (isDeepMode)
           openDeepPickWindow()
-        // 主窗口统一最小化(与标准拾取一致), 深度捕获的实时树由独立面板窗口承载
+        // 主窗口统一最小化(与 CV 拾取/校验路径一致), 避免遮挡目标应用; 深度捕获的实时树由独立面板窗口承载
+        windowManager.minimizeWindow()
       }, 500)
     })
     // 绑定消息
@@ -285,6 +296,12 @@ export const usePickStore = defineStore('pickStore', () => {
       if (key === 'pick_tree_update') {
         try {
           const parsed = data ? JSON.parse(data) : null
+          if (parsed && typeof parsed.frozen === 'boolean') {
+            // 树固定/解冻状态(引擎 Ctrl+点击 toggle): 只转发状态不动树数据, 面板切换提示文案
+            if (isDeepPicking.value)
+              emitToDeepPickWindow(DEEP_PICK_EVENT.TREE_UPDATE, parsed)
+            return
+          }
           liveTreeData.value = parsed
           if (isDeepPicking.value)
             emitToDeepPickWindow(DEEP_PICK_EVENT.TREE_UPDATE, parsed)
@@ -294,10 +311,19 @@ export const usePickStore = defineStore('pickStore', () => {
       }
       if (key === 'success' && data) {
         const dataObj = JSON.parse(data)
+        if (dataObj.tree_props) {
+          // 属性查询 ack: 转发面板右栏(props 为 null 时面板回退节点自带字段), 不结束会话
+          if (isDeepPicking.value)
+            emitToDeepPickWindow(DEEP_PICK_EVENT.TREE_PROPS_RESULT, dataObj.props ?? null)
+          return
+        }
         if (dataObj.tree_pick) {
           // 树节点点选 ack: 非捕获结果, 不结束会话; 定位失败提示换节点重试(成功则由主循环捕获结果到达)
           if (!dataObj.located)
             message.warning(t('deepCaptureTreePickNotFound'))
+          // 逐次 ack 转发面板解锁点选锁: 冻结期间无下一帧树推送可依赖解锁
+          if (isDeepPicking.value)
+            emitToDeepPickWindow(DEEP_PICK_EVENT.TREE_PICK_RESULT, dataObj)
           return
         }
         finishPick()

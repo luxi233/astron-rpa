@@ -1,3 +1,5 @@
+import json
+import queue
 import time
 import traceback
 
@@ -61,7 +63,18 @@ class PickerServer:
                     # 轮询兜底: UIPI(管理员目标窗口)隔离钩子时, 钩子回调不触发,
                     # 用GetAsyncKeyState轮询感知Esc/Ctrl+左键(详见poll_fallback注释)
                     event_core.poll_fallback()
-                    if event_core.is_cancel() or event_core.is_focus() or "TREE_PICK_DONE" in sign:
+                    picker_data = sign[PickerSign.START.value]
+                    # 深度捕获会话: Ctrl+左键不结束会话, 而是 toggle 实时树固定/解冻
+                    # (固定后用户可从容在面板树上浏览点选, 树不随鼠标刷新)
+                    deep_session = isinstance(picker_data, dict) and picker_data.get("pick_mode") in (
+                        "DeepUIA",
+                        "DeepUIAPick",
+                    )
+                    if (
+                        event_core.is_cancel()
+                        or "TREE_PICK_DONE" in sign
+                        or (event_core.is_focus() and not deep_session)
+                    ):
                         # 退出
 
                         try:
@@ -100,6 +113,31 @@ class PickerServer:
                         sign[result_sign] = result
 
                         logger.info("拾取结束，主动退出")
+                    elif event_core.is_focus() and deep_session:
+                        # 深度捕获 Ctrl+左键: toggle 实时树固定/解冻, 不结束会话。
+                        # 面板树上从容浏览/点选必须先固定(鼠标一移树就刷新); 冻结时
+                        # 绘制循环继续(画框跟随), 仅停止树推送(_push_live_tree 短路)。
+                        # 消费后重置标志, 否则下一轮主循环会重复 toggle。
+                        frozen = not getattr(self.service_context, "deep_tree_frozen", False)
+                        self.service_context.deep_tree_frozen = frozen
+                        logger.info(f"深度捕获实时树{'固定(树不随鼠标刷新)' if frozen else '恢复跟随'}")
+                        try:
+                            tree_queue = self.service_context.deep_tree_queue
+                            if tree_queue is not None:
+                                payload = json.dumps({"frozen": frozen})
+                                try:
+                                    tree_queue.put_nowait(payload)
+                                except queue.Full:
+                                    # 状态帧必达: 队满先丢最旧树帧(树帧可丢, 前端指纹去重下损失最小),
+                                    # 否则冻结/解冻提示丢失会造成面板与实际状态短暂不一致
+                                    try:
+                                        tree_queue.get_nowait()
+                                    except queue.Empty:
+                                        pass
+                                    tree_queue.put_nowait(payload)
+                        except Exception as e:
+                            logger.debug(f"树固定状态推送跳过: {e}")
+                        event_core.reset_focus_flag()
                     else:
                         # 绘图
                         self.start_time = time.time()

@@ -5,6 +5,7 @@ import time
 from typing import Optional
 
 from astronverse.picker import (
+    RECORDING_BLACKLIST,
     DrawResult,
     IElement,
     IPickerCore,
@@ -21,6 +22,29 @@ from astronverse.picker.utils.browser import BrowserControlFinder
 
 # UIPI检测: 目标进程是否管理员(elevated)运行, 带pid缓存避免每轮重复系统调用
 _elevated_pid_cache: dict = {}
+
+# 拾取器自身进程名缓存(pid → 进程名): 深度捕获面板/主窗口悬停检测每轮绘制都要查,
+# psutil 进程查询成本高, 同 pid 只查一次(会话短, pid 复用风险可忽略)
+_self_pid_name_cache: dict = {}
+
+
+def _is_blacklisted_process(process_id: int) -> bool:
+    """鼠标所指进程是否拾取器自身(主窗口/深度捕获面板等, 按 RECORDING_BLACKLIST 进程名匹配)。
+
+    拾取器自身窗口不应被捕获: 深度捕获时鼠标会移到面板上浏览/点选树,
+    若不排除, 画框会框住面板、实时树也会切换成面板自身的树。
+    """
+    if process_id in _self_pid_name_cache:
+        return _self_pid_name_cache[process_id] in RECORDING_BLACKLIST
+    try:
+        from astronverse.picker.utils.process import find_real_application_process
+
+        info = find_real_application_process(process_id) or {}
+        name = info.get("name", "") or ""
+    except Exception:
+        name = ""
+    _self_pid_name_cache[process_id] = name
+    return name in RECORDING_BLACKLIST
 
 
 def _is_process_elevated(process_id: int) -> bool:
@@ -155,6 +179,11 @@ class PickerCore(IPickerCore):
 
         process_id = UIAOperate.get_process_id(start_control)
 
+        # 拾取器自身窗口(主窗口/深度捕获面板): 静默跳过本轮, 画框与实时树保持上次状态——
+        # 深度捕获时鼠标需要移到面板上浏览/点选树, 不能把面板自身捕获进去
+        if _is_blacklisted_process(process_id):
+            return DrawResult(success=False, error_message="")
+
         # UIPI检测: 目标窗口管理员运行且自身普通权限时, 系统隔离低级钩子——
         # Ctrl+左键会真实穿透点击目标应用(Esc/Ctrl+左键由轮询兜底感知), 画框标签提示用户根因
         if not _is_self_elevated() and _is_process_elevated(process_id):
@@ -240,6 +269,9 @@ class PickerCore(IPickerCore):
         try:
             queue = getattr(svc, "deep_tree_queue", None)
             if queue is None or getattr(svc, "deep_tree_ws", None) is None:
+                return
+            # 树固定中: 不随鼠标刷新(Ctrl+点击 toggle), 保留用户正在浏览的树快照
+            if getattr(svc, "deep_tree_frozen", False):
                 return
             control = getattr(element, "control", None)
             if control is None:

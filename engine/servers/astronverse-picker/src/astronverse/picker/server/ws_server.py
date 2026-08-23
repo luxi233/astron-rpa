@@ -4,7 +4,7 @@ import queue
 import time
 import uuid
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import websockets
 from astronverse.picker import OperationResult, PickerSign, PickerType, RecordAction, SmartComponentAction, SVCSign
@@ -17,6 +17,27 @@ VALIDATE_HIGHLIGHT_HOLD_SECONDS = 3.0
 
 # L2: 批量校验并发度(定位/截图/CV 匹配逐项耗时秒级, 并行压缩总时长)
 BATCH_VALIDATE_MAX_WORKERS = 4
+
+
+def _call_with_com(func: Callable[[], Any]) -> Any:
+    """工作线程内执行 UIA/COM 调用(树导出/定位为百毫秒~秒级同步阻塞)。
+
+    放入 to_thread 工作线程避免阻塞 WS 事件循环(否则实时树推送泵/同端口全部
+    连接消息停摆); 工作线程触碰 UIA/COM 前须初始化自己的公寓, 与
+    _validate_one_element 的既有约定一致(非 Windows 无 pythoncom 则跳过)。
+    """
+    pythoncom = None
+    try:
+        import pythoncom  # noqa: PLC0415
+
+        pythoncom.CoInitialize()
+    except ImportError:
+        pythoncom = None
+    try:
+        return func()
+    finally:
+        if pythoncom is not None:
+            pythoncom.CoUninitialize()
 
 
 def _validate_one_element(manager: Any, item: dict) -> dict:
@@ -164,6 +185,10 @@ class PickerRequestHandler:
             return False
         else:
             await self._handle_picker_request(ws, input_data)
+            # 深度会话内查询信号(TREE_PICK/TREE_PROPS)不关连接: 连接生命周期由
+            # 并发化的深度 START task 管理, 误关会拆毁整个拾取会话
+            if input_data.pick_sign in (PickerSign.TREE_PICK, PickerSign.TREE_PROPS):
+                return False
             return True  # 其他请求需要关闭连接
 
     async def _handle_smart_component_request(self, ws, input_data: PickerRequire):
@@ -275,6 +300,8 @@ class PickerRequestHandler:
             result = await self._handle_switch_mode(input_data)
         elif input_data.pick_sign == PickerSign.TREE_PICK:
             result = await self._handle_tree_pick(input_data)
+        elif input_data.pick_sign == PickerSign.TREE_PROPS:
+            result = await self._handle_tree_props(input_data)
         else:
             result = OperationResult.error("pick_sign没有实现").to_dict()
 
@@ -300,6 +327,10 @@ class PickerRequestHandler:
                 if input_data.pick_mode in ("DeepUIA", "DeepUIAPick"):
                     self.svc.deep_tree_ws = ws
                     self.svc.deep_tree_queue = queue.Queue(maxsize=4)
+                    self.svc.deep_tree_frozen = False  # 会话开始重置固定状态(Ctrl+点击 toggle)
+                    # 首帧桌面树: 打开面板即可见所有顶层窗口, 不必等鼠标移动到目标应用;
+                    # 直发会话连接不经队列(泵退出时会排干队列残留, 首帧会被误丢弃)
+                    await self._push_initial_tree(ws)
                     deep_tree_task = asyncio.create_task(self._deep_tree_pump(ws, self.svc.deep_tree_queue))
 
                 try:
@@ -328,6 +359,21 @@ class PickerRequestHandler:
         except Exception as e:
             logger.error(f"拾取开始处理失败: {e}")
             return OperationResult.error(str(e)).to_dict()
+
+    async def _push_initial_tree(self, ws) -> None:
+        """深度捕获首帧桌面树(全窗口列表)直发会话连接。
+
+        桌面层全量导出(上限 500 窗口, 每窗口多次 COM 调用)可达百毫秒级,
+        放工作线程不阻塞事件循环; 任何异常静默吞掉(增强能力不阻断拾取)。
+        """
+        try:
+            from astronverse.picker.core.control_tree import dump_desktop_tree  # noqa: PLC0415
+
+            payload = await asyncio.to_thread(_call_with_com, dump_desktop_tree)
+            push_msg = PickerMessage.create_push(PushKey.PICK_TREE_UPDATE, data=json.dumps(payload, ensure_ascii=False))
+            await ws.send(push_msg.model_dump_json())
+        except Exception as e:
+            logger.debug(f"首帧桌面树推送跳过: {e}")
 
     async def _deep_tree_pump(self, ws, tree_queue) -> None:
         """深度捕获实时树推送泵: 消费绘制线程入队的局部树 JSON, 直接推送到会话连接。
@@ -688,8 +734,13 @@ class PickerRequestHandler:
                 "picker_type": "",
             }
             located = False
+
+            def _locate() -> bool:
+                return LocatorManager().locator(element, self_heal=False, cv_fallback=False) is not None
+
             try:
-                located = LocatorManager().locator(element, self_heal=False, cv_fallback=False) is not None
+                # 定位为同步阻塞 UIA 调用, 放工作线程(自初始化 COM 公寓)避免阻塞事件循环卡树推送泵
+                located = await asyncio.to_thread(_call_with_com, _locate)
             except Exception as e:
                 logger.warning(f"树点选元素验证定位失败: {e}")
 
@@ -702,6 +753,59 @@ class PickerRequestHandler:
         except Exception as e:
             logger.error(f"树点选拾取处理失败: {e}")
             return OperationResult.error(str(e)).to_dict()
+
+    async def _handle_tree_props(self, input_data: PickerRequire) -> dict[str, Any]:
+        """深度捕获属性面板查询: 按节点属性链定位控件并返回 UIA 属性键值对。
+
+        data: JSON 属性链(窗口层→目标层, 字段同 TREE_PICK: tag_name/cls/name/automation_id)。
+        查询/定位失败一律返回 success + props=null(不结束会话,
+        前端回退显示节点自带字段); ack 的 data 为 {tree_props, props} JSON。
+        """
+        props = None
+        try:
+            chain = json.loads(input_data.data) if isinstance(input_data.data, str) else (input_data.data or [])
+            if isinstance(chain, list) and chain:
+                from astronverse.locator.locator import LocatorManager  # noqa: PLC0415
+
+                from astronverse.picker.core.control_tree import dump_control_props  # noqa: PLC0415
+
+                path = [
+                    {
+                        "tag_name": node.get("tag_name"),
+                        "cls": node.get("cls"),
+                        "name": node.get("name"),
+                        "automation_id": node.get("automation_id"),
+                        "checked": True,
+                        "disable_keys": [],
+                    }
+                    for node in chain
+                ]
+                element = {
+                    "app": (chain[0].get("name") or ""),
+                    "version": "1",
+                    "type": "uia",
+                    "path": path,
+                    "picker_type": "",
+                }
+
+                def _query_props():
+                    try:
+                        located = LocatorManager().locator(element, self_heal=False, cv_fallback=False)
+                    except Exception as e:
+                        logger.warning(f"属性面板元素定位失败: {e}")
+                        return None
+                    # IElement.control 为方法或属性两种实现均兼容
+                    control = getattr(located, "control", None)
+                    control = control() if callable(control) else control
+                    return dump_control_props(control) if control is not None else None
+
+                # 定位+属性导出为同步阻塞 UIA 调用, 放工作线程(自初始化 COM 公寓)不阻塞事件循环
+                props = await asyncio.to_thread(_call_with_com, _query_props)
+        except Exception as e:
+            logger.warning(f"属性面板查询跳过: {e}")
+        return OperationResult.success(
+            data=json.dumps({"tree_props": True, "props": props}, ensure_ascii=False)
+        ).to_dict()
 
     async def _handle_pick_highlight(self, input_data: PickerRequire) -> dict[str, Any]:
         """处理拾取高亮"""
@@ -833,6 +937,8 @@ class WsServer:
     def __init__(self, svc, port: int):
         self.svc = svc
         self.port = port
+        # 深度 START 并发 task 的强引用(仅事件循环持弱引用, 极端下可能被 GC 中断)
+        self._deep_tasks: set[asyncio.Task] = set()
 
         # 业务处理器
         self.request_handler = PickerRequestHandler(svc)
@@ -887,6 +993,14 @@ class WsServer:
                 # 2. 检查是否是拾取请求
                 if data.get("pick_sign"):
                     input_data = PickerRequire(**data)
+                    # 深度捕获 START: send_sign 会挂起整个拾取会话(等捕获结果), 若在主循环
+                    # 顺序 await, 会话内的 TREE_PICK/TREE_PROPS 请求将永不被处理——
+                    # 改为并发 task, 主循环继续收消息; 其余请求保持原有顺序语义
+                    if input_data.pick_sign == PickerSign.START and input_data.pick_mode in ("DeepUIA", "DeepUIAPick"):
+                        task = asyncio.create_task(self._handle_and_maybe_close(ws, input_data))
+                        self._deep_tasks.add(task)
+                        task.add_done_callback(self._deep_tasks.discard)
+                        continue
                     should_close = await self.request_handler.handle_request(ws, input_data)
                     if should_close:
                         await ws.close()
@@ -906,6 +1020,15 @@ class WsServer:
                     await ws.send(PickerMessage.create_response(ResponseKey.ERROR, err_msg=str(e)).model_dump_json())
                 except:
                     pass  # 连接可能已断开
+
+    async def _handle_and_maybe_close(self, ws, input_data: PickerRequire) -> None:
+        """并发处理单条拾取请求, 需要关闭连接时自行关闭(深度捕获 START 专用)"""
+        try:
+            should_close = await self.request_handler.handle_request(ws, input_data)
+            if should_close:
+                await ws.close()
+        except Exception as e:
+            logger.error(f"并发拾取请求处理失败: {e}")
 
     def server(self) -> None:
         """启动WebSocket服务器"""

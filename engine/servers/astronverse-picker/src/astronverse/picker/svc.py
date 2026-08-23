@@ -70,9 +70,12 @@ class ServiceContext:
 
         # 深度捕获实时控件树推送通道(仅 DeepUIA 会话注册):
         # deep_tree_ws 为会话 ws 连接引用, deep_tree_queue 承载绘制线程产出的局部树 JSON,
-        # 由 ws 事件循环侧的推送泵消费(跨线程安全, 会话结束时清空)
+        # 由 ws 事件循环侧的推送泵消费(跨线程安全, 会话结束时清空);
+        # deep_tree_frozen 为树固定状态(Ctrl+点击 toggle): 冻结期间停止随鼠标推树,
+        # 用户在面板树上从容浏览点选(每次会话开始时重置)
         self.deep_tree_ws = None
         self.deep_tree_queue = None
+        self.deep_tree_frozen = False
 
     def load_modules(self):
         """加载系统模块组件"""

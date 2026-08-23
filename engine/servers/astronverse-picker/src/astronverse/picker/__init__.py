@@ -205,6 +205,8 @@ class PickerSign(Enum):
 
     TREE_PICK = "TREE_PICK"  # 深度捕获实时树节点点选: 会话内按属性链构造元素, 主循环以捕获成功结束
 
+    TREE_PROPS = "TREE_PROPS"  # 深度捕获属性面板查询: 按属性链定位控件返回 UIA 属性键值对
+
 
 class RecordAction(Enum):
     """录制动作 - 专门处理录制相关的子操作"""
