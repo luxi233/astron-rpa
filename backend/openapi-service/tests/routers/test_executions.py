@@ -25,9 +25,9 @@ async def test_get_execution_not_found(client: AsyncClient, api_key):
     headers = {"Authorization": f"Bearer {api_key['key']}"}
     non_existent_id = f"non-existent-{random.randint(10000, 99999)}"
     response = await client.get(f"/executions/{non_existent_id}", headers=headers)
-    assert response.status_code == 200
+    assert response.status_code == 404
     body = response.json()
-    assert body["code"] != "0000"
+    assert body["code"] == "5001"
     assert non_existent_id in body["msg"]
 
 
@@ -38,13 +38,19 @@ async def test_execution_record_lifecycle(client: AsyncClient, api_key, test_get
     真实执行链路依赖 WebSocket 执行器（L3 集成范畴），单测只验证
     记录创建/状态更新与查询路由的契约。
     """
+    from app.models.workflow import Workflow
     from app.schemas.workflow import ExecutionCreate
     from app.services.execution import ExecutionService
 
     user_id = "1234"
+    project_id = f"proj-{random.randint(1000, 9999)}"
+    test_get_db.add(
+        Workflow(project_id=project_id, user_id=user_id, name="Lifecycle WF", version=1, status=1, parameters="[]")
+    )
+    await test_get_db.flush()
     service = ExecutionService(test_get_db)
     created = await service.create_execution(
-        ExecutionCreate(project_id=f"proj-{random.randint(1000, 9999)}", params={"k": "v"}), user_id
+        ExecutionCreate(project_id=project_id, params={"k": "v"}, version=1), user_id
     )
     assert created.status == "PENDING"
 

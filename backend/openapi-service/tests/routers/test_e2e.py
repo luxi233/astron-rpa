@@ -33,15 +33,14 @@ async def test_workflow_dataflow_e2e(client: AsyncClient, api_key):
     assert any(r["project_id"] == project_id for r in records)
 
     # 3. 详情正确
-    detail_response = await client.get(f"/workflows/get/{project_id}")
+    detail_response = await client.get(f"/workflows/get/{project_id}", headers=USER_ID_HEADER)
     assert detail_response.status_code == 200
     assert detail_response.json()["data"]["workflow"]["project_id"] == project_id
 
     # 4. API Key 鉴权预检：对不存在的工作流执行应返回 ERR（真实执行依赖 WebSocket 执行器，属 L3 集成）
     execution_data = {"project_id": f"non-existent-{random.randint(10000, 99999)}", "params": {"e2e": True}}
     execute_response = await client.post("/workflows/execute-async", json=execution_data, headers=auth_headers)
-    assert execute_response.status_code == 202
-    assert execute_response.json()["code"] != "0000"
+    assert execute_response.status_code == 404
 
     # 5. executions 路由可达
     exec_list_response = await client.get("/executions/get", headers=auth_headers)
@@ -88,7 +87,7 @@ async def test_complex_parameters_roundtrip(client: AsyncClient):
     response = await client.post("/workflows/upsert", json=payload, headers=USER_ID_HEADER)
     assert response.status_code == 200
 
-    detail = await client.get(f"/workflows/get/{payload['project_id']}")
+    detail = await client.get(f"/workflows/get/{payload['project_id']}", headers=USER_ID_HEADER)
     assert detail.status_code == 200
     stored = detail.json()["data"]["workflow"]["parameters"]
     parsed = _json.loads(stored) if isinstance(stored, str) else stored

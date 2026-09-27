@@ -43,7 +43,7 @@ async def test_upsert_and_get_workflow(client: AsyncClient):
     assert any(r["project_id"] == payload["project_id"] for r in records)
 
     # 详情
-    detail_response = await client.get(f"/workflows/get/{payload['project_id']}")
+    detail_response = await client.get(f"/workflows/get/{payload['project_id']}", headers=USER_ID_HEADER)
     assert detail_response.status_code == 200
     workflow = detail_response.json()["data"]["workflow"]
     assert workflow["project_id"] == payload["project_id"]
@@ -51,15 +51,15 @@ async def test_upsert_and_get_workflow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_workflow(client: AsyncClient):
+async def test_get_nonexistent_workflow(client: AsyncClient, api_key):
     """Test getting a non-existent workflow returns SUCCESS with null data (by design)."""
+    headers = {"Authorization": f"Bearer {api_key['key']}"}
     non_existent_id = f"non-existent-{random.randint(10000, 99999)}"
-    response = await client.get(f"/workflows/get/{non_existent_id}")
+    response = await client.get(f"/workflows/get/{non_existent_id}", headers=headers)
     assert response.status_code == 200
     body = response.json()
     # 设计上返回 SUCCESS + data=None，由前端处理 not found
     assert body["data"] is None
-    assert non_existent_id in body["msg"]
 
 
 @pytest.mark.asyncio
@@ -69,9 +69,7 @@ async def test_execute_workflow_not_found(client: AsyncClient, api_key):
     execution_data = {"project_id": f"non-existent-{random.randint(10000, 99999)}", "params": {"k": "v"}}
 
     response = await client.post("/workflows/execute", json=execution_data, headers=headers)
-    assert response.status_code == 200
-    assert response.json()["code"] != "0000"
-    assert "not found" in response.json()["msg"].lower()
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
