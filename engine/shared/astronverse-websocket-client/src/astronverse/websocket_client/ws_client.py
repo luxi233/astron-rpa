@@ -254,6 +254,8 @@ class WsApp:
             msg = BaseMsg(**data)
         except Exception as e:
             self.log("error json.loads: {}".format(e))
+            # 解析失败时 msg 未定义，不能继续投递，否则 inner_on_message 会抛 NameError 并静默丢消息
+            return
 
         # 处理
         self.thread_pool.submit(inner_on_message)

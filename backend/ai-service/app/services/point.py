@@ -186,7 +186,7 @@ class UserPointService:
 
         # 获取配置的月度发放积分数
         settings = get_settings()
-        monthly_points = getattr(settings, "MONTHLY_POINTS", 100000)  # 默认1000积分
+        monthly_points = settings.MONTHLY_GRANT_AMOUNT
 
         logger.info(f"Granting {monthly_points} points to user {user_id}")
 
