@@ -48,6 +48,8 @@ AstronRPA 是一款企业级机器人流程自动化（RPA）桌面应用。通�
 
 推荐使用 Docker 进行快速部署：
 
+自托管部署需要自行准备服务器和域名，在域名当前的权威 DNS 服务商处添加网关与认证子域名的解析记录，并申请覆盖两个域名的证书。注册商显示的 NS 仅表示由谁提供 DNS 服务，不等于已经配置应用的 A/CNAME 记录；无需为了本项目额外更换 NS。部署者负责域名解析、私钥保管、开放端口和证书续期。启动前请参阅 [DNS 与 HTTPS 部署说明](docker/HTTPS_DEPLOYMENT.md)，将下方 `example.com` 示例替换为自己的域名。
+
 ```bash
 # 克隆项目
 git clone https://github.com/iflytek/astron-rpa.git
@@ -59,19 +61,30 @@ cd docker
 # 复制 .env
 cp .env.example .env
 
-# 修改 .env 中 Casdoor 的服务配置（8000 为默认端口）
-CASDOOR_EXTERNAL_ENDPOINT="http://{YOUR_SERVER_IP}:8000"
+# 在 .env 中配置公网 HTTPS 域名
+RPA_SERVER_NAME="rpa.example.com"
+CASDOOR_SERVER_NAME="auth.example.com"
+RPA_HTTPS_REDIRECT_AUTHORITY="rpa.example.com"
+CASDOOR_HTTPS_REDIRECT_AUTHORITY="auth.example.com:8443"
+CASDOOR_EXTERNAL_ENDPOINT="https://auth.example.com:8443"
+
+# 将覆盖上述两个域名的证书和私钥分别复制到
+# docker/certs/tls.crt 和 docker/certs/tls.key
 
 # 🚀 启动所有服务
+# 初始化本部署独立的 Casdoor 凭据（详见 docker/HTTPS_DEPLOYMENT.md 1.3）
+docker compose up -d mysql casdoor
+# 等待 Casdoor 初始化完成
+python3 scripts/sync-casdoor-credentials.py
 docker compose up -d
 
 # 📊 检查服务状态
 docker compose ps
 ```
 
-- 等服务都启动后，在浏览器访问 `http://{YOUR_SERVER_IP}:32742/api/rpa-auth/user/login-check`（32742 为默认端口，如有修改自行变更）
+- 等服务都启动后，在浏览器访问 `https://rpa.example.com/api/rpa-auth/user/login-check`
 - 如果显示 `{"code":"900001","data":null,"message":"unauthorized"}`，则表示部署正确且能正常连通。
-- 在浏览器访问 `http://{YOUR_SERVER_IP}:8000`（8000 为默认端口，如有修改自行变更）
+- 在浏览器访问 `https://auth.example.com:8443`
 - 如果显示 Casdoor 的登录页面，则表示 Casdoor 部署正确。
 - 生产部署及安全加固请参考 [部署文档](docker/QUICK_START.md)
 
@@ -129,8 +142,7 @@ docker compose ps
 #### ⚙️ 安装好后在安装目录下的 `resources/conf.yaml` 中修改服务端地址：
 
     ```yaml
-    # 32742 为默认端口，如有修改自行变更
-    remote_addr: http://YOUR_SERVER_ADDRESS:32742/
+    remote_addr: https://rpa.example.com/
     skip_engine_start: false
     ```
 

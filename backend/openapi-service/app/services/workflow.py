@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.logger import get_logger
 from app.models.workflow import Workflow
 from app.schemas.workflow import WorkflowBase
+from app.security.workflow_authorization import WorkflowAccessError, require_workflow_access
 
 logger = get_logger(__name__)
 
@@ -189,6 +190,22 @@ class WorkflowService:
         workflows = result.scalars().all()
         return workflows
 
+    async def get_external_workflow(
+        self, project_id: str, user_id: str, version: int | None = None, *, allow_example_alias: bool = False
+    ) -> Workflow:
+        workflow = await self.get_workflow(project_id, user_id)
+        if workflow is not None and workflow.project_id != project_id and not allow_example_alias:
+            raise WorkflowAccessError("WORKFLOW_NOT_FOUND", "Workflow not found or external access is disabled")
+        return require_workflow_access(workflow, user_id, version)
+
+    async def get_external_workflows(self, user_id: str, skip: int = 0, limit: int | None = None) -> list[Workflow]:
+        query = select(Workflow).where(Workflow.user_id == user_id, Workflow.status == 1, Workflow.version >= 1)
+        query = query.order_by(Workflow.created_at.desc(), Workflow.project_id).offset(skip)
+        if limit is not None:
+            query = query.limit(limit)
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
     async def update_workflow(self, workflow_data: WorkflowBase, user_id: str) -> Optional[Workflow]:
         """更新工作流"""
         # 检查工作流是否存在且属于当前用户
@@ -203,7 +220,6 @@ class WorkflowService:
             return workflow
 
         if "parameters" in workflow_dict:
-            logger.info(workflow_dict["parameters"])
             # 用户没设置parameters，去请求接口并比较
             merged_params = await self._compare_and_merge_parameters(
                 workflow_dict["parameters"],  # 新参数为None表示用户未设置

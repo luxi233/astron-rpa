@@ -121,11 +121,18 @@ pids
 *.key
 *.crt
 *.cert
+docker/certs/*
+!docker/certs/README.md
 
 # Configuration files that might contain secrets
 config.local.*
 secrets.yml
 secrets.yaml
+
+# Desktop session stores (including when launched from the repository root)
+.cookie.json
+.remote-cookies/
+.casdoor-env-*
 
 # =============================================================================
 # Backup & Archive Files
@@ -172,3 +179,5 @@ docker/volumes/backup/
 # smoke-test leftovers (pdf watermark outputs, ensure_xlsx_file)
 engine/components/astron/
 engine/components/*/test.xlsx
+
+.executions/

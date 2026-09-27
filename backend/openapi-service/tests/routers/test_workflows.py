@@ -81,5 +81,55 @@ async def test_execute_workflow_async_not_found(client: AsyncClient, api_key):
     execution_data = {"project_id": f"non-existent-{random.randint(10000, 99999)}", "params": {"k": "v"}}
 
     response = await client.post("/workflows/execute-async", json=execution_data, headers=headers)
-    assert response.status_code == 202
-    assert response.json()["code"] != "0000"
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_execution_status(client: AsyncClient, api_key):
+    """Test getting execution status."""
+    headers = {"Authorization": f"Bearer {api_key['key']}"}
+
+    # First, execute a workflow asynchronously to get an execution ID
+    list_response = await client.get("/workflows/get", headers=headers)
+    assert list_response.status_code == 200
+
+    all_workflows = list_response.json()["data"]["records"]
+    if not all_workflows:
+        pytest.skip("No workflows available for testing")
+
+    # Find an active workflow
+    active_workflow = next((w for w in all_workflows if w["status"] == 1), None)
+    if not active_workflow:
+        pytest.skip("No active workflows available for testing")
+
+    # Execute the workflow asynchronously
+    project_id = active_workflow["project_id"]
+    execution_data = {"project_id": project_id, "params": {"test_param": "test_value"}}
+
+    execute_response = await client.post("/workflows/execute-async", json=execution_data, headers=headers)
+    assert execute_response.status_code == 202
+
+    execution_id = execute_response.json()["data"]["executionId"]
+
+    # Get the execution status
+    status_response = await client.get(f"/executions/{execution_id}", headers=headers)
+    assert status_response.status_code == 200
+
+    data = status_response.json()["data"]["execution"]
+    assert data["id"] == execution_id
+    assert data["project_id"] == project_id
+    assert "status" in data
+    assert data["status"] in ["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "UNKNOWN", "TIMEOUT"]
+
+
+@pytest.mark.asyncio
+async def test_get_nonexistent_execution(client: AsyncClient, api_key):
+    """Test getting a non-existent execution."""
+    headers = {"Authorization": f"Bearer {api_key['key']}"}
+
+    # Using a random ID that's unlikely to exist
+    non_existent_id = f"non-existent-{random.randint(10000, 99999)}"
+    response = await client.get(f"/executions/{non_existent_id}", headers=headers)
+    assert response.status_code == 404
+    assert response.json()["code"] == "5001"
+    assert "not found" in response.json()["msg"].lower()

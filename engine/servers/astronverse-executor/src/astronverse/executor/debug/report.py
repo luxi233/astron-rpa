@@ -91,6 +91,13 @@ class Report(IReport):
             return obj.__dict__
 
     def __send__(self, filtered_dict):
+        if getattr(self.svc.conf, "external_secrets", False):
+            filtered_dict = {
+                key: value
+                for key, value in filtered_dict.items()
+                if key in {"log_type", "log_level", "status", "result", "tag"}
+            }
+            filtered_dict["msg_str"] = "Execution diagnostic omitted for secret inputs"
         if self.queue and self.svc.conf.open_log_ws:
             ms = json.dumps(filtered_dict, ensure_ascii=False, default=self.__json__)
             try:

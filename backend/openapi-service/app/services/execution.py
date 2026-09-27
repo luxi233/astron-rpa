@@ -1,20 +1,43 @@
 import asyncio
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Optional
 from uuid import uuid4
 
 from redis.asyncio import Redis
 from rpawebsocket.ws import BaseMsg
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
 from app.logger import get_logger
-from app.models.workflow import Execution
+from app.models.workflow import Execution, Workflow
 from app.schemas.workflow import ExecutionCreate, ExecutionStatus
+from app.security.workflow_authorization import WorkflowAccessError
+from app.services import execution_management as management
+from app.services.workflow import WorkflowService
+from app.services.workflow_schema import bind_arguments, workflow_input_schema, workflow_secret_fields
 
 logger = get_logger(__name__)
+
+# Keep dispatched work alive if an HTTP/MCP caller stops waiting. This is
+# process-local ownership, not a durable queue or cancellation API.
+_execution_tasks: set[asyncio.Task] = set()
+
+
+def _log_execution_error(operation: str, execution_id: str, error: Exception) -> None:
+    # SQL and client exception messages can contain unlabelled parameter
+    # values that a key-name-based redactor cannot identify safely.
+    logger.error("Execution %s failed during %s: %s", execution_id, operation, type(error).__name__)
+
+
+def _execution_task_done(task: asyncio.Task) -> None:
+    _execution_tasks.discard(task)
+    if not task.cancelled():
+        error = task.exception()  # Retrieve failures even when the caller disconnected.
+        if error is not None:
+            logger.error("Execution task %s ended with %s", task.get_name(), type(error).__name__)
 
 
 class ExecutionService:
@@ -39,6 +62,7 @@ class ExecutionService:
             version=execution_data.version,  # 保存版本号
             recording_config=execution_data.recording_config,  # 保存录制配置
             status=ExecutionStatus.PENDING.value,
+            start_time=datetime.now(UTC).replace(tzinfo=None),
         )
 
         self.db.add(execution)
@@ -47,13 +71,29 @@ class ExecutionService:
 
         return execution
 
-    async def get_execution(self, execution_id: str, user_id: str | None = None) -> Optional[Execution]:
-        """获取执行记录"""
-        query = select(Execution).where(Execution.id == execution_id)
+    async def get_execution(self, execution_id: str, user_id: str) -> Optional[Execution]:
+        """获取属于指定用户的执行记录。"""
+        query = select(Execution).where(
+            Execution.id == execution_id,
+            Execution.user_id == user_id,
+        )
 
-        # 不校验user_id
-        # if user_id is not None:
-        #     query = query.where(Execution.user_id == user_id)
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
+    async def get_authorized_execution(self, execution_id: str, user_id: str) -> Optional[Execution]:
+        execution = await self.get_execution(execution_id, user_id)
+        if execution is None or execution.version is None:
+            return None
+        try:
+            await WorkflowService(self.db).get_external_workflow(execution.project_id, user_id, execution.version)
+        except WorkflowAccessError:
+            return None
+        return execution
+
+    async def get_execution_internal(self, execution_id: str) -> Optional[Execution]:
+        """供后台执行流程按 ID 获取记录，不作为外部授权边界。"""
+        query = select(Execution).where(Execution.id == execution_id)
 
         result = await self.db.execute(query)
         return result.scalars().first()
@@ -86,19 +126,20 @@ class ExecutionService:
         skip = (pageNo - 1) * pageSize
 
         # 查询总数
-        count_query = select(Execution).where(Execution.user_id == user_id)
-        count_result = await self.db.execute(count_query)
-        total = len(count_result.scalars().all())
-
-        # 查询分页数据
-        query = (
+        # Match detail visibility: current owner, external access and release.
+        visible = (
             select(Execution)
-            .where(Execution.user_id == user_id)
-            .order_by(Execution.start_time.desc())
-            .offset(skip)
-            .limit(pageSize)
+            .join(Workflow, Workflow.project_id == Execution.project_id)
+            .where(
+                Execution.user_id == user_id,
+                Workflow.user_id == user_id,
+                Workflow.status == 1,
+                Workflow.version >= 1,
+                Execution.version == Workflow.version,
+            )
         )
-        result = await self.db.execute(query)
+        total = (await self.db.execute(select(func.count()).select_from(visible.subquery()))).scalar_one()
+        result = await self.db.execute(visible.order_by(Execution.start_time.desc()).offset(skip).limit(pageSize))
         executions = result.scalars().all()
 
         return executions, total
@@ -113,38 +154,120 @@ class ExecutionService:
         """更新执行记录状态"""
         try:
             # 直接使用SQL更新，避免会话状态问题
-            update_stmt = update(Execution).where(Execution.id == execution_id)
+            allowed = ["PENDING", "UNKNOWN"] if status == "PENDING" else ["PENDING", "RUNNING", "UNKNOWN"]
+            update_stmt = update(Execution).where(Execution.id == execution_id, Execution.status.in_(allowed))
 
             update_data = {Execution.status: status}
             if result is not None:
-                if isinstance(result, dict):
-                    update_data[Execution.result] = json.dumps(result, ensure_ascii=False)
-                else:
-                    # 如果不是字典，尝试转换为字符串
-                    update_data[Execution.result] = str(result)
+                update_data[Execution.result] = json.dumps(result, ensure_ascii=False, allow_nan=False)
             if error is not None:
                 update_data[Execution.error] = error
             if status in [
                 ExecutionStatus.COMPLETED.value,
                 ExecutionStatus.FAILED.value,
                 ExecutionStatus.CANCELLED.value,
+                ExecutionStatus.TIMEOUT.value,
             ]:
-                update_data[Execution.end_time] = datetime.now()
+                update_data[Execution.end_time] = datetime.now(UTC).replace(tzinfo=None)
+                update_data[Execution.dispatch_state] = "DONE"
+                record = await self.get_execution_internal(execution_id)
+                if record is not None and record.protocol == 1 and record.secret_fields:
+                    params = record.get_parameters_as_dict()
+                    for key in json.loads(record.secret_fields):
+                        if key in params:
+                            params[key] = "[REDACTED]"
+                    update_data[Execution.parameters] = json.dumps(params, allow_nan=False)
 
             update_stmt = update_stmt.values(update_data)
             await self.db.execute(update_stmt)
             await self.db.commit()
 
             # 返回更新后的执行记录
-            return await self.get_execution(execution_id)
-        except Exception as e:
+            return await self.get_execution_internal(execution_id)
+        except Exception as exc:
             # 如果更新失败，回滚事务并记录错误
             try:
                 await self.db.rollback()
             except:
                 pass  # 如果回滚失败，忽略错误
-            logger.exception("Failed to update execution %s", execution_id)
+            _log_execution_error("status update", execution_id, exc)
             return None
+
+    async def execute_authorized_workflow(
+        self, execution_data: ExecutionCreate, user_id: str, wait: bool = True, workflow_timeout: int = 36000
+    ) -> Optional[Execution]:
+        if execution_data.phone_number is not None or execution_data.exec_position != "EXECUTOR":
+            raise WorkflowAccessError(
+                "EXECUTION_NOT_ALLOWED", "Delegated identity and unpublished execution are not allowed"
+            )
+        key_hash = management.digest(execution_data.idempotency_key) if execution_data.idempotency_key else None
+        try:
+            request_hash = management.digest(execution_data.model_dump(exclude={"idempotency_key"}))
+        except (ValueError, TypeError):
+            raise WorkflowAccessError("INVALID_ARGUMENTS", "Inputs must be finite JSON values") from None
+
+        async def previous():
+            if key_hash is None:
+                return None
+            result = await self.db.execute(
+                select(Execution).where(Execution.user_id == user_id, Execution.idempotency_key_hash == key_hash)
+            )
+            record = result.scalars().first()
+            if record is None:
+                return None
+            if await self.get_authorized_execution(record.id, user_id) is None:
+                raise WorkflowAccessError("WORKFLOW_NOT_FOUND", "Workflow not found or access is disabled")
+            if record.request_hash != request_hash:
+                raise WorkflowAccessError("IDEMPOTENCY_CONFLICT", "This idempotency key belongs to another request")
+            return record
+
+        existing = await previous()
+        if existing is not None:
+            return existing
+        workflow = await WorkflowService(self.db).get_external_workflow(
+            execution_data.project_id, user_id, execution_data.version, allow_example_alias=True
+        )
+        schema = workflow_input_schema(workflow)
+        params = bind_arguments(execution_data.params or {}, schema)
+        authorized = execution_data.model_copy(
+            update={"project_id": workflow.project_id, "version": workflow.version, "params": params}
+        )
+        secrets = workflow_secret_fields(workflow, schema)
+        requires_managed = bool(
+            key_hash is not None
+            or execution_data.execution_timeout is not None
+            or secrets
+            or any(type(value) not in (str, int, float) for value in params.values())
+        )
+        capability = await management.capabilities(user_id, required=requires_managed)
+        if not capability and requires_managed:
+            raise WorkflowAccessError(
+                "CLIENT_PROTOCOL_UNSUPPORTED", "These options or inputs require an execution-management Client"
+            )
+        metadata = {
+            "idempotency_key_hash": key_hash,
+            "request_hash": request_hash,
+            "execution_timeout": execution_data.execution_timeout,
+            "secret_fields": json.dumps(secrets) if secrets else None,
+        }
+        if capability:
+            metadata.update(
+                protocol=1,
+                client_id=capability["clientId"],
+                dispatch_state="NEW",
+                cancel_supported=capability.get("supportsCancel") is True,
+            )
+        try:
+            return await self.execute_workflow(
+                authorized, user_id, wait=wait, workflow_timeout=workflow_timeout, metadata=metadata
+            )
+        except IntegrityError:
+            # The unique constraint arbitrates across concurrent requests/processes.
+            await self.db.rollback()
+            existing = await previous()
+            if existing is not None:
+                return existing
+            raise
 
     async def execute_workflow(
         self,
@@ -152,90 +275,120 @@ class ExecutionService:
         user_id: str,
         wait: bool = True,
         workflow_timeout: int = 36000,
+        metadata: dict | None = None,
     ) -> Optional[Execution]:
         """执行工作流"""
         # 创建执行记录
         execution = await self.create_execution(execution_data, user_id)
+        for key, value in (metadata or {}).items():
+            setattr(execution, key, value)
 
         # 确保执行记录已经提交到数据库
         await self.db.commit()
-        logger.info("Created execution %s and committed to database", execution.id)
-        logger.info("[execute_workflow] user_id: %s ", user_id)
+        logger.info(
+            "Created execution %s for authenticated user %s and committed to database",
+            execution.id,
+            execution.user_id,
+        )
 
         # 保存 execution_id，后续需要用
         execution_id = execution.id
 
-        # 执行工作流逻辑（异步/同步）
-        # 添加短暂延迟，确保数据库事务完全提交
-        await asyncio.sleep(0.1)
+        # The commit above has completed. Take ownership before another await,
+        # so request cancellation cannot abandon already committed work.
+        runner = self._run_workflow_with_new_session_sync if wait else self._run_workflow_with_new_session
+        task = asyncio.create_task(runner(execution_id, workflow_timeout), name=f"execution-{execution_id}")
+        _execution_tasks.add(task)
+        task.add_done_callback(_execution_task_done)
 
         if wait:
             # 同步执行模式 - 使用新的数据库会话，避免长时间占用连接
-            await self._run_workflow_with_new_session_sync(execution_id, workflow_timeout, user_id)
+            await asyncio.shield(task)
 
             # 使用原会话重新获取最新状态
             await self.db.refresh(execution)
-        else:
-            # 异步执行模式，后台执行（不等待结果）
-            asyncio.create_task(self._run_workflow_with_new_session(execution_id, workflow_timeout, user_id))
 
         return execution
 
-    async def _run_workflow(self, execution_id: str, workflow_timeout: int = 36000, user_id: str = "") -> None:
+    async def _run_workflow(self, execution_id: str, workflow_timeout: int = 36000) -> None:
         """运行工作流执行逻辑"""
+        execution = None
         try:
-            # 获取执行记录
-            execution = await self.get_execution(execution_id)
+            # 重新读取已提交的执行记录。此处的 user_id 是派发目标的唯一可信来源，
+            # 避免调用方另传身份而造成审计记录与实际执行主体不一致。
+            execution = await self.get_execution_internal(execution_id)
             if not execution:
                 logger.info("Execution not found for execution_id: %s", execution_id)
                 raise Exception(f"Execution not found for execution_id: {execution_id}")
-            logger.info("[_run_workflow] user_id: %s ", user_id)
             # 设置超时
             await asyncio.wait_for(
-                self._execute_workflow_logic(execution, user_id),
+                self._execute_workflow_logic(execution),
                 timeout=workflow_timeout,
             )
         except TimeoutError:
-            # 超时处理 - 使用update_execution_status方法避免会话问题
-            await self.update_execution_status(execution_id, ExecutionStatus.RUNNING.value)
+            # Losing the result does not establish that the desktop task is
+            # running, failed, or stopped. Keep this distinct from a terminal state.
+            await self.update_execution_status(
+                execution_id,
+                ExecutionStatus.UNKNOWN.value,
+                error="Execution result timed out; the client may still be running",
+            )
             raise
         except Exception as e:
-            await self.update_execution_status(execution_id, ExecutionStatus.FAILED.value, error=str(e))
+            await self.update_execution_status(
+                execution_id,
+                ExecutionStatus.UNKNOWN.value
+                if execution and execution.protocol == 1
+                else ExecutionStatus.FAILED.value,
+                error="EXECUTION_OBSERVATION_FAILED" if execution and execution.protocol == 1 else str(e),
+            )
 
-    async def _run_workflow_with_new_session_sync(self, execution_id: str, workflow_timeout: int, user_id: str) -> None:
+    async def _run_workflow_with_new_session_sync(self, execution_id: str, workflow_timeout: int) -> None:
         """使用新的数据库会话运行工作流（同步版本，会抛出异常）"""
         async with AsyncSessionLocal() as db:
             execution_service = ExecutionService(db, self.redis)
             logger.info("Running workflow execution %s", execution_id)
-            await execution_service._run_workflow(execution_id, workflow_timeout, user_id)
+            await execution_service._run_workflow(execution_id, workflow_timeout)
 
-    async def _run_workflow_with_new_session(self, execution_id: str, workflow_timeout: int, user_id: str) -> None:
+    async def _run_workflow_with_new_session(self, execution_id: str, workflow_timeout: int) -> None:
         """使用新的数据库会话运行工作流（异步版本，不抛出异常）"""
         async with AsyncSessionLocal() as db:
             try:
                 execution_service = ExecutionService(db, self.redis)
                 logger.info("Running background workflow execution %s", execution_id)
-                await execution_service._run_workflow(execution_id, workflow_timeout, user_id)
+                await execution_service._run_workflow(execution_id, workflow_timeout)
+            except TimeoutError:
+                # _run_workflow already persisted UNKNOWN. Do not overwrite it
+                # with FAILED merely because this asynchronous observer expired.
+                return
             except Exception as e:
                 # 记录错误日志
-                logger.exception("Error in background workflow execution %s", execution_id)
+                _log_execution_error("background execution", execution_id, e)
 
                 # 更新执行状态为失败，确保用户能看到错误
                 try:
                     # 使用新的会话来更新状态，避免会话问题
                     async with AsyncSessionLocal() as update_db:
                         update_service = ExecutionService(update_db, self.redis)
+                        record = await update_service.get_execution_internal(execution_id)
+                        managed = record is not None and record.protocol == 1
                         await update_service.update_execution_status(
-                            execution_id, ExecutionStatus.FAILED.value, error=str(e)
+                            execution_id,
+                            ExecutionStatus.UNKNOWN.value if managed else ExecutionStatus.FAILED.value,
+                            error="EXECUTION_OBSERVATION_FAILED" if managed else str(e),
                         )
-                except Exception as update_error:
-                    logger.exception("Failed to update execution status for %s", execution_id)
+                except Exception as exc:
+                    _log_execution_error("background status update", execution_id, exc)
 
-    async def _execute_workflow_logic(self, execution: Execution, user_id: str) -> None:
+    async def _execute_workflow_logic(self, execution: Execution) -> None:
         """
         实现工作流执行的实际逻辑
         这里是一个示例，实际项目中需要根据不同工作流实现不同的逻辑
         """
+        if execution.protocol == 1:
+            await management.run_managed(self, execution)
+            return
+
         import json
 
         logger.info("Starting workflow execution logic for execution %s", execution.id)
@@ -248,8 +401,16 @@ class ExecutionService:
 
             websocket_service = await get_ws_service()
             logger.info("Got websocket service for execution %s", execution.id)
-            logger.info("execution.user_id: %s", execution.user_id)
-            logger.info("input user_id: %s", user_id)
+
+            if not execution.user_id:
+                raise ValueError(f"Execution {execution.id} has no authenticated user identity")
+            if str(execution.user_id) not in websocket_service.ws_manager.conns:
+                raise ConnectionError("RPA client is offline or disconnected")
+            logger.info(
+                "Dispatching execution %s for recorded user %s",
+                execution.id,
+                execution.user_id,
+            )
 
             wait = asyncio.Event()
             res = {}
@@ -259,12 +420,12 @@ class ExecutionService:
                 nonlocal wait, res, res_e
                 if watch_msg:
                     res = watch_msg.data
-                    logger.info("Received response for execution %s: %s", execution.id, res)
+                    logger.info("Received response for execution %s", execution.id)
                     # Received response for execution 71e3147f-55cd-43f5-b7a8-b734d1075618:
                     # {'code': '5001', 'msg': '', 'data': None}
                 if e:
                     res_e = e
-                    logger.error("Received error for execution %s: %s", execution.id, e)
+                    _log_execution_error("client response", execution.id, e)
                 wait.set()
 
             # 解析参数，确保是字典格式
@@ -273,15 +434,15 @@ class ExecutionService:
             elif isinstance(execution.parameters, str):
                 try:
                     parameters_dict = json.loads(execution.parameters)
-                except json.JSONDecodeError as e:
-                    logger.exception("Failed to parse parameters JSON for execution %s", execution.id)
+                except json.JSONDecodeError as exc:
+                    _log_execution_error("parameter decoding", execution.id, exc)
                     parameters_dict = {}
             else:
                 parameters_dict = execution.parameters
 
             run_param = []
             for key, value in parameters_dict.items():
-                logger.debug("参数: %s=%s", key, value)
+                logger.debug("Preparing workflow parameter: %s", key)
                 run_param.append({"varName": key, "varValue": value})
             run_param = json.dumps(run_param, ensure_ascii=False)
 
@@ -300,12 +461,12 @@ class ExecutionService:
                 channel="remote",
                 key="run",
                 uuid="$root$",
-                send_uuid=f"{user_id}",
+                send_uuid=str(execution.user_id),
                 need_reply=True,
                 data=executor_data,
             ).init()
 
-            logger.info("Sending WebSocket message for execution %s: %s", execution.id, base_msg.data)
+            logger.info("Sending WebSocket message for execution %s", execution.id)
             await websocket_service.ws_manager.send_reply(base_msg, 10 * 3600, callback)
 
             # 等待
@@ -313,7 +474,20 @@ class ExecutionService:
             await wait.wait()
             logger.info("Received response for execution %s", execution.id)
 
-            # 假设工作流执行成功
+            if res_e:
+                raise RuntimeError(f"WebSocket execution failed: {res_e}")
+
+            # rpawebsocket may deserialize the reply envelope while leaving its
+            # data field as a JSON string. Normalize both wire representations
+            # before classifying the client result.
+            if isinstance(res, str):
+                try:
+                    res = json.loads(res)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("Client returned invalid serialized execution data") from exc
+            if not isinstance(res, dict):
+                raise TypeError(f"Client returned unsupported execution data type: {type(res).__name__}")
+
             if res.get("code") == "0000":
                 await self.update_execution_status(
                     execution.id,
@@ -330,25 +504,42 @@ class ExecutionService:
                     error=str(res_e) if res_e else None,
                 )
                 logger.info("Updated execution %s status to FAILED", execution.id)
+            else:
+                error = f"Client returned unexpected execution code: {res.get('code')!r}"
+                await self.update_execution_status(
+                    execution.id,
+                    ExecutionStatus.FAILED.value,
+                    result=res,
+                    error=error,
+                )
+                logger.info("Updated execution %s status to FAILED: unexpected client code", execution.id)
 
-        except Exception as e:
-            logger.exception("Error in workflow execution logic for %s", execution.id)
+        except Exception as exc:
+            _log_execution_error("workflow execution", execution.id, exc)
             raise
 
+    async def request_cancellation(self, execution_id: str, user_id: str) -> Execution:
+        execution = await self.get_authorized_execution(execution_id, user_id)
+        if execution is None:
+            raise WorkflowAccessError("EXECUTION_NOT_FOUND", "Execution not found or access is disabled")
+        if execution.status in management.TERMINAL and execution.protocol == 1:
+            return execution
+        if execution.protocol != 1 or not execution.cancel_supported:
+            raise WorkflowAccessError("CANCEL_UNSUPPORTED", "Client cannot confirm cancellation of this execution")
+        await self.db.execute(
+            update(Execution)
+            .where(Execution.id == execution_id, Execution.status.not_in(management.TERMINAL))
+            .values(cancel_requested=True)
+        )
+        await self.db.commit()
+        await self.db.refresh(execution)
+        # Persist intent. The dispatcher queries and cancels the exact bound run.
+        # A cancelled tool request cannot erase this intent or forge stopped status.
+        return execution
+
     async def cancel_execution(self, execution_id: str, user_id: str) -> bool:
-        """取消执行"""
         try:
-            execution = await self.get_execution(execution_id, user_id)
-            if not execution or execution.status not in [
-                ExecutionStatus.PENDING.value,
-                ExecutionStatus.RUNNING.value,
-            ]:
-                return False
-
-            # 使用update_execution_status方法
-            updated_execution = await self.update_execution_status(execution_id, ExecutionStatus.CANCELLED.value)
-
-            return updated_execution is not None
-        except Exception as e:
-            logger.exception("Failed to cancel execution %s", execution_id)
+            execution = await self.request_cancellation(execution_id, user_id)
+            return execution.status == "CANCELLED"
+        except WorkflowAccessError:
             return False

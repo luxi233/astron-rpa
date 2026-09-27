@@ -13,7 +13,7 @@ local ngx_HTTP_INTERNAL_SERVER_ERROR = ngx.HTTP_INTERNAL_SERVER_ERROR
 -- 定义一个函数来处理认证逻辑
 local function authenticate_user()
     local ctx_type = ngx.var.context_type or "HTTP"
-    ngx_log(ngx_DEBUG, "Starting authentication for " .. ctx_type .. " request. URI: " .. ngx.var.request_uri)
+    ngx_log(ngx_DEBUG, "Starting authentication for " .. ctx_type .. " request. URI: " .. ngx.var.uri)
 
     local session_token = nil
     local cookie_type = nil -- 记录从哪个 cookie 获取的 token (SESSION 或 JSESSIONID)
@@ -21,11 +21,10 @@ local function authenticate_user()
     -- 1. 尝试从 Authorization header 获取 Bearer Token
     local authorization_header = ngx.req.get_headers()["authorization"] -- 注意，headers 都是小写键
     if authorization_header then
-        ngx_log(ngx_DEBUG, "Found Authorization header: " .. authorization_header)
+        ngx_log(ngx_DEBUG, "Authorization header is present.")
         local _, _, token_type, token_value = string.find(authorization_header, "^(%S+)%s+(.+)$")
         if token_type and token_type:lower() == "bearer" then
             -- session_token = token_value
-            -- ngx_log(ngx_DEBUG, "Extracted Bearer Token from Authorization header: " .. session_token)
             return
         else
             ngx_log(ngx_DEBUG, "Authorization header is present but not Bearer type, type: " .. (token_type or "nil"))
@@ -40,7 +39,7 @@ local function authenticate_user()
         local custom_token_header = ngx.req.get_headers()["token"]
         if custom_token_header then
             session_token = custom_token_header
-            ngx_log(ngx_DEBUG, "Extracted Token from custom 'Token' header: " .. session_token)
+            ngx_log(ngx_DEBUG, "Extracted Token from custom 'Token' header.")
         else
             ngx_log(ngx_DEBUG, "No custom 'Token' header found.")
         end
@@ -50,19 +49,19 @@ local function authenticate_user()
     if not session_token then
         local cookie_header = ngx.var.http_cookie
         if cookie_header then
-            ngx_log(ngx_DEBUG, "Found Cookie header: " .. cookie_header)
+            ngx_log(ngx_DEBUG, "Cookie header is present.")
             -- 解析Cookie，优先查找 SESSION，然后查找 JSESSIONID
             for cookie_pair in string.gmatch(cookie_header, "[^;]+") do
                 local cookie_name, cookie_value = string.match(cookie_pair, "^%s*(.-)%s*=%s*(.-)%s*$")
                 if cookie_name == "SESSION" then
                     session_token = cookie_value
                     cookie_type = "SESSION"
-                    ngx_log(ngx_DEBUG, "Extracted Token from Cookie SESSION: " .. session_token)
+                    ngx_log(ngx_DEBUG, "Extracted Token from Cookie SESSION.")
                     break
                 elseif cookie_name == "JSESSIONID" then
                     session_token = cookie_value
                     cookie_type = "JSESSIONID"
-                    ngx_log(ngx_DEBUG, "Extracted Token from Cookie JSESSIONID: " .. session_token)
+                    ngx_log(ngx_DEBUG, "Extracted Token from Cookie JSESSIONID.")
                     break
                 end
             end
@@ -79,7 +78,7 @@ local function authenticate_user()
         local args = ngx.req.get_uri_args()
         if args.key then
             session_token = args.key
-            ngx_log(ngx_DEBUG, "Extracted Token from query parameter 'key': " .. session_token)
+            ngx_log(ngx_DEBUG, "Extracted Token from query parameter 'key'.")
         else
             ngx_log(ngx_DEBUG, "No query parameter 'key' found.")
         end
@@ -92,7 +91,7 @@ local function authenticate_user()
         return ngx.exit(ngx_HTTP_UNAUTHORIZED)
     end
 
-    ngx_log(ngx_DEBUG, "Successfully extracted session_token: '" .. session_token .. "'")
+    ngx_log(ngx_DEBUG, "Successfully extracted an authentication credential.")
 
     -- 调用 robot-service 进行认证
     local getUserUrl = "http://robot-service:8040/api/robot/user/info"
@@ -110,7 +109,7 @@ local function authenticate_user()
         ["Cookie"] = cookie_name_for_service .. "=" .. session_token
     }
 
-    ngx_log(ngx_DEBUG, "Calling robot-service (" .. getUserUrl .. ") with headers: " .. json.encode(headers_to_robot_service))
+    ngx_log(ngx_DEBUG, "Calling robot-service (" .. getUserUrl .. ") with credential cookie type: " .. cookie_name_for_service)
 
     local res, err = httpc:request_uri(getUserUrl, {
         method = "GET",
@@ -128,31 +127,29 @@ local function authenticate_user()
         return ngx.exit(ngx_HTTP_INTERNAL_SERVER_ERROR)
     end
 
-    ngx_log(ngx_DEBUG, "robot-service response status: " .. res.status .. ", body (first 200 chars): " .. (res.body and string.sub(res.body, 1, 200) or "No body"))
+    ngx_log(ngx_DEBUG, "robot-service response status: " .. res.status)
 
     if res.status ~= ngx_HTTP_OK then
-        ngx_log(ngx_ERR, "robot-service returned unexpected status " .. res.status .. " for " .. ctx_type .. " auth, full body: " .. (res.body or "No body"))
+        ngx_log(ngx_ERR, "robot-service returned unexpected status " .. res.status .. " for " .. ctx_type .. " auth")
         ngx.status = res.status
         ngx.say(res.body) -- 将 robot-service 的错误响应直接返回
         return ngx.exit(res.status)
     end
 
-    local userResponse, json_err = json.decode(res.body)
-    if json_err then
-        ngx_log(ngx_ERR, "Failed to decode robot-service response for " .. ctx_type .. " auth: " .. json_err .. ", full body: " .. (res.body or "No body"))
+    local json_ok, userResponse = pcall(json.decode, res.body)
+    if not json_ok or type(userResponse) ~= "table" then
+        ngx_log(ngx_ERR, "Failed to decode robot-service response for " .. ctx_type .. " auth")
         ngx.status = ngx_HTTP_INTERNAL_SERVER_ERROR
         ngx.say(json.encode({code = "5000", message = "Internal Server Error: Invalid auth service response"}))
         return ngx.exit(ngx_HTTP_INTERNAL_SERVER_ERROR)
     end
-
-    ngx_log(ngx_DEBUG, "Decoded robot-service response: " .. json.encode(userResponse))
 
     -- robot-service 成功时返回 code 为 "000000" (字符串) 或 200 (数字)
     local response_code = userResponse.code
     local is_success = (response_code == "000000") or (response_code == 200) or (tostring(response_code) == "000000")
     
     if not is_success then
-        ngx_log(ngx_ERR, "robot-service returned error code: " .. (response_code or "nil") .. ", message: " .. (userResponse.message or "nil") .. " for " .. ctx_type .. " auth. Full response: " .. json.encode(userResponse))
+        ngx_log(ngx_ERR, "robot-service returned error code: " .. tostring(response_code) .. " for " .. ctx_type .. " auth")
         ngx.status = ngx_HTTP_UNAUTHORIZED
         ngx.say(json.encode({
             code = response_code or "U_AUTH_FAIL",
@@ -167,13 +164,16 @@ local function authenticate_user()
     -- 必须显式判 type(data) == "table" 才索引。
     -- 会话失效场景(rpa-auth 重启丢 HttpSession 后 code=000000 + data=null)按未认证处理:
     -- 返回 401 而非 500, 前端可引导用户重新登录而不是看到神秘 5xx
-    local user_id = type(userResponse.data) == "table" and userResponse.data["id"] or nil
-    if not user_id then
-        ngx_log(ngx_ERR, "robot-service response missing 'id' in 'data' field for " .. ctx_type .. " auth: " .. json.encode(userResponse))
+    local response_data = userResponse.data
+    local user_id = type(response_data) == "table" and response_data["id"] or nil
+    local user_id_type = type(user_id)
+    if (user_id_type ~= "string" and user_id_type ~= "number") or tostring(user_id) == "" then
+        ngx_log(ngx_WARN, "robot-service response has no authenticated user for " .. ctx_type .. " auth")
         ngx.status = ngx_HTTP_UNAUTHORIZED
         ngx.say(json.encode({code = "4001", message = "Session invalid or expired, please re-login"}))
         return ngx.exit(ngx_HTTP_UNAUTHORIZED)
     end
+    user_id = tostring(user_id)
 
     ngx_log(ngx_WARN, "User authenticated successfully. user_id: " .. user_id .. " in " .. ctx_type .. " context. Setting headers.")
     ngx.req.set_header("user_id", user_id)

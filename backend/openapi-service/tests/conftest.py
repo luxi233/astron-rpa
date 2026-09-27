@@ -5,6 +5,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from redis.asyncio import ConnectionPool, Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -156,15 +157,20 @@ async def create_api_key(user_id: str, test_get_db, test_get_redis=None):
 
     # 创建 API Key
     api_key_data = ApiKeyCreate(name=f"Test API Key {random.randint(1000, 9999)}")
-    plain_key = await service.create_api_key(api_key_data, user_id)
+    raw_api_key = await service.create_api_key(api_key_data, user_id)
 
-    # 通过 prefix 查回记录获取自增 id
+    from app.models.api_key import OpenAPIDB
+
     result = await test_get_db.execute(
-        select(OpenAPIDB).where(OpenAPIDB.prefix == plain_key[:8], OpenAPIDB.is_active == 1)
+        select(OpenAPIDB).where(
+            OpenAPIDB.user_id == user_id,
+            OpenAPIDB.prefix == raw_api_key[:8],
+            OpenAPIDB.name == api_key_data.name,
+        )
     )
-    record = result.scalars().first()
+    api_key_record = result.scalars().one()
 
-    return {"id": record.id, "key": plain_key}
+    return {"id": api_key_record.id, "key": raw_api_key}
 
 
 async def destroy_api_key(user_id: str, key_data: dict, test_get_db, test_get_redis=None):

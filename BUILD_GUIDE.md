@@ -49,7 +49,7 @@
 | **pnpm** | >= 9 | Node.js package manager |
 | **UV** | 0.8+ | Python package manager |
 | **7-Zip** | - | Create deployment archives |
-| **SWIG** | - | Connect Python with C/C++ |
+| **SWIG** | 4.1.1 | Connect Python with C/C++ |
 
 ## 🛠️ Environment Setup
 
@@ -206,7 +206,13 @@ Download and install to system, or extract to a custom directory
 
 #### Step 1: Download SWIG
 Visit http://www.swig.org/download.html  
-Download `swigwin-x.x.x.zip` and extract to any directory
+Download `swigwin-4.1.1.zip` and extract to any directory.
+
+Use SWIG 4.1.1 for the current `pywinhook==1.6.2` dependency. SWIG 4.5.0
+removes the legacy `PyInt_AsLong` compatibility alias and causes a link failure
+with Python 3.13. Native extension builds also require Visual Studio Build Tools
+with the MSVC x64/x86 C++ tools and a Windows SDK; the VC++ Redistributable
+alone does not include these build tools.
 
 #### Step 2: Add to System Environment Variables
 Add the directory containing `swig.exe` to PATH environment variable  
@@ -265,15 +271,28 @@ cd docker
 # Copy .env file
 cp .env.example .env
 
-# Modify casdoor service configuration in .env
-CASDOOR_EXTERNAL_ENDPOINT="http://{YOUR_SERVER_IP}:8000"
+# Configure public HTTPS names in .env
+RPA_SERVER_NAME="rpa.example.com"
+CASDOOR_SERVER_NAME="auth.example.com"
+RPA_HTTPS_REDIRECT_AUTHORITY="rpa.example.com"
+CASDOOR_HTTPS_REDIRECT_AUTHORITY="auth.example.com:8443"
+CASDOOR_EXTERNAL_ENDPOINT="https://auth.example.com:8443"
+
+# Copy the matching certificate chain and private key to
+# docker/certs/tls.crt and docker/certs/tls.key
 
 # 🚀 Start all services
+docker compose up -d mysql casdoor
+# Wait for Casdoor initialization (see docker/HTTPS_DEPLOYMENT.md section 1.3)
+python3 scripts/sync-casdoor-credentials.py
 docker compose up -d
 
 # 📊 Check service status
 docker compose ps
 ```
+
+See [HTTPS deployment, migration, and rollback](./docker/HTTPS_DEPLOYMENT.md)
+for certificate, custom-port, legacy HTTP, and rollback details.
 
 <details>
 <summary>💡 <b>Expected Output Example</b></summary>
@@ -476,12 +495,11 @@ Double-click the Exe file to install.
 Modify the server address in `resources/conf.yaml` under the installation directory:
 
 ```yaml
-# 32742 is the default port, modify if changed
-remote_addr: http://YOUR_SERVER_ADDRESS:32742/
+remote_addr: https://rpa.example.com/
 skip_engine_start: false
 ```
 
-> **💡 Tip:** Replace `YOUR_SERVER_ADDRESS` with your actual server address
+> **💡 Tip:** Replace `rpa.example.com` with your actual HTTPS gateway name.
 
 </details>
 
@@ -492,8 +510,8 @@ skip_engine_start: false
 | Service | Address | Description |
 |-----|------|------|
 | 🖥️ **Desktop App** | Auto-launch window | Desktop client |
-| 🔌 **Backend Service API** | http://localhost:32742 | Backend Gateway Service Nginx |
-| 🔑 **Casdoor Service API** | http://localhost:8000 | Authentication Service Casdoor |
+| 🔌 **Backend Service API** | https://localhost | Backend Gateway Service Nginx |
+| 🔑 **Casdoor Service API** | https://localhost:8443 | Authentication Service Casdoor |
 
 ---
 
@@ -506,7 +524,7 @@ skip_engine_start: false
 docker compose ps
 
 # 🔍 Verify API response
-# Open in browser: http://{YOUR_SERVER_IP}:32742/api/rpa-auth/user/login-check (32742 is default port, modify if changed)
+# Open in browser: https://rpa.example.com/api/rpa-auth/user/login-check
 # If returns {"code":"900001","data":null,"message":"unauthorized"} then deployment is correct and connected
 ```
 
@@ -514,7 +532,7 @@ docker compose ps
 
 ```bash
 # 🔍 Verify Casdoor service
-# Open http://localhost:8000 in browser
+# Open https://auth.example.com:8443 in browser
 # Casdoor authentication page should appear
 ```
 
@@ -621,15 +639,15 @@ dir  # Windows check available space
 ```bash
 # 🌐 Check network connectivity
 # Open the following URL in your browser to see if there's a response
-# http://localhost:32742 can be replaced with your deployed server address+port
-http://localhost:32742/api/rpa-auth/user/login-check
+# Replace the example name with your deployed HTTPS gateway name
+https://rpa.example.com/api/rpa-auth/user/login-check
 
 # 🛡️ Check firewall settings
 # Windows: Control Panel > System and Security > Windows Defender Firewall
 # Linux: ufw status
 
 # ✅ Check server health status
-curl http://localhost:32742/health
+curl https://rpa.example.com/health
 ```
 
 **Common Causes:**
@@ -648,7 +666,7 @@ curl http://localhost:32742/health
 ```bash
 # 🔌 Check WebSocket endpoint
 curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
-     http://localhost:8080/ws
+     https://rpa.example.com/api/rpa-openapi/ws
 
 # 🔍 Check proxy settings
 echo $http_proxy
