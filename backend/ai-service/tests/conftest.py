@@ -27,9 +27,9 @@ from app.database import Base, get_db
 from app.main import app
 from app.redis_op import get_redis
 
-# 测试环境配置 (驱动用 aiomysql, 与 pyproject 声明一致)
-TEST_MYSQL_URL = "mysql+aiomysql://test_user:test_password@localhost:3307/test_db"
-TEST_REDIS_URL = "redis://localhost:6380/0"
+# 测试环境配置 (驱动用 aiomysql, 与 pyproject 声明一致); 环境变量可覆盖, 默认指向 docker 测试容器
+TEST_MYSQL_URL = os.environ.get("TEST_MYSQL_URL", "mysql+aiomysql://test_user:test_password@localhost:3307/test_db")
+TEST_REDIS_URL = os.environ.get("TEST_REDIS_URL", "redis://localhost:6380/0")
 
 
 @asynccontextmanager
