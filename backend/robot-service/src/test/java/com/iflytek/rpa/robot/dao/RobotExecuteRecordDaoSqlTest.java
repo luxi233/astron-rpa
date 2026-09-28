@@ -1,23 +1,22 @@
 package com.iflytek.rpa.robot.dao;
 
-import com.iflytek.rpa.robot.entity.dto.ExecuteRecordDto;
-import org.apache.ibatis.builder.xml.XMLMapperBuilder;
-import org.apache.ibatis.mapping.BoundSql;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.session.Configuration;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.iflytek.rpa.robot.entity.dto.ExecuteRecordDto;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.ibatis.builder.xml.XMLMapperBuilder;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * RobotExecuteRecordDao.xml 动态 SQL 单元测试(无数据库/无 Spring 上下文)。
@@ -36,11 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RobotExecuteRecordDaoSqlTest {
 
-    private static final String STATEMENT_ID =
-            "com.iflytek.rpa.robot.dao.RobotExecuteRecordDao.getExecuteRecordList";
+    private static final String STATEMENT_ID = "com.iflytek.rpa.robot.dao.RobotExecuteRecordDao.getExecuteRecordList";
 
     private static final String MAPPER_PATH = Paths.get(
-            "src", "main", "java", "com", "iflytek", "rpa", "robot", "dao", "RobotExecuteRecordDao.xml")
+                    "src", "main", "java", "com", "iflytek", "rpa", "robot", "dao", "RobotExecuteRecordDao.xml")
             .toString();
 
     private static Configuration configuration;
@@ -49,12 +47,14 @@ class RobotExecuteRecordDaoSqlTest {
     static void parseMapper() throws Exception {
         configuration = new Configuration();
         // resultMap 引用的实体类注册别名, 保证 XML 可完整解析
-        configuration.getTypeAliasRegistry().registerAlias(
-                "com.iflytek.rpa.robot.entity.RobotExecuteRecord",
-                com.iflytek.rpa.robot.entity.RobotExecuteRecord.class);
+        configuration
+                .getTypeAliasRegistry()
+                .registerAlias(
+                        "com.iflytek.rpa.robot.entity.RobotExecuteRecord",
+                        com.iflytek.rpa.robot.entity.RobotExecuteRecord.class);
         try (InputStream in = new FileInputStream(MAPPER_PATH)) {
-            XMLMapperBuilder parser = new XMLMapperBuilder(
-                    in, configuration, MAPPER_PATH, configuration.getSqlFragments());
+            XMLMapperBuilder parser =
+                    new XMLMapperBuilder(in, configuration, MAPPER_PATH, configuration.getSqlFragments());
             parser.parse();
         }
     }
