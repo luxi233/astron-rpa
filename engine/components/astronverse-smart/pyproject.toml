@@ -8,7 +8,8 @@ dependencies = [
     "astronverse-actionlib",
     "astronverse-baseline",
     "astronverse-browser",
-    "astronverse-system"
+    "astronverse-system",
+    "astronverse-locator; sys_platform == 'win32'"
 ]
 
 [tool.uv.sources]
@@ -16,6 +17,7 @@ astronverse-actionlib = {path = "../../shared/astronverse-actionlib", editable =
 astronverse-baseline = {path = "../../shared/astronverse-baseline", editable = true}
 astronverse-browser = {path = "../../components/astronverse-browser", editable = true}
 astronverse-system = {path = "../../components/astronverse-system", editable = true}
+astronverse-locator = {path = "../../shared/astronverse-locator", editable = true}
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/astronverse"]

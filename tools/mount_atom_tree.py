@@ -10,19 +10,34 @@
 → 必须先定位分组 atomics 数组边界(括号深度扫描) → 分片内找锚点 → 倒序插入；禁止全文 find 第一个命中。
 分组结构全图见 LESSONS_LEARNED.md「五、原子表挂载」章节。
 """
-import json
 
-SQL_PATH = "/Users/infinitelab/Desktop/astron-rpa/docker/volumes/mysql/init_c_atom_meta_new_data.sql"
-COMP = "/Users/infinitelab/Desktop/astron-rpa/engine/components"
+import json
+import os
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SQL_PATH = os.path.join(REPO_ROOT, "docker/volumes/mysql/init_c_atom_meta_new_data.sql")
+COMP = os.path.join(REPO_ROOT, "engine/components")
 METAS = {
-    "browser": json.load(open(f"{COMP}/astronverse-browser/meta.json", encoding="utf-8")),
-    "database": json.load(open(f"{COMP}/astronverse-database/meta.json", encoding="utf-8")),
-    "dataprocess": json.load(open(f"{COMP}/astronverse-dataprocess/meta.json", encoding="utf-8")),
-    "datatable": json.load(open(f"{COMP}/astronverse-datatable/meta.json", encoding="utf-8")),
+    "browser": json.load(
+        open(f"{COMP}/astronverse-browser/meta.json", encoding="utf-8")
+    ),
+    "database": json.load(
+        open(f"{COMP}/astronverse-database/meta.json", encoding="utf-8")
+    ),
+    "dataprocess": json.load(
+        open(f"{COMP}/astronverse-dataprocess/meta.json", encoding="utf-8")
+    ),
+    "datatable": json.load(
+        open(f"{COMP}/astronverse-datatable/meta.json", encoding="utf-8")
+    ),
     "dialog": json.load(open(f"{COMP}/astronverse-dialog/meta.json", encoding="utf-8")),
-    "encrypt": json.load(open(f"{COMP}/astronverse-encrypt/meta.json", encoding="utf-8")),
+    "encrypt": json.load(
+        open(f"{COMP}/astronverse-encrypt/meta.json", encoding="utf-8")
+    ),
     "image": json.load(open(f"{COMP}/astronverse-image/meta.json", encoding="utf-8")),
-    "network": json.load(open(f"{COMP}/astronverse-network/meta.json", encoding="utf-8")),
+    "network": json.load(
+        open(f"{COMP}/astronverse-network/meta.json", encoding="utf-8")
+    ),
     "pdf": json.load(open(f"{COMP}/astronverse-pdf/meta.json", encoding="utf-8")),
     "phone": json.load(open(f"{COMP}/astronverse-phone/meta.json", encoding="utf-8")),
     "system": json.load(open(f"{COMP}/astronverse-system/meta.json", encoding="utf-8")),
@@ -68,7 +83,11 @@ def entry_text(comp, key):
     m = METAS[comp][key]
     title = m["title"]
     icon = m.get("icon") or "atom-default"
-    return json.dumps({"key": key, "title": title, "icon": icon}, ensure_ascii=False, separators=(", ", ": "))
+    return json.dumps(
+        {"key": key, "title": title, "icon": icon},
+        ensure_ascii=False,
+        separators=(", ", ": "),
+    )
 
 
 lines = open(SQL_PATH, encoding="utf-8").readlines()
@@ -93,7 +112,9 @@ def find_group_close(s, open_bracket_idx):
 
 
 def group_bounds(s, group_key):
-    anchor = '{{"key": "{}", "title": "{}", "atomics": ['.format(group_key, GROUP_TITLES[group_key])
+    anchor = '{{"key": "{}", "title": "{}", "atomics": ['.format(
+        group_key, GROUP_TITLES[group_key]
+    )
     idx = s.find(anchor)
     assert idx != -1, f"group not found: {group_key}"
     open_idx = idx + len(anchor) - 1
@@ -122,24 +143,36 @@ for pos, text in sorted(inserts, key=lambda x: -x[0]):
 
 # ---- 父组 atomics 末尾新建子分组 ----
 for g in SUBGROUPS:
-    assert line.count(f'{{"key": "{g["key"]}", "title": "{g["title"]}"') == 0, f"子分组已存在: {g['key']}"
+    assert line.count(f'{{"key": "{g["key"]}", "title": "{g["title"]}"') == 0, (
+        f"子分组已存在: {g['key']}"
+    )
     g_open, g_close = group_bounds(line, g["parent"])
     entries = ", ".join(entry_text(c, k) for c, k in g["items"])
-    group_text = '{{"key": "{}", "title": "{}", "atomics": [{}]}}'.format(g["key"], g["title"], entries)
+    group_text = '{{"key": "{}", "title": "{}", "atomics": [{}]}}'.format(
+        g["key"], g["title"], entries
+    )
     # 插到父组 atomics 闭合 ']' 之前（最后一个元素之后）
     line = line[:g_close] + ", " + group_text + line[g_close:]
 
 # ---- 新建顶级分组: 插到 before 分组对象之前 ----
 for g in NEW_GROUPS:
-    assert line.count(f'{{"key": "{g["key"]}", "title": "{g["title"]}"') == 0, f"分组已存在: {g['key']}"
+    assert line.count(f'{{"key": "{g["key"]}", "title": "{g["title"]}"') == 0, (
+        f"分组已存在: {g['key']}"
+    )
     before = g["before"]
-    anchor = '{{"key": "{}", "title": "{}", "atomics": ['.format(before, GROUP_TITLES[before])
+    anchor = '{{"key": "{}", "title": "{}", "atomics": ['.format(
+        before, GROUP_TITLES[before]
+    )
     idx = line.find(anchor)
     assert idx != -1, f"before 分组未找到: {before}"
     entries = ", ".join(entry_text(c, k) for c, k in g["items"])
-    group_text = '{{"key": "{}", "title": "{}", "atomics": [{}]}}'.format(g["key"], g["title"], entries)
+    group_text = '{{"key": "{}", "title": "{}", "atomics": [{}]}}'.format(
+        g["key"], g["title"], entries
+    )
     line = line[:idx] + group_text + ", " + line[idx:]
 
 lines[6] = line
 open(SQL_PATH, "w", encoding="utf-8").writelines(lines)
-print(f"OK: MOUNTS {len(inserts)} 处追加, NEW_GROUPS {len(NEW_GROUPS)} 组新建, SUBGROUPS {len(SUBGROUPS)} 子组新建")
+print(
+    f"OK: MOUNTS {len(inserts)} 处追加, NEW_GROUPS {len(NEW_GROUPS)} 组新建, SUBGROUPS {len(SUBGROUPS)} 子组新建"
+)

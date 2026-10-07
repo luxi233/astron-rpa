@@ -41,16 +41,20 @@ function change(value: number) {
 .atom-slider {
   margin-left: 10px;
   display: flex;
+  align-items: center;
   &-number {
     width: 60px;
-    margin-left: 32px;
+    margin-left: 12px;
     height: 32px;
+    flex-shrink: 0;
   }
   :deep(.ant-input-number-input) {
     padding: 8px;
   }
   :deep(.ant-slider) {
-    width: 220px;
+    flex: 1;
+    min-width: 0;
+    width: auto;
   }
   :deep(.ant-slider-mark-text) {
     font-size: 12px;

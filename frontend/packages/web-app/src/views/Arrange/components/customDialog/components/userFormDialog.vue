@@ -40,7 +40,7 @@ const {
     <div
       data-tauri-drag-region
       class="userform-content"
-      :style="option.mode === 'modal' ? { maxHeight: '350px' } : {}"
+      :style="{ maxHeight: option.mode === 'modal' ? '350px' : 'var(--uf-content-max, none)' }"
     >
       <Form ref="formRef" layout="vertical" :model="formState">
         <template v-if="!isEmpty(option?.itemList)">

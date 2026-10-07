@@ -554,7 +554,7 @@ def code_to_meta(pycode: PythonCode):
             "int": int,
             "float": float,
             "bool": lambda x: x.lower() in ("true", "1", "yes", "on"),
-            "list": lambda x: (ast.literal_eval(x) if x.strip().startswith(("[",)) else [x]),
+            "list": lambda x: ast.literal_eval(x) if x.strip().startswith(("[",)) else [x],
             "dict": ast.literal_eval,
             "tuple": ast.literal_eval,
         }

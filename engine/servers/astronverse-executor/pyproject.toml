@@ -22,6 +22,7 @@ dependencies = [
     "astronverse-system",
     "astronverse-dialog",
     "astronverse-smart",
+    "astronverse-locator; sys_platform == 'win32'",
 ]
 
 [tool.uv.sources]
@@ -37,6 +38,7 @@ astronverse-browser = {path = "../../components/astronverse-browser", editable =
 astronverse-system = {path = "../../components/astronverse-system", editable = true}
 astronverse-dialog = {path = "../../components/astronverse-dialog", editable = true}
 astronverse-smart = {path = "../../components/astronverse-smart", editable = true}
+astronverse-locator = {path = "../../shared/astronverse-locator", editable = true}
 [tool.hatch.build.targets.wheel]
 packages = ["src/astronverse"]
 

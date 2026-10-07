@@ -12,11 +12,13 @@
 """
 
 import json
+import os
 import re
 from datetime import datetime
 
-SQL_PATH = "/Users/infinitelab/Desktop/astron-rpa/docker/volumes/mysql/init_c_atom_meta_new_data.sql"
-COMP = "/Users/infinitelab/Desktop/astron-rpa/engine/components"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SQL_PATH = os.path.join(REPO_ROOT, "docker/volumes/mysql/init_c_atom_meta_new_data.sql")
+COMP = os.path.join(REPO_ROOT, "engine/components")
 COMPONENTS = {
     "browser": f"{COMP}/astronverse-browser/meta.json",
     "database": f"{COMP}/astronverse-database/meta.json",

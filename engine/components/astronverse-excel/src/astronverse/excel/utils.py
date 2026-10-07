@@ -324,10 +324,14 @@ def calculate_cell_positions(
         if isinstance(col, str):
             _handler(
                 col,
-                lambda c: f"{column_number_to_letter(handle_column_input(c, r_end_col))}1:"
-                f"{column_number_to_letter(handle_column_input(c, r_end_col))}{r_end_row}",
-                lambda c1, c2: f"{column_number_to_letter(handle_column_input(c1, r_end_col))}1:"
-                f"{column_number_to_letter(handle_column_input(c2, r_end_col))}{r_end_row}",
+                lambda c: (
+                    f"{column_number_to_letter(handle_column_input(c, r_end_col))}1:"
+                    f"{column_number_to_letter(handle_column_input(c, r_end_col))}{r_end_row}"
+                ),
+                lambda c1, c2: (
+                    f"{column_number_to_letter(handle_column_input(c1, r_end_col))}1:"
+                    f"{column_number_to_letter(handle_column_input(c2, r_end_col))}{r_end_row}"
+                ),
             )
         else:
             c = column_number_to_letter(handle_column_input(col, r_end_col))

@@ -1,4 +1,6 @@
-import { app, ipcMain, protocol, session } from 'electron'
+import { pathToFileURL } from 'node:url'
+
+import { app, ipcMain, net, protocol, session } from 'electron'
 import path from 'node:path'
 
 import type { W2WType } from '../types'
@@ -96,7 +98,8 @@ function sessionHanlder() {
 
 function registerRpaProtocol() {
   // 注册自定义协议 rpa://localhost/boot.html 映射到本地 rendererPath/boot.html
-  protocol.registerFileProtocol('rpa', (request, callback) => {
+  // Electron 35+ 移除 protocol.registerFileProtocol，统一走 protocol.handle
+  protocol.handle('rpa', (request) => {
     const u = new URL(request.url)
     try {
       if (u.hostname === extensionHost) {
@@ -104,14 +107,14 @@ function registerRpaProtocol() {
         const extensionName = paths[1]
         const resourcePath = getExtensionResourcePath(extensionName)
         const filePath = path.join(resourcePath, ...paths.slice(2))
-        callback({ path: filePath })
-      } else {
-        const filePath = path.join(rendererPath, u.pathname)
-        callback({ path: filePath })
+        return net.fetch(pathToFileURL(filePath).toString())
       }
+      const filePath = path.join(rendererPath, u.pathname)
+      return net.fetch(pathToFileURL(filePath).toString())
     }
     catch (err) {
       logger.error('rpa protocol file resolve error:', err)
+      return new Response('Not Found', { status: 404 })
     }
   })
 }

@@ -16,9 +16,7 @@ long_timeout = httpx.Timeout(
 )
 
 
-async def chat_completions(
-    params: ChatCompletionParam, key: str | None = None, endpoint: str | None = None
-):
+async def chat_completions(params: ChatCompletionParam, key: str | None = None, endpoint: str | None = None):
     # 未显式指定上游时现读配置(支持热更新); 便于调用方与测试覆盖注入
     if key is None or endpoint is None:
         resolved_key, resolved_endpoint = await resolve_llm()
@@ -74,9 +72,7 @@ async def handle_stream_request(headers, data, endpoint):
                     json=data,
                 ) as upstream_response:
                     upstream_response.raise_for_status()
-                    response_meta["media_type"] = upstream_response.headers.get(
-                        "content-type", "text/event-stream"
-                    )
+                    response_meta["media_type"] = upstream_response.headers.get("content-type", "text/event-stream")
                     async for chunk in upstream_response.aiter_raw():
                         yield chunk
             except httpx.HTTPStatusError as e:

@@ -16,10 +16,8 @@ class _StubFinder:
 
     def create_module(self, spec):
         mod = types.ModuleType(spec.name)
-        mod.__getattr__ = (
-            lambda attr: (lambda *a, **kw: None)
-            if not attr.startswith("__")
-            else (_ for _ in ()).throw(AttributeError(attr))
+        mod.__getattr__ = lambda attr: (
+            (lambda *a, **kw: None) if not attr.startswith("__") else (_ for _ in ()).throw(AttributeError(attr))
         )
         return mod
 

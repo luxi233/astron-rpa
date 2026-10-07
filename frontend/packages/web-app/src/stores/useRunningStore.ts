@@ -246,7 +246,7 @@ export const useRunningStore = defineStore('running', () => {
           position: 'center',
           width: isDataTableBox ? 940 : 500,
           height: isDataTableBox ? 660 : 400,
-          resizable: isDataTableBox,
+          resizable: true,
           skipTaskbar: true,
           transparent: false,
           show: false,

@@ -20,13 +20,28 @@ from astronverse.browser.utils.table_filter import (
     table_df_to_out,
     table_json_merge_values,
 )
-from astronverse.locator import smooth_move
-from astronverse.locator.core.heal_store import format_report_tips
-from astronverse.locator.locator import locator
+
+try:
+    from astronverse.locator import smooth_move
+    from astronverse.locator.core.heal_store import format_report_tips
+    from astronverse.locator.locator import locator
+except ImportError:
+    # astronverse-locator 为 win32 门控依赖, 非 Windows 平台降级:
+    # smooth_move 回退到 astronverse-input 的仿真移动(惰性导入, 避免无显示环境拉起 pyautogui);
+    # 元素定位在调用时给出明确错误
+    locator = None
+    format_report_tips = None
+
+    def smooth_move(end_x, end_y, duration=0.4):
+        from astronverse.input.code.mouse import Mouse
+
+        Mouse.move_simulate(x=end_x, y=end_y, duration=duration)
 
 
 def _locate_with_report(element_data, **kwargs):
     """元素定位(带自愈/CV 降级信息回写): 命中时在步骤日志提示用户, 无命中时行为与原调用一致"""
+    if locator is None:
+        raise Exception("元素定位依赖 astronverse-locator，该组件仅在 Windows 平台可用")
     locate_report = {}
     res = locator.locator(element_data, report=locate_report, **kwargs)
     for tip in format_report_tips(locate_report):
