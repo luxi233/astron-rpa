@@ -22,7 +22,6 @@
   "win": {
     "target": "nsis",
     "icon": "../../public/icons/icon.ico",
-    "publisherName": "astron-rpa",
     "verifyUpdateCodeSignature": false,
     "publish": {
       "provider": "generic",
@@ -36,7 +35,9 @@
       "CFBundleURLTypes": [
         {
           "CFBundleURLName": "com.iflytek.astronrpa",
-          "CFBundleURLSchemes": ["astronrpa"]
+          "CFBundleURLSchemes": [
+            "astronrpa"
+          ]
         }
       ]
     }
@@ -46,7 +47,9 @@
     "icon": "../../public/icons/icon.png",
     "category": "Utility",
     "desktop": {
-      "MimeType": "x-scheme-handler/astronrpa;"
+      "entry": {
+        "MimeType": "x-scheme-handler/astronrpa;"
+      }
     }
   },
   "nsis": {
