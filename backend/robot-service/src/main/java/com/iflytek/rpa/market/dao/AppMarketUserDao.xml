@@ -106,18 +106,10 @@
             <if test="entity.realName != null and entity.realName != ''">
                 and upper(tu.name) like concat('%', upper(#{entity.realName}), '%')
             </if>
+            order by amu.create_time
             <choose>
-                <when test="entity.sortBy !=null and entity.sortBy != ''">
-                    <if test="entity.sortType == 'descend'.toString()">
-                        order by ${entity.sortBy} desc
-                    </if>
-                    <if test="entity.sortType == 'ascend'.toString() ">
-                        order by ${entity.sortBy} asc
-                    </if>
-                </when>
-                <otherwise>
-                    order by createTime desc
-                </otherwise>
+                <when test="(entity.sortBy == 'createTime'.toString() or entity.sortBy == 'create_time'.toString()) and (entity.sortType == 'ascend'.toString() or entity.sortType == 'asc'.toString())">asc</when>
+                <otherwise>desc</otherwise>
             </choose>
     </select>
 
@@ -343,18 +335,10 @@
         <if test="entity.realName != null and entity.realName != ''">
             and upper(tu.name) like concat('%', upper(#{entity.realName}), '%')
         </if>
+        order by amu.create_time
         <choose>
-            <when test="entity.sortBy !=null and entity.sortBy != ''">
-                <if test="entity.sortType == 'descend'.toString()">
-                    order by ${entity.sortBy} desc
-                </if>
-                <if test="entity.sortType == 'ascend'.toString() ">
-                    order by ${entity.sortBy} asc
-                </if>
-            </when>
-            <otherwise>
-                order by createTime desc
-            </otherwise>
+            <when test="(entity.sortBy == 'createTime'.toString() or entity.sortBy == 'create_time'.toString()) and (entity.sortType == 'ascend'.toString() or entity.sortType == 'asc'.toString())">asc</when>
+            <otherwise>desc</otherwise>
         </choose>
     </select>
 

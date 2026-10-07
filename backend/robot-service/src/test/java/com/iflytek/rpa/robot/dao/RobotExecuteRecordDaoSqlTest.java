@@ -123,7 +123,25 @@ class RobotExecuteRecordDaoSqlTest {
     void defaultSortUnaffected() {
         ExecuteRecordDto dto = new ExecuteRecordDto();
         String sql = boundSql(dto);
-        assertTrue(sql.contains("order by start_time desc"), "默认排序应保留");
+        // 安全加固后(#882): 排序字段白名单化, 默认仍为 start_time desc(带表别名)
+        assertTrue(sql.contains("order by rer.start_time desc"), "默认排序应保留");
+    }
+
+    /** #882 加固回归: sortBy 仅接受白名单字段, 任意输入回落默认排序且不拼接进 SQL */
+    @Test
+    void sortByWhitelistAndInjectionRejected() {
+        ExecuteRecordDto dto = new ExecuteRecordDto();
+        dto.setSortBy("endTime");
+        dto.setSortType("ascending");
+        String sql = boundSql(dto);
+        assertTrue(sql.contains("order by rer.end_time asc"), "白名单字段应按指定方向排序");
+
+        ExecuteRecordDto evil = new ExecuteRecordDto();
+        evil.setSortBy("start_time desc;(select 1)");
+        evil.setSortType("descending");
+        String evilSql = boundSql(evil);
+        assertTrue(evilSql.contains("order by rer.start_time desc"), "非法 sortBy 应回落默认排序");
+        assertFalse(evilSql.contains("select 1"), "sortBy 不应被拼接进 SQL");
     }
 
     /** DTO 字段与 XML 条件联动: 防止字段被删除后 XML 残留无效条件 */

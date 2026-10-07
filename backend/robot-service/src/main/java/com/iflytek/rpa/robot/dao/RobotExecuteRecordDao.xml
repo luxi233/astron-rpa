@@ -75,18 +75,15 @@
         <if test="entity.startTime == null and entity.endTime != null">
             and rer.end_time <![CDATA[ <= ]]> #{entity.endTime}
         </if>
+        order by
         <choose>
-            <when test="entity.sortBy !=null and entity.sortBy != ''">
-                <if test="entity.sortType == 'descending'.toString()">
-                    order by ${entity.sortBy} desc
-                </if>
-                <if test="entity.sortType == 'ascending'.toString() ">
-                    order by ${entity.sortBy} asc
-                </if>
-            </when>
-            <otherwise>
-                order by start_time desc
-            </otherwise>
+            <when test="entity.sortBy == 'endTime'.toString() or entity.sortBy == 'end_time'.toString()">rer.end_time</when>
+            <when test="entity.sortBy == 'executeTime'.toString() or entity.sortBy == 'execute_time'.toString()">rer.execute_time</when>
+            <otherwise>rer.start_time</otherwise>
+        </choose>
+        <choose>
+            <when test="entity.sortType == 'ascending'.toString() or entity.sortType == 'asc'.toString()">asc</when>
+            <otherwise>desc</otherwise>
         </choose>
     </select>
 

@@ -31,8 +31,8 @@
         </if>
         <if test="keyword != null and keyword != ''">
             AND (
-                u.display_name LIKE CONCAT('%', #{keyword}, '%')
-                OR u.name LIKE CONCAT('%', #{keyword}, '%')
+                u.display_name LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
+                OR u.name LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
             )
         </if>
         ORDER BY u.created_time DESC
@@ -65,7 +65,7 @@
             AND u.owner = #{owner}
         </if>
         <if test="keyword != null and keyword != ''">
-            AND u.phone LIKE CONCAT('%', #{keyword}, '%')
+            AND u.phone LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
         </if>
         ORDER BY u.created_time DESC
         LIMIT 1000
@@ -98,9 +98,9 @@
         </if>
         <if test="keyword != null and keyword != ''">
             AND (
-                u.display_name LIKE CONCAT('%', #{keyword}, '%')
-                OR u.name LIKE CONCAT('%', #{keyword}, '%')
-                OR u.phone LIKE CONCAT('%', #{keyword}, '%')
+                u.display_name LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
+                OR u.name LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
+                OR u.phone LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
             )
         </if>
         ORDER BY u.created_time DESC

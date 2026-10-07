@@ -106,7 +106,13 @@ describe('robotExecuteRecordDao.xml - 触发方式筛选(triggerType)', () => {
     expect(sql).toContain('upper(re.name) like')
     expect(sql).toContain('rer.result = #{entity.result}')
     expect(findStatement('getExecuteRecordList')!.getElementsByTagName('choose').length).toBeGreaterThan(0)
-    expect(sql).toContain('order by start_time desc')
+    expect(sql).toContain('order by')
+    // #882 加固后: 排序字段经 choose 白名单化(带表别名), 不再直接拼接 sortBy
+    expect(sql).toContain('rer.start_time')
+    expect(sql).toContain('rer.end_time')
+    expect(sql).toContain('asc')
+    expect(sql).toContain('desc')
+    expect(sql).not.toContain('${')
   })
 })
 

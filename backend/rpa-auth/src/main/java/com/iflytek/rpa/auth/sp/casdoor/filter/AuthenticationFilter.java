@@ -38,7 +38,6 @@ public class AuthenticationFilter implements Filter {
             "/api/rpa-auth/logout",
             "/api/rpa-auth/login-status",
             "/api/rpa-auth/refresh-token",
-            "/api/rpa-auth/user/search/name",
             "/api/rpa-auth/user/history");
 
     @Override

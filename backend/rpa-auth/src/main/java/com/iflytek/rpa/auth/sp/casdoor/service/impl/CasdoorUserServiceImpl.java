@@ -18,6 +18,7 @@ import com.iflytek.rpa.auth.sp.casdoor.service.extend.CasdoorGroupExtendService;
 import com.iflytek.rpa.auth.sp.casdoor.service.extend.CasdoorLoginExtendService;
 import com.iflytek.rpa.auth.sp.casdoor.service.extend.CasdoorUserExtendService;
 import com.iflytek.rpa.auth.sp.casdoor.utils.SessionUserUtils;
+import com.iflytek.rpa.auth.sp.casdoor.utils.SqlLikeUtils;
 import com.iflytek.rpa.auth.sp.casdoor.utils.TokenManager;
 import com.iflytek.rpa.auth.utils.AppResponse;
 import com.iflytek.rpa.auth.utils.ErrorCodeEnum;
@@ -1253,10 +1254,14 @@ public class CasdoorUserServiceImpl implements UserService {
                 return AppResponse.error(ErrorCodeEnum.E_PARAM_LOSE, "关键字不能为空");
             }
 
-            // 获取当前租户ID（owner），可选
+            // 搜索必须限定到当前会话租户，避免租户上下文缺失时退化为全局查询
             String owner = getCurrentTenantOwner(request);
-            // 查询用户列表（限定在当前租户下，如果owner为空则查询全部）
-            List<User> casdoorUsers = casdoorUserDao.searchUserByName(keyword, owner, databaseName);
+            if (StringUtils.isBlank(owner)) {
+                log.warn("根据姓名模糊查询人员失败：当前会话缺少租户信息");
+                return AppResponse.error(ErrorCodeEnum.E_NO_POWER, "无法确定当前租户");
+            }
+            List<User> casdoorUsers =
+                    casdoorUserDao.searchUserByName(SqlLikeUtils.escapePattern(keyword), owner, databaseName);
             if (casdoorUsers == null) {
                 log.debug("查询结果为空，keyword: {}", keyword);
                 return AppResponse.success(Collections.emptyList());
@@ -1307,9 +1312,12 @@ public class CasdoorUserServiceImpl implements UserService {
 
             // 获取当前租户ID（owner）
             String owner = getCurrentTenantOwner(request);
-
-            // 查询用户列表（限定在当前租户下，如果owner为空则查询全部）
-            List<User> casdoorUsers = casdoorUserDao.searchUserByPhone(keyword, owner, databaseName);
+            if (StringUtils.isBlank(owner)) {
+                log.warn("根据手机号模糊查询人员失败：当前会话缺少租户信息");
+                return AppResponse.error(ErrorCodeEnum.E_NO_POWER, "无法确定当前租户");
+            }
+            List<User> casdoorUsers =
+                    casdoorUserDao.searchUserByPhone(SqlLikeUtils.escapePattern(keyword), owner, databaseName);
             if (casdoorUsers == null) {
                 log.debug("查询结果为空，keyword: {}", keyword);
                 return AppResponse.success(Collections.emptyList());
@@ -1358,11 +1366,14 @@ public class CasdoorUserServiceImpl implements UserService {
                 return AppResponse.error(ErrorCodeEnum.E_PARAM_LOSE, "关键字不能为空");
             }
 
-            // 获取当前租户ID（owner），可选
+            // 搜索必须限定到当前会话租户，避免租户上下文缺失时退化为全局查询
             String owner = getCurrentTenantOwner(request);
-
-            // 查询用户列表（限定在当前租户下，如果owner为空则查询全部）
-            List<User> casdoorUsers = casdoorUserDao.searchUserByNameOrPhone(keyword, owner, databaseName);
+            if (StringUtils.isBlank(owner)) {
+                log.warn("根据姓名或手机号模糊查询人员失败：当前会话缺少租户信息");
+                return AppResponse.error(ErrorCodeEnum.E_NO_POWER, "无法确定当前租户");
+            }
+            List<User> casdoorUsers =
+                    casdoorUserDao.searchUserByNameOrPhone(SqlLikeUtils.escapePattern(keyword), owner, databaseName);
             if (casdoorUsers == null) {
                 log.debug("查询结果为空，keyword: {}", keyword);
                 return AppResponse.success(Collections.emptyList());

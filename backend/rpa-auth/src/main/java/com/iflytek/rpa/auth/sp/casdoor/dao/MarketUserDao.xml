@@ -15,18 +15,10 @@
         where
             amu.market_id = #{dto.marketId}
             and amu.deleted = 0
+            order by amu.create_time
             <choose>
-                <when test="dto.sortBy !=null and dto.sortBy != ''">
-                    <if test="dto.sortType == 'descend'.toString()">
-                        order by ${dto.sortBy} desc
-                    </if>
-                    <if test="dto.sortType == 'ascend'.toString() ">
-                        order by ${dto.sortBy} asc
-                    </if>
-                </when>
-                <otherwise>
-                    order by createTime desc
-                </otherwise>
+                <when test="(dto.sortBy == 'createTime'.toString() or dto.sortBy == 'create_time'.toString()) and (dto.sortType == 'ascend'.toString() or dto.sortType == 'asc'.toString())">asc</when>
+                <otherwise>desc</otherwise>
             </choose>
     </select>
 

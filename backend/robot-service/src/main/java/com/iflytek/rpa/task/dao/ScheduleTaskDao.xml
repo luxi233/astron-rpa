@@ -45,18 +45,18 @@
             <if test="entity.userId != null and entity.userId != ''">
                 and creator_id = #{entity.userId}
             </if>
+            order by
             <choose>
-                <when test="entity.sortBy !=null and entity.sortBy != ''">
-                    <if test="entity.sortType == 'descending'.toString()">
-                        order by ${entity.sortBy} desc
-                    </if>
-                    <if test="entity.sortType == 'ascending'.toString() ">
-                        order by ${entity.sortBy} asc
-                    </if>
-                </when>
-                <otherwise>
-                    order by create_time desc
-                </otherwise>
+                <when test="entity.sortBy == 'name'.toString()">name</when>
+                <when test="entity.sortBy == 'updateTime'.toString() or entity.sortBy == 'update_time'.toString()">update_time</when>
+                <when test="entity.sortBy == 'startAt'.toString() or entity.sortBy == 'start_at'.toString()">start_at</when>
+                <when test="entity.sortBy == 'endAt'.toString() or entity.sortBy == 'end_at'.toString()">end_at</when>
+                <when test="entity.sortBy == 'nextTime'.toString() or entity.sortBy == 'next_time'.toString()">next_time</when>
+                <otherwise>create_time</otherwise>
+            </choose>
+            <choose>
+                <when test="entity.sortType == 'ascending'.toString() or entity.sortType == 'asc'.toString()">asc</when>
+                <otherwise>desc</otherwise>
             </choose>
         </where>
     </select>
