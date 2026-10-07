@@ -114,7 +114,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 12
           package_json_file: frontend/package.json
           run_install: false
 
