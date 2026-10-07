@@ -60,6 +60,7 @@ class ExecutionCreate(BaseModel):
     version: Optional[int] = Field(None, description="工作流版本号")
     idempotency_key: Optional[str] = Field(None, min_length=1, max_length=200)
     execution_timeout: Optional[int] = Field(None, ge=1, le=86400, strict=True)
+    profile_revision: Optional[str] = Field(None, min_length=1, max_length=100)
 
     # 2026-01-12 新增手机号参数，用于星辰Agent的复制调用
     phone_number: Optional[str] = Field(None, description="手机号")

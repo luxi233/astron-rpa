@@ -76,6 +76,10 @@ async def test_concurrent_duplicate_survives_new_sessions_and_reauthorizes(store
         assert len(db.execute(select(Execution)).scalars().all()) == 1
         db.get(Workflow, "project").version = 2
         db.commit()
+    assert (await accept()).id == first.id
+    with Session(engine) as db:
+        db.get(Workflow, "project").status = 0
+        db.commit()
     with pytest.raises(WorkflowAccessError):
         await accept()
     await asyncio.gather(*list(_execution_tasks))
